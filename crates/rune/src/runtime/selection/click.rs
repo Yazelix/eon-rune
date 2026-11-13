@@ -34,6 +34,7 @@ enum Capture {
 
 #[derive(Default)]
 pub(super) struct InputClick {
+    pub(in crate::runtime) primary: crate::clipboard::primary::Requests,
     /// The run of non-Shift presses on inputs.
     presses: press_run::PressRun,
     /// What the press that started the current selection selects by, and the unit range it

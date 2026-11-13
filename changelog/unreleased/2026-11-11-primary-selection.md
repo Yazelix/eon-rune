@@ -1,0 +1,1 @@
+- Linux text selections export to primary selection, and middle-click pastes at the clicked field's caret; custom hosts can export and request primary text through `Tx`.

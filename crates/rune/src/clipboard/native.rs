@@ -8,6 +8,9 @@ impl Client {
     }
     pub fn flush<S: 'static>(&self, rt: &mut Runtime<S>) {
         if rt.clipboard.is_some() { return flush_memory(rt); }
+        let primary = rt.take_primary();
+        if let Some(text) = primary.copy { let _ = worker().send(Request::WritePrimary(text)); }
+        if let Some(target) = primary.paste { self.read_for(Purpose::PrimaryPaste(target)); }
         // Nothing to clear before the first write.
         if std::mem::take(&mut rt.clear_secret_request) && let Some(w) = WORKER.get() { let _ = w.sender.send(Request::Clear(None)); }
         if let Some(copy) = rt.copy_request.take() {
@@ -60,6 +63,16 @@ pub(super) fn shutdown() {
 
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 impl Backend for arboard::Clipboard {
+    #[cfg(target_os = "linux")]
+    fn primary_text(&mut self) -> Option<String> {
+        use arboard::{GetExtLinux, LinuxClipboardKind};
+        self.get().clipboard(LinuxClipboardKind::Primary).text().ok()
+    }
+    #[cfg(target_os = "linux")]
+    fn write_primary(&mut self, text: String) {
+        use arboard::{SetExtLinux, LinuxClipboardKind};
+        let _ = self.set().clipboard(LinuxClipboardKind::Primary).text(text);
+    }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String> { write(self, copy) }
     fn text(&mut self) -> Option<Zeroizing<String>> { self.get_text().ok().map(Zeroizing::new) }
     #[cfg(target_os = "macos")]

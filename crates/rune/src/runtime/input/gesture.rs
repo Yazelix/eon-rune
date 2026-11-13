@@ -192,7 +192,18 @@ impl<S: 'static> Runtime<S> {
                 let n = &self.nodes[i];
                 n.handlers.gestures.as_ref().is_some_and(|g| g.buttons & button.bit() != 0) && (n.handlers.on_press.is_some() || n.handlers.on_drag.is_some())
             });
-        let Some(i) = target else { return };
+        let Some(i) = target else {
+            if cfg!(target_os = "linux") && button == PointerButton::Middle
+                && let Some(i) = hit.filter(|&i| !self.subtree_exiting(i) && self.allowed(i)).and_then(|i| self.textbox_input(i))
+            {
+                let [x, y] = self.to_local(i, x, y);
+                self.input_click.clear_last();
+                self.press_clicks.clear();
+                let n = &self.nodes[i];
+                self.queue.push(Action::PrimaryPaste(n.path.clone(), x - n.inset[0], y - n.inset[1]));
+            }
+            return;
+        };
         let n = &self.nodes[i];
         let r = n.target;
         let [lx, ly] = self.to_local(i, x, y);

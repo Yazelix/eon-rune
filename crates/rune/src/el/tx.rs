@@ -37,6 +37,7 @@ pub struct Tx {
     pub(crate) window_step: bool,
     pub(crate) copy: Option<crate::ClipboardWrite>,
     pub(crate) paste: bool,
+    pub(crate) primary: crate::clipboard::primary::Requests,
     pub(crate) clipboard_reads: Vec<ClipboardRead>,
     pub(crate) pick_reads: Vec<PickRead>,
     pub(crate) clear_secret: bool,

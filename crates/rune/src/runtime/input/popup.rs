@@ -83,11 +83,13 @@ impl<S: 'static> Runtime<S> {
             Some(id) => self.trace_event(format_args!("popup-menu:pick:{id}")),
             None => self.trace_event("popup-menu:cancel"),
         }
+        let before = cfg!(target_os = "linux").then(|| self.primary_selection()).flatten();
         let mut one = self.transaction();
         if let (Some(field), Some(id)) = (request.field, picked) {
             self.field_menu_pick(*field, id, &mut one);
         }
         (request.on_pick)(states!(self), picked, &mut one);
+        self.export_primary_selection(before, &mut one);
         self.latch_requests(&mut one);
         merge(&mut self.pending, one);
         self.dirty = true;

@@ -33,7 +33,9 @@ impl<S: 'static> Runtime<S> {
         if let Some(held) = self.press.held_mut() {
             held.moved |= !press_run::within_slop(at, (x, y));
         }
+        let before = cfg!(target_os = "linux").then(|| self.primary_text_selection()).flatten();
         self.selection_drag(x, y);
+        self.export_primary_text(before);
         if self.input_click.captured() {
             self.input_drag(x, y, drag_move);
             return;
@@ -212,7 +214,9 @@ impl<S: 'static> Runtime<S> {
             return;
         }
         self.playground_pointer_down(x);
+        let before = cfg!(target_os = "linux").then(|| self.primary_text_selection()).flatten();
         self.press_selection(target, x, y);
+        self.export_primary_text(before);
         // Inside a draggable row, dragging drags the row; clicks still select words and lines.
         if target.is_some_and(|t| self.nodes[t].handlers.on_drag.is_some() || self.nodes[t].handlers.drag_out.is_some()) {
             self.text_sel.dragging = false;

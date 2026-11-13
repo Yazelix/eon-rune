@@ -1339,6 +1339,14 @@ Focused editors take precedence; late reads are discarded if the target changed.
 Headless `--script` `paste` supplies text directly through the same routing and
 records `paste window` or `paste field` in `--trace`, without recording contents.
 
+On Linux, editable and selectable read-only text exports its selection to primary
+selection. Secure fields never export. Middle-click pastes plain primary text at
+the clicked field's caret; an explicit Middle handler takes precedence. Primary
+selection stays independent of the regular clipboard, including when no owner exists.
+Custom hosts export with `tx.copy_primary(selection)` and request primary text
+with `tx.blur(); tx.request_primary_paste()` in their Middle handler; the app's
+existing `on_paste` receives the text. These requests are ignored outside Linux.
+
 #### Rich clipboard
 
 A `ClipboardContent` is plain text plus, optionally, HTML and RTF. Copy formatted text with

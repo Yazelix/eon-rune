@@ -1,6 +1,9 @@
 //! Keyboard, IME, focused-field editing and clipboard paste routing.
 use super::*;
 
+#[path = "primary.rs"]
+mod primary;
+
 impl<S: 'static> Runtime<S> {
     /// Offer a logical key that already passed `held_gate` to the app, the focused
     /// input's handler, focus traversal and the focused editor, in that order.

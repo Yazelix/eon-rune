@@ -3,6 +3,7 @@ use super::*;
 
 impl<S: 'static> Runtime<S> {
     pub(in crate::runtime) fn latch_clipboard(&mut self, tx: &mut Tx) {
+        self.latch_primary(tx);
         if std::mem::take(&mut tx.clear_secret) {
             if self
                 .copy_request
