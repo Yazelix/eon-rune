@@ -1,0 +1,1 @@
+- Keep the spacing accent when a dead key is followed by Space on Linux keyboard layouts.
