@@ -4,6 +4,8 @@
 
 pub(crate) mod backend;
 pub(crate) mod health;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod memory;
 #[cfg(all(target_vendor = "apple", feature = "metal-backend"))]
 pub(crate) mod metal;
 #[cfg(not(target_arch = "wasm32"))]
