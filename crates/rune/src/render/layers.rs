@@ -463,10 +463,11 @@ impl Renderer {
             self.layers.plan[index].show = Show::Render;
             if self.layers.targets[index].as_ref().is_none_or(|t| {
                 let size = (t.texture.width(), t.texture.height());
-                // The minimum bucket is unavoidable for tiny controls. Do not recreate that
-                // same bucket every frame when rounding alone exceeds the 2x area limit.
+                // Only transient targets use the rounded-area tolerance; cached targets keep
+                // their existing content-area bound and cache-budget admission behavior.
+                let limit = if cache_target.is_some() { (width, height) } else { bucket };
                 size.0 < width || size.1 < height || (size != bucket
-                    && u64::from(size.0) * u64::from(size.1) > 2 * u64::from(width) * u64::from(height))
+                    && u64::from(size.0) * u64::from(size.1) > 2 * u64::from(limit.0) * u64::from(limit.1))
             }) {
                 let (width, height) = bucket;
                 let texture = device.create_texture(&wgpu::TextureDescriptor {
