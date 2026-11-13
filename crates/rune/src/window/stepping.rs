@@ -87,7 +87,7 @@ impl<S: 'static> Host<S> {
             let rect = crate::overlay::options::local_rect(crate::windows::PlaceRequest::at(self.rt.window_viewport()), Some(request.placement),
                 (area.width as f32 / scale as f32, area.height as f32 / scale as f32));
             let origin = monitor.position();
-            chrome::request_inner_size(&w.window, (rect[2], rect[3]));
+            let _ = chrome::request_inner_size(&w.window, (rect[2], rect[3]));
             w.window.set_outer_position(PhysicalPosition::new(origin.x + (f64::from(rect[0]) * scale).round() as i32,
                 origin.y + (f64::from(rect[1]) * scale).round() as i32));
         }
@@ -138,12 +138,25 @@ impl<S: 'static> Host<S> {
             let window = &w.window;
             // Read before the resize request, which may apply at once.
             let geometry = (window.current_monitor(), window.outer_position(), window.outer_size(), window.inner_size());
+            let mut applied = None;
             if let Some((width, height)) = request.size {
                 self.frame_jump = Some((width, height));
-                chrome::request_inner_size(window, (width, height));
+                applied = chrome::request_inner_size(window, (width, height));
             }
             // Wayland windows can't see or set their position.
-            if self.wayland { return; }
+            if self.wayland {
+                // #372: Wayland may apply (or refuse) a size without a `Resized` event.
+                // Use its actual size, even when it differs from the request.
+                if let (Some(size), Some(l), Some((gpu, ..))) = (applied, self.win.as_mut(), self.gpu.as_ref())
+                {
+                    l.resize_surface(gpu, size);
+                    let scale = l.window.scale_factor() as f32;
+                    self.frame_jump = None;
+                    self.rt.step_viewport((size.width as f32 / scale, size.height as f32 / scale), scale);
+                    l.request_redraw();
+                }
+                return;
+            }
             let (Some(monitor), Ok(position), outer, inner) = geometry else { return };
             let scale = window.scale_factor() as f32;
             let size = request.size.map(|(width, height)| (

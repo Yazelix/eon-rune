@@ -114,8 +114,9 @@ pub(super) fn has_window_menu(window: &Window) -> bool {
 
 /// Sizes the window's content to `size` points.
 #[cfg(not(target_os = "macos"))]
-pub(super) fn request_inner_size(window: &Window, size: (f32, f32)) {
+pub(super) fn request_inner_size(window: &Window, size: (f32, f32)) -> Option<winit::dpi::PhysicalSize<u32>> {
     #[cfg(target_os = "windows")]
-    if crate::platform::win32::request_inner_size(window, size) { return; }
-    let _ = window.request_inner_size(LogicalSize::new(size.0, size.1));
+    if crate::platform::win32::request_inner_size(window, size) { return None; }
+    // #372: an immediately applied size may have no `Resized` event; its caller must take it.
+    window.request_inner_size(LogicalSize::new(size.0, size.1))
 }

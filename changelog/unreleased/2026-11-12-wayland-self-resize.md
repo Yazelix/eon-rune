@@ -1,0 +1,1 @@
+- Fix Wayland self-resizes leaving the render hook and surface at the old size when winit applies the request without a resize event (#372). Keep the actual window size when the compositor disallows the request.
