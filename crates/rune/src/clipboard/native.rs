@@ -47,12 +47,12 @@ impl Worker {
     }
 }
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
-fn worker() -> &'static mpsc::Sender<Request> {
+pub(super) fn worker() -> &'static mpsc::Sender<Request> {
     &WORKER.get_or_init(|| Worker::spawn(|| arboard::Clipboard::new().ok())).sender
 }
 
 #[cfg(any(target_os = "ios", target_os = "android"))]
-fn worker() -> &'static mpsc::Sender<Request> {
+pub(super) fn worker() -> &'static mpsc::Sender<Request> {
     &WORKER.get_or_init(|| Worker::spawn(|| None::<Board>)).sender
 }
 
@@ -69,9 +69,38 @@ impl Backend for arboard::Clipboard {
         self.get().clipboard(LinuxClipboardKind::Primary).text().ok()
     }
     #[cfg(target_os = "linux")]
-    fn write_primary(&mut self, text: String) {
+    fn write_primary(&mut self, text: String) -> Result<(), String> {
         use arboard::{SetExtLinux, LinuxClipboardKind};
-        let _ = self.set().clipboard(LinuxClipboardKind::Primary).text(text);
+        self.set().clipboard(LinuxClipboardKind::Primary).text(text).map_err(|e| e.to_string())
+    }
+    fn bounded_text(&mut self, primary: bool, cap: usize) -> plain::Outcome {
+        use plain::Outcome;
+        #[cfg(target_os = "linux")]
+        {
+            use wl_clipboard_rs::paste::{get_contents, get_mime_types_ordered, ClipboardType, Error, MimeType, Seat};
+            let selection = if primary { ClipboardType::Primary } else { ClipboardType::Regular };
+            let contents = get_mime_types_ordered(selection, Seat::Unspecified).and_then(|types| plain::text_mime(&types).ok_or(Error::NoMimeType))
+                .and_then(|mime| get_contents(selection, Seat::Unspecified, MimeType::Specific(mime)));
+            return match contents {
+                Ok((pipe, _)) => plain::decode(pipe, cap),
+                Err(Error::ClipboardEmpty) => Outcome::Empty,
+                Err(Error::NoMimeType) => Outcome::NonText,
+                Err(Error::WaylandConnection(_) | Error::MissingProtocol { .. } | Error::PrimarySelectionUnsupported) => Outcome::Unsupported,
+                Err(_) => Outcome::HostFailure,
+            };
+        }
+        // shortcut: arboard allocates macOS text first, replace with a bounded native read after Mac qualification.
+        #[cfg(target_os = "macos")]
+        return match self.get_text() {
+            Ok(text) => plain::decode(std::io::Cursor::new(text), cap),
+            Err(arboard::Error::ContentNotAvailable) => plain::missing_text(unsafe {
+                objc2_app_kit::NSPasteboard::generalPasteboard().pasteboardItems().map_or(0, |items| items.len())
+            }),
+            Err(arboard::Error::ConversionFailure) => Outcome::InvalidUtf8,
+            Err(_) => Outcome::HostFailure,
+        };
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        { let _ = (primary, cap); Outcome::Unsupported }
     }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String> { write(self, copy) }
     fn text(&mut self) -> Option<Zeroizing<String>> { self.get_text().ok().map(Zeroizing::new) }

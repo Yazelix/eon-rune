@@ -19,6 +19,8 @@ use crate::{Runtime, Waker};
 
 mod content;
 mod html;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod plain;
 pub(crate) mod primary;
 mod secret;
 #[cfg(test)]
@@ -116,6 +118,8 @@ impl Notify {
 }
 enum Request {
     Shutdown,
+    #[cfg(not(target_arch = "wasm32"))]
+    Plain(plain::Operation),
     Write(ClipboardWrite, Option<Notify>),
     WritePrimary(String),
     /// Clear this secret, or whichever secret is held, if the clipboard still holds it.
@@ -263,7 +267,7 @@ impl std::fmt::Debug for MemoryClipboard {
 }
 impl Backend for Board {
     fn primary_text(&mut self) -> Option<String> { self.primary.clone() }
-    fn write_primary(&mut self, text: String) { if self.fail.is_none() { self.primary = Some(text); } }
+    fn write_primary(&mut self, text: String) -> Result<(), String> { if let Some(error) = &self.fail { return Err(error.clone()); } self.primary = Some(text); Ok(()) }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String> {
         if let Some(error) = &self.fail { return Err(error.clone()); }
         self.content = Some(copy.content.clone());
@@ -288,7 +292,9 @@ pub(crate) fn shutdown() {
 
 trait Backend {
     fn primary_text(&mut self) -> Option<String> { None }
-    fn write_primary(&mut self, _text: String) {}
+    fn write_primary(&mut self, _text: String) -> Result<(), String> { Ok(()) }
+    #[cfg(not(target_arch = "wasm32"))]
+    fn bounded_text(&mut self, _primary: bool, _cap: usize) -> plain::Outcome { plain::Outcome::Unsupported }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String>;
     fn text(&mut self) -> Option<Zeroizing<String>>;
     /// Every form a paste can use, unsanitised, and the image and files only when asked (`all`):
@@ -334,7 +340,9 @@ impl Core {
     fn handle<B: Backend>(&mut self, cb: &mut B, request: Request) {
         match request {
             Request::Write(copy, notify) => self.write(cb, copy, notify, &RealTime),
-            Request::WritePrimary(text) => cb.write_primary(text),
+            Request::WritePrimary(text) => { drop(cb.write_primary(text)); }
+            #[cfg(not(target_arch = "wasm32"))]
+            Request::Plain(operation) => operation.run(self, cb),
             Request::Clear(which) => self.clear(cb, which.as_ref()),
             Request::Read { purpose, reply, wake } => {
                 if let Some(answer) = self.answer(cb, purpose) && reply.send(answer).is_ok() { wake(); }
@@ -364,13 +372,16 @@ impl Core {
     }
 
     fn write<B: Backend>(&mut self, cb: &mut B, copy: ClipboardWrite, notify: Option<Notify>, steps: &dyn WriteSteps) {
+        drop(self.try_write(cb, copy, notify, steps));
+    }
+    fn try_write<B: Backend>(&mut self, cb: &mut B, copy: ClipboardWrite, notify: Option<Notify>, steps: &dyn WriteSteps) -> Result<(), String> {
         let slot = copy.slot().cloned();
         let notify = notify.filter(|_| slot.is_some());
-        if slot.as_ref().is_some_and(|s| s.cancelled()) { return; } // `Unwritten` settles it as cleared.
+        if slot.as_ref().is_some_and(|s| s.cancelled()) { return Ok(()); } // `Unwritten` settles it as cleared.
         if let Err(error) = cb.write(&copy) {
-            if let Some(s) = &slot { s.set(SecretState::Failed(error)); }
+            if let Some(s) = &slot { s.set(SecretState::Failed(error.clone())); }
             if let Some(n) = &notify { n.send(); }
-            return;
+            return Err(error);
         }
         self.apply(cb, HoldEvent::Lost);
         let rev = cb.revision();
@@ -397,6 +408,7 @@ impl Core {
             self.apply(cb, HoldEvent::Written { slot: slot.clone(), notify, due, revision: rev, print });
             if slot.cancelled() { self.clear(cb, Some(&slot)); }
         }
+        Ok(())
     }
 
     /// Steps the hold and carries its effects out, in order.
