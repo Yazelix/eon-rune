@@ -587,6 +587,7 @@ let app = rune::App::new(spec)
     .accessory()                   // macOS: menu-bar app, no Dock icon (h.set_dock_icon(true) shows it)
     .standard_menus()              // macOS: Edit, Minimize ⌘M and Close ⌘W (no Quit); regular apps get them anyway
     .on_close_request(|s, tx| ..)  // native close: CloseResponse::Close or ::Defer
+    .on_quit_request(|s, tx| ..)   // macOS application Quit: QuitResponse::Quit or ::Defer
     .on_close(|s, tx| ..)          // teardown notification, after hiding; tx.quit() quits instead
     .on_reopen(|s, has_visible, tx| false); // macOS: Dock icon clicked; true skips the default
     // .window_options(WindowOptions { max_size, resizable, .. }) for this window
@@ -612,6 +613,20 @@ app.run();
   currently use programmatic close and also bypass this hook. macOS application Quit is separate.
   `Tx::quit()` and `AppHandle::quit()` run `on_quit` without `on_close`. With this hook registered,
   a native request preempted by an exiting loop also skips `on_close`.
+- On macOS, `App::on_quit_request` decides application Quit before termination, including
+  Command-Q, Dock Quit, logout, restart and shutdown. Rune returns `NSTerminateLater` while
+  the callback runs on its existing loop. `QuitResponse::Quit` permits AppKit's original
+  request; `Defer` replies false and cancels that attempt so an ordinary Rune consent UI can
+  continue. Later `Tx::quit()` or `AppHandle::quit()` exits without asking again.
+  Deferring logout, restart or shutdown cancels that system action; quitting the app later does not resume it.
+  Keep pending consent in app state and the callback nonblocking; state changes redraw unless `tx.live_only()`.
+  Hosts are asked in order until one defers, so only one needs to show a prompt. Hidden hosts
+  participate; finished hosts and overlays do not. `on_quit` remains notification after permit.
+  Programmatic quit/relaunch, teardown and last-window exit bypass application consent;
+  last-window consent relies on `on_close_request`. Without a handler, Quit works as before.
+  Rune preserves a delegate that already handles termination and warns if consent cannot be
+  installed. Bundle opt-ins to Sudden or Automatic Termination can bypass the delegate entirely.
+  Other platforms do not invoke this hook.
 - Every handle call wakes the loop; nothing polls. Updates run in call order on the main thread
   inside the event loop, even while no window shows, so a closed app keeps its state current and
   an update may do main-thread native work (a status item, a tray). Window requests collapse to

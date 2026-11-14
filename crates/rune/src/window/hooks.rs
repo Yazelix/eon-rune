@@ -1,6 +1,55 @@
 use super::*;
 
+pub(super) struct HostHooks<S> {
+    app: crate::app::hooks::AppHooks<S>,
+    _quit: Option<crate::quit::request::Registration>,
+}
+
+impl<S> From<crate::app::hooks::AppHooks<S>> for HostHooks<S> {
+    fn from(app: crate::app::hooks::AppHooks<S>) -> Self {
+        let registration = app
+            .quit_request
+            .map(|_| crate::quit::request::Registration::new());
+        Self {
+            app,
+            _quit: registration,
+        }
+    }
+}
+
+impl<S> std::ops::Deref for HostHooks<S> {
+    type Target = crate::app::hooks::AppHooks<S>;
+    fn deref(&self) -> &Self::Target {
+        &self.app
+    }
+}
+
+impl<S> std::ops::DerefMut for HostHooks<S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.app
+    }
+}
+
+fn deliver_quit<S>(
+    f: fn(&mut S, &mut Tx) -> crate::QuitResponse,
+    state: &mut S,
+    tx: &mut Tx,
+) -> bool {
+    crate::quit::request::answer(f(state, tx));
+    !tx.live_only
+}
+
 impl<S: 'static> Host<S> {
+    pub(super) fn quit_requested(&mut self, event_loop: &ActiveEventLoop) {
+        if !self.started || self.life.finished() || event_loop.exiting() {
+            return;
+        }
+        let Some(f) = self.hooks.quit_request else {
+            return;
+        };
+        self.run_hook(event_loop, |s, tx| deliver_quit(f, s, tx));
+    }
+
     /// True when the native request was answered, including a close carried out by its Tx.
     pub(super) fn close_requested(&mut self, event_loop: &ActiveEventLoop) -> bool {
         let Some(f) = self.hooks.close_request else {
@@ -82,3 +131,7 @@ mod tests;
 #[cfg(test)]
 #[path = "close_tests.rs"]
 mod close_tests;
+
+#[cfg(test)]
+#[path = "quit_request_tests.rs"]
+mod quit_request_tests;

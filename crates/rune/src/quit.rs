@@ -18,6 +18,7 @@ use std::sync::Mutex;
 #[cfg(target_os = "macos")]
 mod mac;
 pub(crate) mod relaunch;
+pub(crate) mod request;
 #[cfg(target_os = "windows")]
 mod win32;
 
@@ -119,6 +120,15 @@ pub(crate) fn fast_exit_hook() -> Option<fn()> {
     FAST_EXIT.get().copied()
 }
 
+/// A pending AppKit reply must finish before a fast exit can end the process.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn finish_fast() {
+    // Supported exits resolve AppKit consent before entering `exiting`.
+    if let Some(last) = fast_exit_hook().filter(|_| !request::finish()) {
+        end_fast(last);
+    }
+}
+
 /// A fast exit, once the windows' hooks ran and the loop is ending: what must leave the system
 /// tidy goes in order (the clipboard's hand-over, tray icons, a relaunch), then the app's
 /// `last`, then the process ends without dropping a window, a device or an allocation.
@@ -178,7 +188,7 @@ pub(crate) fn install(send: impl Fn(bool) -> bool + 'static) {
     #[cfg(target_os = "windows")]
     win32::install(send);
     #[cfg(target_os = "macos")]
-    { let _ = send; mac::install(); }
+    mac::install(send);
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     let _ = send;
 }
@@ -205,5 +215,11 @@ pub(crate) fn loop_state() -> Loop { LOOP.get() }
 pub(crate) struct Handling(Loop);
 
 impl Drop for Handling {
-    fn drop(&mut self) { LOOP.set(self.0); }
+    fn drop(&mut self) {
+        LOOP.set(self.0);
+        if self.0 == Loop::Idle {
+            // Queue completion: winit still owns its callback borrow until we return.
+            request::handler_returned();
+        }
+    }
 }

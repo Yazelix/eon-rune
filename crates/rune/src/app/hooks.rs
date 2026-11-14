@@ -12,8 +12,18 @@ pub enum CloseResponse {
     Defer,
 }
 
+/// An application's answer to a macOS application Quit request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QuitResponse {
+    /// Allow AppKit to terminate, delivering `App::on_quit` once.
+    Quit,
+    /// Cancel this native attempt; the app may quit programmatically later.
+    Defer,
+}
+
 pub(crate) struct AppHooks<S> {
     pub(crate) close_request: Option<fn(&mut S, &mut Tx) -> CloseResponse>,
+    pub(crate) quit_request: Option<fn(&mut S, &mut Tx) -> QuitResponse>,
     pub(crate) gpu_failure: crate::window::gpu_failure::Policy,
     pub(crate) window_event: Option<WindowEventHook<S>>,
     pub(crate) geometry: Option<fn(&mut S, crate::WindowGeometry, &mut Tx) -> bool>,
@@ -25,6 +35,7 @@ impl<S> Default for AppHooks<S> {
     fn default() -> Self {
         Self {
             close_request: None,
+            quit_request: None,
             window_event: None,
             geometry: None,
             last_geometry: None,
@@ -34,6 +45,17 @@ impl<S> Default for AppHooks<S> {
 }
 
 impl<S: 'static> App<S> {
+    /// Decide macOS application Quit before AppKit terminates. `Defer` cancels this attempt;
+    /// resolve later with `Tx::quit` or `AppHandle::quit`. Keep the callback nonblocking.
+    /// Hosts are asked in order until one defers. State changes redraw unless `tx.live_only()`.
+    /// Programmatic quit, relaunch, last-window exit and teardown bypass consent.
+    /// `on_quit` remains notification. Other platforms do not invoke this hook.
+    /// Bundle opt-ins to Sudden or Automatic Termination can bypass the delegate entirely.
+    pub fn on_quit_request(mut self, f: fn(&mut S, &mut Tx) -> QuitResponse) -> Self {
+        self.hooks.quit_request = Some(f);
+        self
+    }
+
     /// Decide a native close request before Rune hides or changes the window's close state.
     /// `Defer` keeps it open; resolve later with `Tx::close_window` or a handle's `close`.
     /// State changes redraw unless `tx.live_only()` is set. Keep this callback nonblocking.

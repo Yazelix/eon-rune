@@ -10,6 +10,17 @@ impl Windows {
     /// starts and the hooks run unseen.
     pub(super) fn quit(&mut self, event_loop: &ActiveEventLoop, ending: bool, hide: bool) {
         use crate::quit::{After, Effect, Event};
+        if !ending
+            && !hide
+            && crate::quit::request::dispatch(self.hosts.iter_mut().flatten(), |h| {
+                h.user_event(event_loop, WakeEvent::Quit(false))
+            })
+        {
+            return;
+        }
+        if ending || hide {
+            crate::quit::request::finish();
+        }
         if hide {
             for host in self.hosts.iter_mut().flatten() { host.vanish(); }
             crate::marks::mark("quit.hidden");

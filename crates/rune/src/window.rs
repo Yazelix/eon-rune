@@ -243,7 +243,7 @@ impl Windows {
                 self.quit(event_loop, false, true);
                 for host in self.hosts.iter_mut().flatten() { host.terminate(); }
             }
-            event_loop.exit();
+            crate::quit::request::exit(event_loop);
         }
     }
 }
@@ -394,7 +394,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
         }
         for host in self.hosts.iter_mut().flatten() { host.cancel_menus(); }
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(last) = crate::quit::fast_exit_hook() { crate::quit::end_fast(last); }
+        crate::quit::finish_fast();
         // Surfaces go while winit's display connection is still open (layer surfaces live on it).
         self.hosts.clear();
         crate::marks::mark("windows.dropped");
@@ -408,7 +408,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
 use file_drop::{DROP_SAMPLE, FileDrop, FileStep};
 
 struct Host<S: 'static> {
-    hooks: crate::app::hooks::AppHooks<S>,
+    hooks: hooks::HostHooks<S>,
     /// `App::chrome`, as the app set it (`chrome::frame_chrome` lays a titlebar over it).
     chrome: Chrome,
     /// `App::titlebar`, unless the window is borderless.
@@ -571,7 +571,7 @@ impl<S: 'static> Host<S> {
         let shortcuts = crate::shortcuts::Guard::attach(&shared, waker, false, wayland);
         let menus = crate::native_menu::Guard::attach(&shared, false);
         Host {
-            hooks,
+            hooks: hooks.into(),
             chrome,
             titlebar,
             options,

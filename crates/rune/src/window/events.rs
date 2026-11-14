@@ -158,6 +158,9 @@ impl<S: 'static> Host<S> {
                 if covered { self.land_frame(); }
                 self.set_cover(Cover::Windows, covered);
             }
+            WakeEvent::Quit(false) if crate::quit::request::asking() => {
+                self.quit_requested(event_loop)
+            }
             WakeEvent::Reopen | WakeEvent::Turn | WakeEvent::Quit(_) => {}
         }
     }
