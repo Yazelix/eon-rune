@@ -221,7 +221,7 @@ impl<T: 'static> Overlay<T> {
         let surface = match reused {
             Some((gpu, surface)) => { self.gpu = Some(gpu); surface }
             None => {
-                let made = Gpu::for_surface(features, true, |instance| make(instance).ok_or_else(|| "could not create its GPU surface".to_owned()));
+                let made = Gpu::for_owned_surface(&self.gpu_failure, features, true, |instance| make(instance).ok_or_else(|| "could not create its GPU surface".to_owned()));
                 let (gpu, surface, renderer) = match made {
                     Ok(made) => made,
                     Err(error) => {

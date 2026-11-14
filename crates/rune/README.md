@@ -1873,7 +1873,12 @@ in `AppHandle::window_error()`; open, ready and draw cannot clear the failure. I
 failures also stop further creation attempts. A healthy-device surface replacement keeps the
 device and renderer; a failed replacement gives up. Default apps retain automatic recovery.
 Owned overlays report the same terminal reason through `OverlayHandle::failure()` and remain unavailable.
-Process-global GPU warm-up is unowned until a surface takes its result.
+Use `AppHandle::warm_gpu_with(features, prepare)` to attribute background preparation to the app;
+a failure during preparation or observed when taking its waiting device latches the same reason,
+and a failed app starts no further warm work.
+Pass an empty callback to warm only. This method warms on Windows and Linux; elsewhere it does nothing.
+Process-global `warm_gpu`, `warm_gpu_with` and macOS `prewarm_gpu` remain unowned
+until a surface takes their result.
 Typed failures and a surface-reconfiguration notification are not provided by this policy.
 Loss notification uses wgpu's callbacks; Rune's custom Metal backend does not implement
 those callbacks. Select `GpuBackend::Wgpu` when relying on device-loss notification.

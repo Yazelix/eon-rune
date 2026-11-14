@@ -120,7 +120,7 @@ impl<S: 'static> Host<S> {
                 let (gpu, surface) = if let Some(cached) = cached {
                     cached
                 } else {
-                    let (gpu, surface, renderer) = Gpu::for_surface(features, transparent, |instance| instance.create_surface(window.clone()).map_err(|e| e.to_string()))?;
+                    let (gpu, surface, renderer) = Gpu::for_owned_surface(&self.hooks.gpu_failure, features, transparent, |instance| instance.create_surface(window.clone()).map_err(|e| e.to_string()))?;
                     prewarmed = renderer;
                     let gpu = Arc::new(gpu);
                     *self.gpu_pool.borrow_mut() = Arc::downgrade(&gpu);

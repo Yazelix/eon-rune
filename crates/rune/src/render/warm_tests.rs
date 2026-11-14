@@ -13,8 +13,11 @@ mod lost {
         descriptor.backends = wgpu::Backends::NOOP;
         descriptor.backend_options.noop.enable = true;
         let instance = wgpu::Instance::new(descriptor);
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).unwrap();
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
+        let adapter =
+            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
+                .unwrap();
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
         Gpu::from_device(instance, adapter, device, queue)
     }
 
@@ -30,5 +33,25 @@ mod lost {
         assert!(gpu.is_lost(), "the device's lost callback marks it");
         park(gpu, renderer, PARKED);
         assert!(take().is_none(), "a lost device waits for no surface");
+    }
+    #[test]
+    fn owned_prepare_latches_a_destroyed_device_from_its_worker() {
+        let gpu = noop_gpu();
+        let latch = std::sync::Arc::new(crate::render::failure::Failure::default());
+        let owner = latch.clone();
+        let allowed = std::thread::spawn(move || {
+            crate::render::owned_warm::prepare(
+                &gpu,
+                Some(Box::new(|device| {
+                    device.destroy();
+                    device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+                })),
+                &Some(owner),
+            )
+        })
+        .join()
+        .unwrap();
+        assert!(!allowed);
+        assert!(latch.message().unwrap().contains("GPU device was lost"));
     }
 }

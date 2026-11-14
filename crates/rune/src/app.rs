@@ -746,7 +746,7 @@ impl<S: 'static> AppHandle<S> {
     /// Why the window couldn't be created the last time it was asked for (no display, no GPU
     /// adapter or device), until a later creation succeeds. The app keeps running windowless.
     pub fn window_error(&self) -> Option<String> {
-        self.shared.window_error.lock().unwrap().clone()
+        self.shared.window_error.lock().unwrap().clone().or_else(|| self.shared.gpu_failure.get().and_then(|latch| latch.message()))
     }
 
     /// Change the state from this thread: `f` runs on the UI thread, in call order, even while no

@@ -722,6 +722,7 @@ mod prewarm {
     pub(super) fn discard() {}
 }
 
+mod owned_warm;
 mod warmup;
 pub use warmup::{warm_gpu, warm_gpu_with};
 pub(crate) use warmup::{park_gpu, surface_gpu};

@@ -340,3 +340,46 @@ fn recover_overlay_keeps_its_wake_and_reopen_behavior() {
         assert!(overlay.shared.failure.lock().unwrap().is_none());
     });
 }
+
+#[test]
+#[ignore = "requires a private headless Wayland session"]
+fn owned_warm_prepare_loss_latches_before_any_recovery() {
+    run_case(|overlay, _, _| {
+        let app = crate::App::new(AppSpec::new(
+            "warm owner",
+            (80.0, 40.0),
+            || (),
+            |_, _| crate::el(),
+        ));
+        let handle = app.handle();
+        let app = app.terminal_gpu_loss();
+        let latch = app.shared.gpu_failure.get().unwrap();
+        let (send, recv) = std::sync::mpsc::channel();
+        latch
+            .watch(Arc::new(move || {
+                let _ = send.send(());
+            }))
+            .unwrap();
+        let errors = collect_errors(overlay.gpu.as_ref().unwrap());
+        handle.warm_gpu_with(wgpu::Features::empty(), |device| {
+            let _invalid = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("warm prepare validation"),
+                size: 4,
+                usage: wgpu::BufferUsages::empty(),
+                mapped_at_creation: false,
+            });
+        });
+        recv.recv_timeout(Duration::from_secs(3))
+            .expect("prepare loss must publish the owner's latch from the worker");
+        assert!(!overlay.gpu.as_ref().unwrap().is_lost());
+        assert_eq!(errors.lock().unwrap().len(), 1);
+        assert_eq!(handle.window_error(), latch.message());
+        assert!(latch.message().unwrap().contains("warm prepare validation"));
+        // Another default app can still warm after this owner failed.
+        let (send, recv) = std::sync::mpsc::channel();
+        crate::warm_gpu_with(wgpu::Features::empty(), move |_| {
+            send.send(()).unwrap();
+        });
+        recv.recv_timeout(Duration::from_secs(10)).unwrap();
+    });
+}
