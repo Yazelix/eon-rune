@@ -31,14 +31,17 @@ impl Gpu {
         draws_surfaces: bool) -> Gpu {
         let lost = Arc::new(AtomicBool::new(false));
         let lost_by_callback = lost.clone();
+        let failure = Arc::new(super::failure::Failure::default());
+        let failure_by_callback = failure.clone();
         device.set_device_lost_callback(move |reason, message| {
             // Before anything reads it: a lost device's surface can't be configured, and wgpu
             // reports that failure nowhere (`is_lost`).
             lost_by_callback.store(true, Ordering::Release);
+            failure_by_callback.record(format!("the GPU device was lost ({reason:?}): {message}"));
             eprintln!("rune: the GPU device was lost ({reason:?}): {message}");
         });
-        if draws_surfaces && !cfg!(test) { log_uncaptured(&device); }
-        Gpu { instance, adapter, device, queue, lost }
+        if draws_surfaces && !cfg!(test) { log_uncaptured(&device, failure.clone()); }
+        Gpu { instance, adapter, device, queue, lost, failure }
     }
 
     /// Whether the device went away: a driver reset, a GPU removed, a resume from Modern Standby.
@@ -58,10 +61,11 @@ struct Printed {
 /// Prints each uncaptured error once, up to `PRINTED` distinct messages, then one line saying
 /// further ones are not shown. A scoped error (a `push_error_scope`, as `window::configure`
 /// uses) still goes to its scope first; this is the fallback for errors nothing else caught.
-fn log_uncaptured(device: &wgpu::Device) {
+fn log_uncaptured(device: &wgpu::Device, failure: Arc<super::failure::Failure>) {
     let printed: Arc<Mutex<Printed>> = Arc::default();
     device.on_uncaptured_error(Arc::new(move |error: wgpu::Error| {
         let message = error.to_string();
+        failure.record(message.clone());
         let line = {
             let mut printed = printed.lock().unwrap_or_else(|e| e.into_inner());
             if printed.silenced || printed.seen.contains(&message) {
@@ -77,3 +81,7 @@ fn log_uncaptured(device: &wgpu::Device) {
         if let Some(line) = line { eprintln!("{line}"); }
     }));
 }
+
+#[cfg(test)]
+#[path = "gpu_loss_tests.rs"]
+mod tests;

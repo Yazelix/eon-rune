@@ -18,6 +18,7 @@ impl<S: 'static> crate::App<S> {
 
 impl<S: 'static> Host<S> {
     pub(super) fn sample_geometry(&mut self, event_loop: &ActiveEventLoop, initial: bool) -> bool {
+        if self.gpu_failed() { return true; }
         let Some(f) = self.hooks.geometry else { return false };
         let Some(w) = &self.win else { return false };
         let size = w.window.inner_size();

@@ -1,0 +1,1 @@
+- `App::terminal_gpu_loss()` opts native windows into permanent failure on device loss, uncaptured GPU errors or refused surface configuration, with a reason in `AppHandle::window_error()`. Healthy-device surface replacement retains the device; the default recovery policy is unchanged. Overlays and global GPU warm-up are outside this window policy.

@@ -4,6 +4,7 @@ use winit::{event::WindowEvent, window::Window};
 pub(crate) type WindowEventHook<S> = fn(&mut S, &Window, &WindowEvent, &mut Tx) -> bool;
 
 pub(crate) struct AppHooks<S> {
+    pub(crate) gpu_failure: crate::window::gpu_failure::Policy,
     pub(crate) window_event: Option<WindowEventHook<S>>,
     pub(crate) geometry: Option<fn(&mut S, crate::WindowGeometry, &mut Tx) -> bool>,
     // Cache of the last native observation.
@@ -12,7 +13,7 @@ pub(crate) struct AppHooks<S> {
 
 impl<S> Default for AppHooks<S> {
     fn default() -> Self {
-        Self { window_event: None, geometry: None, last_geometry: None }
+        Self { window_event: None, geometry: None, last_geometry: None, gpu_failure: Default::default() }
     }
 }
 

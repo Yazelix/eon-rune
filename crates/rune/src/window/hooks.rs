@@ -4,6 +4,7 @@ impl<S: 'static> Host<S> {
     pub(super) fn run_hook(&mut self, event_loop: &ActiveEventLoop, f: impl FnOnce(&mut S, &mut Tx) -> bool) -> bool {
         let shown = self.life.shown();
         let changed = self.rt.update_if(f);
+        self.gpu_failed();
         self.rt.schedule_pending_wakes();
         self.clipboard.flush(&mut self.rt);
         self.shell(event_loop);
@@ -17,8 +18,9 @@ impl<S: 'static> Host<S> {
         stopped
     }
 
-    // Future device-loss and geometry guards belong before the raw hook.
+    // Device-loss guards run before the raw hook.
     pub(super) fn before_window_event(&mut self, event_loop: &ActiveEventLoop, event: &WindowEvent) -> bool {
+        if self.gpu_failed() { return true; }
         let Some(f) = self.hooks.window_event else { return false };
         let Some(window) = self.win.as_ref().map(|w| w.window.clone()) else { return false };
         let mods = match event {

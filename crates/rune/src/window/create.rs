@@ -6,9 +6,11 @@ use super::*;
 impl<S: 'static> Host<S> {
     #[cfg_attr(not(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))), allow(unused_variables))]
     pub(super) fn try_create(&mut self, event_loop: &ActiveEventLoop, token: Option<String>, focus: bool) -> Result<(), String> {
+        if self.gpu_failed() { return Err("the app's GPU failure is terminal".into()); }
         // A released window reopens at the height its content reached while it was gone.
         crate::marks::mark("window.create");
         let built = self.shown && self.build_for_show();
+        if self.gpu_failed() { return Err("the app's GPU failure is terminal".into()); }
         let size = self.args.size.unwrap_or(self.spec.size);
         let launcher = self.launcher();
         let visible = !launcher && (self.started || self.options.visible);
@@ -111,7 +113,7 @@ impl<S: 'static> Host<S> {
                 let features = self.comp.as_ref().map_or(wgpu::Features::empty(), |c| c.features());
                 let transparent = self.options.transparent;
                 // A shared device that can't composite this window's translucent pixels gets its own.
-                let cached = self.gpu_pool.borrow().upgrade().filter(|gpu| !gpu.is_lost()).and_then(|gpu| {
+                let cached = self.gpu_pool.borrow().upgrade().filter(|gpu| !gpu.is_lost() && !self.hooks.gpu_failure.failed_on(gpu)).and_then(|gpu| {
                     let surface = gpu.instance.create_surface(window.clone()).ok()?;
                     crate::render::translucency::serves(&gpu, &surface, features, transparent).then_some((gpu, surface))
                 });
@@ -128,7 +130,14 @@ impl<S: 'static> Host<S> {
                 (Some(gpu), surface)
             }
         };
-        let adapter = &gpu.as_ref().or(self.gpu.as_ref().map(|g| &g.0)).unwrap().adapter;
+        let bound = gpu.as_ref().or(self.gpu.as_ref().map(|g| &g.0)).unwrap();
+        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal)
+            && (bound.is_lost() || bound.failure.watch(setup_waker(&self.shared)).is_err()) {
+            let error = bound.failure.message().unwrap_or_else(|| "the GPU device was lost".into());
+            self.fail_gpu(error.clone());
+            return Err(error);
+        }
+        let adapter = &bound.adapter;
         let phys = window.inner_size();
         let (mut config, translucent) = surface_config(&surface, adapter, (phys.width, phys.height), self.rt.srgb_blend())
             .ok_or("the GPU adapter can't present to this window")?;
@@ -155,6 +164,9 @@ impl<S: 'static> Host<S> {
         // A refused configuration (the driver's, or a device that is gone) leaves a surface
         // wgpu panics on its next drawable: the window closes, and the next open makes both.
         let refused = configure(&surface, gpu, &config).err().map(|error| (gpu.is_lost(), error));
+        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal) && let Some((_, error)) = &refused {
+            let error = error.clone(); self.fail_gpu(error.clone()); return Err(error);
+        }
         if let Some((lost, error)) = refused {
             if lost {
                 self.gpu = None;
@@ -364,9 +376,11 @@ impl<S: 'static> Host<S> {
     /// device and surface, and records why (`AppHandle::window_error`); opening it again makes a
     /// window, a device and a surface. False when there is nothing to draw with this frame.
     pub(super) fn replace_lost_surface(&mut self) -> bool {
+        if self.gpu_failed() { return false; }
         let lost = self.gpu.as_ref().is_none_or(|(gpu, _)| gpu.is_lost());
         let surface_missing = self.win.as_ref().is_some_and(|w| !w.surface_ok || w.surface.is_none());
         if !lost && !surface_missing { return true; }
+        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal) { return self.terminal_surface(); }
         let now = Instant::now();
         let Some(step) = self.win.as_mut().map(|w| w.surface_retries.attempt()) else { return false };
         if step == SurfaceStep::GiveUp {
@@ -395,7 +409,7 @@ impl<S: 'static> Host<S> {
     /// that releases its GPU when closed: it leaves the screen as `hide` leaves it, stops input
     /// and hides the native window (`stop_showing`, `wind_down`), then the window, device and
     /// surface go. An app sees `window_error` and can `open` the window again.
-    fn give_up_surface(&mut self, reason: String) -> bool {
+    pub(super) fn give_up_surface(&mut self, reason: String) -> bool {
         eprintln!("rune: {reason}");
         self.stop_showing();
         self.wind_down();

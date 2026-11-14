@@ -17,6 +17,7 @@ pub use fill::FillDrift;
 mod first_use;
 pub(crate) mod gpu_events;
 mod gpu_loss;
+mod failure;
 pub(crate) mod layer_blur;
 mod layers;
 mod metallib;
@@ -404,6 +405,7 @@ pub struct Gpu {
     /// Windows' Modern Standby) can't configure a surface, and wgpu drops that error, so nothing
     /// else would report it. See `is_lost`.
     lost: Arc<AtomicBool>,
+    pub(crate) failure: Arc<failure::Failure>,
 }
 
 /// Vulkan loaders crash when two threads create instances or devices at once (seen with
@@ -970,9 +972,8 @@ impl Renderer {
     /// premultiplied values, encoded by the `*Srgb` target on write.
     pub fn srgb_blend(&self) -> bool { self.srgb_blend }
 
-    pub fn submit(&self, queue: &wgpu::Queue, mut encoder: wgpu::CommandEncoder) -> wgpu::SubmissionIndex {
-        self.before_submit(&mut encoder);
-        if let Some(s) = &self.surfaces { s.submit(queue,encoder) } else { queue.submit([encoder.finish()]) }
+    pub fn submit(&self, queue: &wgpu::Queue, encoder: wgpu::CommandEncoder) -> wgpu::SubmissionIndex {
+        self.submit_if(queue, encoder, || true).unwrap()
     }
 
     /// Whether `submit` is `queue.submit` after `before_submit` and nothing more: no native video

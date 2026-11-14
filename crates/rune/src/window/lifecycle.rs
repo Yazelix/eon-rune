@@ -57,6 +57,7 @@ impl<S: 'static> Host<S> {
 
     /// Brings the window on screen (`Reveal`); a window closed for good stays closed.
     pub(super) fn reveal(&mut self, event_loop: &ActiveEventLoop, reveal: Reveal, mut token: Option<String>) {
+        if self.gpu_failed() { return; }
         if self.life.finished() { return; }
         let mut built = false;
         for effect in reveal.effects(self.found()) {
@@ -240,6 +241,7 @@ impl<S: 'static> Host<S> {
     /// shown. A hidden launcher renders poll's changes hidden, paced, keeping its cached frame
     /// fresh. A minimize waits for a show in the same turn (`shows`). Returns whether it polled.
     pub(super) fn poll_hidden(&mut self, event_loop: &ActiveEventLoop, shows: bool) -> bool {
+        self.gpu_failed();
         if event_loop.exiting() || self.shown_win().is_some() { return false; }
         let changed = self.rt.poll_hidden();
         self.clipboard.flush(&mut self.rt);
@@ -450,8 +452,10 @@ impl<S: 'static> Host<S> {
     pub(super) fn create(&mut self, event_loop: &ActiveEventLoop, token: Option<String>, focus: bool) {
         let result = self.try_create(event_loop, token, focus);
         if let Err(error) = &result {
+            if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal) { self.fail_gpu(error.clone()); }
             eprintln!("rune: could not create the window {}: {error}", self.native_handle.key());
         }
+        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Failed) { return; }
         *self.shared.window_error.lock().unwrap() = result.err();
     }
 }
