@@ -697,7 +697,7 @@ impl<S: 'static> AppHandle<S> {
         self.request(|q| { q.window = Some(WindowRequest::Open(Some(token).filter(|t| !t.is_empty()))); q.minimize = false; });
     }
 
-    /// Close the window as the close button would (`App::on_close` runs; without
+    /// Close without native close-request consent (`App::on_close` runs; without
     /// `keep_running` the app quits).
     pub fn close(&self) {
         self.request(|q| { q.window = Some(WindowRequest::Close); q.minimize = false; });

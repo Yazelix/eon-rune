@@ -131,7 +131,7 @@ pub(crate) struct TraceCalls {
 /// variant wins when several handlers ask.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Shell {
-    /// Close the window as if the user had: `App::keep_running` keeps the app and its state.
+    /// Close without native close-request consent; `App::keep_running` keeps the app and state.
     Close,
     Quit,
     /// Quit, then start the app again (`Tx::relaunch`).
@@ -250,7 +250,7 @@ impl Tx {
         self.wakes.push(std::time::Duration::from_secs_f64((due - self.clock).max(0.0)));
     }
 
-    /// Close the window after this handler, as the close button would (`App::on_close` runs).
+    /// Close after this handler, bypassing `App::on_close_request` (`App::on_close` runs).
     pub fn close_window(&mut self) {
         self.shell = self.shell.max(Some(Shell::Close));
     }

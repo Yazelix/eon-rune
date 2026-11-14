@@ -1,6 +1,23 @@
 use super::*;
 
 impl<S: 'static> Host<S> {
+    /// True when the native request was answered, including a close carried out by its Tx.
+    pub(super) fn close_requested(&mut self, event_loop: &ActiveEventLoop) -> bool {
+        let Some(f) = self.hooks.close_request else {
+            return false;
+        };
+        if !self.closes() || event_loop.exiting() {
+            return true;
+        }
+        self.run_hook(event_loop, |s, tx| {
+            if f(s, tx) == crate::CloseResponse::Close {
+                tx.close_window();
+            }
+            !tx.live_only
+        });
+        true
+    }
+
     pub(super) fn run_hook(&mut self, event_loop: &ActiveEventLoop, f: impl FnOnce(&mut S, &mut Tx) -> bool) -> bool {
         let shown = self.life.shown();
         let changed = self.rt.update_if(f);
@@ -61,3 +78,7 @@ fn consumable(event: &WindowEvent) -> bool {
 #[cfg(test)]
 #[path = "hooks_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "close_tests.rs"]
+mod close_tests;

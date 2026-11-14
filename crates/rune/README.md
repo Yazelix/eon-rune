@@ -586,7 +586,8 @@ let app = rune::App::new(spec)
     .release_gpu_when_closed()     // optional: drop the GPU device while closed
     .accessory()                   // macOS: menu-bar app, no Dock icon (h.set_dock_icon(true) shows it)
     .standard_menus()              // macOS: Edit, Minimize ⌘M and Close ⌘W (no Quit); regular apps get them anyway
-    .on_close(|s, tx| ..)          // runs before every close; tx.quit() quits instead
+    .on_close_request(|s, tx| ..)  // native close: CloseResponse::Close or ::Defer
+    .on_close(|s, tx| ..)          // teardown notification, after hiding; tx.quit() quits instead
     .on_reopen(|s, has_visible, tx| false); // macOS: Dock icon clicked; true skips the default
     // .window_options(WindowOptions { max_size, resizable, .. }) for this window
 let handle = app.handle();     // AppHandle<S>: Clone + Send + Sync, usable before run
@@ -594,13 +595,23 @@ std::thread::spawn(move || {
     handle.activate(token);    // show + focus with a forwarded XDG activation token
     handle.open();             // show + focus without one
     handle.update(|s, tx| ..); // change state on the UI thread; commits on the next frame
-    handle.close();            // as the close button (on_close runs)
+    handle.close();            // unconditional close (on_close runs)
     handle.minimize();         // as the minimize button
     handle.quit();             // run returns; on web, unmounts
 });
 app.run();
 ```
 
+- Native `WindowEvent::CloseRequested` first calls `App::on_close_request`, when registered.
+  `CloseResponse::Close` accepts the close; `Defer` leaves the window's close state unchanged
+  so the app can show a prompt or await work. The callback redraws state changes unless it calls
+  `tx.live_only()`. Keep pending consent in app state; cancel by leaving the window open, or
+  resolve with `Tx::close_window()`, `AppHandle::close()` or `WindowHandle::close()`.
+  These programmatic closes, application quit and teardown bypass consent; `on_close` stays
+  the teardown notification. The drawn Windows caption close and macOS menu/shortcut fallback
+  currently use programmatic close and also bypass this hook. macOS application Quit is separate.
+  `Tx::quit()` and `AppHandle::quit()` run `on_quit` without `on_close`. With this hook registered,
+  a native request preempted by an exiting loop also skips `on_close`.
 - Every handle call wakes the loop; nothing polls. Updates run in call order on the main thread
   inside the event loop, even while no window shows, so a closed app keeps its state current and
   an update may do main-thread native work (a status item, a tray). Window requests collapse to
