@@ -131,7 +131,7 @@ impl<S: 'static> Host<S> {
             }
         };
         let bound = gpu.as_ref().or(self.gpu.as_ref().map(|g| &g.0)).unwrap();
-        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal)
+        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal(_))
             && (bound.is_lost() || bound.failure.watch(setup_waker(&self.shared)).is_err()) {
             let error = bound.failure.message().unwrap_or_else(|| "the GPU device was lost".into());
             self.fail_gpu(error.clone());
@@ -164,7 +164,7 @@ impl<S: 'static> Host<S> {
         // A refused configuration (the driver's, or a device that is gone) leaves a surface
         // wgpu panics on its next drawable: the window closes, and the next open makes both.
         let refused = configure(&surface, gpu, &config).err().map(|error| (gpu.is_lost(), error));
-        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal) && let Some((_, error)) = &refused {
+        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal(_)) && let Some((_, error)) = &refused {
             let error = error.clone(); self.fail_gpu(error.clone()); return Err(error);
         }
         if let Some((lost, error)) = refused {
@@ -380,7 +380,7 @@ impl<S: 'static> Host<S> {
         let lost = self.gpu.as_ref().is_none_or(|(gpu, _)| gpu.is_lost());
         let surface_missing = self.win.as_ref().is_some_and(|w| !w.surface_ok || w.surface.is_none());
         if !lost && !surface_missing { return true; }
-        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal) { return self.terminal_surface(); }
+        if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal(_)) { return self.terminal_surface(); }
         let now = Instant::now();
         let Some(step) = self.win.as_mut().map(|w| w.surface_retries.attempt()) else { return false };
         if step == SurfaceStep::GiveUp {

@@ -4,19 +4,40 @@ use super::*;
 pub(crate) enum Policy {
     #[default]
     Recover,
-    Terminal,
+    Terminal(Arc<crate::render::failure::Failure>),
     Failed,
 }
 
 impl Policy {
-    pub(super) fn failed_on(&self, gpu: &Gpu) -> bool {
-        !matches!(self, Self::Recover) && (gpu.is_lost() || gpu.failure.message().is_some())
+    pub(crate) fn failed_on(&self, gpu: &Gpu) -> bool {
+        matches!(self, Self::Failed) || self.reason(Some(gpu)).is_some()
+    }
+
+    pub(crate) fn reason(&self, gpu: Option<&Gpu>) -> Option<String> {
+        let Self::Terminal(latch) = self else {
+            return None;
+        };
+        latch.message().or_else(|| {
+            gpu.and_then(|gpu| {
+                gpu.failure
+                    .message()
+                    .or_else(|| gpu.is_lost().then(|| "the GPU device was lost".into()))
+            })
+        })
+    }
+
+    pub(crate) fn report(&mut self, reason: String) -> crate::machine::Effects<String> {
+        if let Self::Terminal(latch) = self {
+            latch.record(reason.clone());
+        }
+        self.step(reason)
     }
 
     fn step(&mut self, reason: String) -> crate::machine::Effects<String> {
-        if !matches!(self, Self::Terminal) {
+        let Self::Terminal(latch) = self else {
             return crate::machine::Effects::none();
-        }
+        };
+        let reason = latch.message().unwrap_or(reason);
         *self = Self::Failed;
         crate::machine::Effects::one(reason)
     }
@@ -25,7 +46,18 @@ impl Policy {
 impl<S: 'static> crate::App<S> {
     /// Give up permanently on GPU failure; `AppHandle::window_error` records why.
     pub fn terminal_gpu_loss(mut self) -> Self {
-        self.hooks.gpu_failure = Policy::Terminal;
+        let latch = self
+            .shared
+            .gpu_failure
+            .get_or_init(Default::default)
+            .clone();
+        let shared = Arc::downgrade(&self.shared);
+        let _ = latch.watch(Arc::new(move || {
+            if let Some(shared) = shared.upgrade() {
+                shared.wake();
+            }
+        }));
+        self.hooks.gpu_failure = Policy::Terminal(latch);
         self
     }
 }
@@ -35,13 +67,12 @@ impl<S: 'static> Host<S> {
         match self.hooks.gpu_failure {
             Policy::Recover => return false,
             Policy::Failed => return true,
-            Policy::Terminal => {}
+            Policy::Terminal(_) => {}
         }
-        let reason = self.gpu.as_ref().and_then(|(gpu, _)| {
-            gpu.failure
-                .message()
-                .or_else(|| gpu.is_lost().then(|| "the GPU device was lost".into()))
-        });
+        let reason = self
+            .hooks
+            .gpu_failure
+            .reason(self.gpu.as_ref().map(|g| &*g.0));
         if let Some(reason) = reason {
             return self.fail_gpu(reason);
         }
@@ -49,8 +80,9 @@ impl<S: 'static> Host<S> {
     }
 
     pub(super) fn fail_gpu(&mut self, reason: String) -> bool {
-        for reason in self.hooks.gpu_failure.step(reason) {
+        for reason in self.hooks.gpu_failure.report(reason) {
             self.give_up_surface(reason);
+            self.publish();
         }
         true
     }

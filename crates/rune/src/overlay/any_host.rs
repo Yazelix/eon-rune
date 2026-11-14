@@ -5,6 +5,7 @@ use super::*;
 
 impl<T: 'static> AnyHost for Overlay<T> {
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
+        self.gpu_failed();
         self.meter.turn(matches!(cause, StartCause::ResumeTimeReached { .. } | StartCause::Poll), crate::frame::surface_stats::slept(cause));
         #[cfg(target_os = "macos")]
         { self.occlusion_read = false; }
@@ -57,6 +58,7 @@ impl<T: 'static> AnyHost for Overlay<T> {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        if self.gpu_failed() { return; }
         if !matches!(event, WindowEvent::RedrawRequested) { self.meter.waited(); }
         #[cfg(target_os = "macos")]
         if matches!(event, WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. } | WindowEvent::Occluded(_))
@@ -168,6 +170,7 @@ impl<T: 'static> AnyHost for Overlay<T> {
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) -> bool {
+        if self.gpu_failed() { return false; }
         #[cfg(target_os = "macos")]
         self.fn_key();
         // A window switched the font families (`Tx::set_font_families`).
@@ -234,6 +237,9 @@ impl<T: 'static> Overlay<T> {
 }
 
 impl<T: 'static> PendingOverlay for Overlay<T> {
+    fn gpu_failure(&mut self, latch: Option<Arc<crate::render::failure::Failure>>) {
+        self.gpu_failure = latch.map_or(Default::default(), crate::window::gpu_failure::Policy::Terminal);
+    }
     fn connect(&mut self, wake: Waker, _frame_wake: Waker, gpu: Rc<RefCell<Weak<Gpu>>>) {
         #[cfg(target_os = "macos")]
         { self.frame_wake = Some(_frame_wake); }

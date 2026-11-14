@@ -17,7 +17,7 @@ pub use fill::FillDrift;
 mod first_use;
 pub(crate) mod gpu_events;
 mod gpu_loss;
-mod failure;
+pub(crate) mod failure;
 pub(crate) mod layer_blur;
 mod layers;
 mod metallib;

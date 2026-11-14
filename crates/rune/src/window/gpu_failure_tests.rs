@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn terminal_transition_is_permanent_and_reports_only_once() {
-    let mut policy = Policy::Terminal;
+    let mut policy = Policy::Terminal(Arc::default());
     assert_eq!(
         policy
             .step("device lost".into())
@@ -13,6 +13,28 @@ fn terminal_transition_is_permanent_and_reports_only_once() {
     assert!(matches!(policy, Policy::Failed));
     assert!(policy.step("later loss".into()).is_empty());
     assert!(matches!(policy, Policy::Failed));
+}
+
+#[test]
+fn policy_step_returns_effects_without_recording_or_waking() {
+    let latch = Arc::new(crate::render::failure::Failure::default());
+    let wakes = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = wakes.clone();
+    latch
+        .watch(Arc::new(move || {
+            count.fetch_add(1, Ordering::SeqCst);
+        }))
+        .unwrap();
+    let mut policy = Policy::Terminal(latch.clone());
+    assert_eq!(
+        policy
+            .step("device lost".into())
+            .into_iter()
+            .collect::<Vec<_>>(),
+        ["device lost"]
+    );
+    assert_eq!(wakes.load(Ordering::SeqCst), 0);
+    assert!(latch.message().is_none());
 }
 
 #[test]
@@ -28,14 +50,14 @@ fn recover_is_the_default_and_never_latches_a_failure() {
     ));
     assert!(matches!(app.hooks.gpu_failure, Policy::Recover));
     let spec = WindowSpec::from_app("terminal", app.terminal_gpu_loss());
-    assert!(matches!(spec.app.hooks.gpu_failure, Policy::Terminal));
+    assert!(matches!(spec.app.hooks.gpu_failure, Policy::Terminal(_)));
 }
 
 #[cfg(target_os = "linux")]
 #[test]
 fn destroyed_device_callback_preserves_default_recovery_and_stops_terminal() {
     let (gpu, _) = super::super::tests::noop_gpu(&super::super::tests::noop_instance());
-    assert!(!Policy::Terminal.failed_on(&gpu));
+    assert!(!Policy::Terminal(Arc::default()).failed_on(&gpu));
     gpu.device.destroy();
     gpu.device
         .poll(wgpu::PollType::wait_indefinitely())
@@ -47,7 +69,7 @@ fn destroyed_device_callback_preserves_default_recovery_and_stops_terminal() {
             .unwrap()
             .contains("GPU device was lost")
     );
-    assert!(Policy::Terminal.failed_on(&gpu));
+    assert!(Policy::Terminal(Arc::default()).failed_on(&gpu));
     assert!(!Policy::Recover.failed_on(&gpu));
 }
 
@@ -414,3 +436,7 @@ fn native_terminal_window_and_same_device_surface_control() {
 #[cfg(target_os = "linux")]
 #[path = "gpu_failure_regression_tests.rs"]
 pub(crate) mod regressions;
+
+#[cfg(target_os = "linux")]
+#[path = "overlay_owner_tests.rs"]
+mod overlay_owner;

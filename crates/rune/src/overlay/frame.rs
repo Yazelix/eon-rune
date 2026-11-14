@@ -196,34 +196,41 @@ pub(super) fn render_frame<T: 'static>(f: &mut Frame<'_, T>, compositor: &mut Op
 /// event loop's thread spends none of wgpu's encode, submit and present on it. Prewarm frames
 /// present here, before the window is revealed.
 pub(super) fn submit_and_present<T: 'static>(live: &mut Live, renderer: &Renderer, gpu: &Gpu, rt: &Runtime<T>,
-    encoder: wgpu::CommandEncoder, frame: wgpu::SurfaceTexture, prewarm: bool) {
+    encoder: wgpu::CommandEncoder, frame: wgpu::SurfaceTexture, prewarm: bool, policy: &crate::window::gpu_failure::Policy) -> bool {
     #[allow(irrefutable_let_patterns)]
     if let Backing::Window(w) = &live.backing {
         w.pre_present_notify();
     }
     #[cfg(target_os = "macos")]
     {
-        if !prewarm && live.materials.presents_plainly() && renderer.submits_plainly() && !crate::gpu::native(&gpu.queue) {
+        if worker_allowed(policy) && !prewarm && live.materials.presents_plainly() && renderer.submits_plainly() && !crate::gpu::native(&gpu.queue) {
             if live.present.is_none() { live.present = crate::frame::present_worker::PresentWorker::spawn(); }
             if let Some(worker) = &mut live.present {
                 let mut encoder = encoder;
                 renderer.before_submit(&mut encoder);
                 let queue = gpu.queue.clone();
-                return worker.run(move || {
+                worker.run(move || {
                     queue.submit([encoder.finish()]);
                     queue.present(frame);
                 });
+                return true;
             }
         }
-        renderer.submit(&gpu.queue, encoder);
+        if renderer.submit_if(&gpu.queue, encoder, || !policy.failed_on(gpu)).is_none() || policy.failed_on(gpu) { return false; }
         live.materials.present(&rt.materials, rt.env.scale, || gpu.queue.present(frame));
     }
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (rt, prewarm);
-        renderer.submit(&gpu.queue, encoder);
+        if renderer.submit_if(&gpu.queue, encoder, || !policy.failed_on(gpu)).is_none() || policy.failed_on(gpu) { return false; }
         gpu.queue.present(frame);
     }
+    true
+}
+
+#[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
+pub(super) fn worker_allowed(policy: &crate::window::gpu_failure::Policy) -> bool {
+    matches!(policy, crate::window::gpu_failure::Policy::Recover)
 }
 
 impl Live {

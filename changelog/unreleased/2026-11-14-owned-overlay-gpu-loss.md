@@ -1,0 +1,1 @@
+- Apps using `terminal_gpu_loss` share their permanent GPU-failure reason with owned overlays, which stop input, rendering and reopening after failure, including failures during prewarming, initial surface configuration or command finalization. Window failure also publishes its hidden state through `AppHandle::is_visible`. Other apps keep their existing recovery behavior.

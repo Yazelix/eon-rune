@@ -6,6 +6,7 @@ use super::*;
 impl<T: 'static> Overlay<T> {
     /// Draws a frame if one is due; true while it needs more (animating).
     pub(super) fn draw(&mut self) -> bool {
+        if self.gpu_failed() { return false; }
         self.presence_due(Instant::now());
         if !self.presence.drawing() {
             self.drain_hidden();
@@ -27,6 +28,7 @@ impl<T: 'static> Overlay<T> {
     /// One input event a layer or XWayland surface read on its own connection.
     #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
     fn surface_input(&mut self, input: crate::platform::layer_shell::Input) {
+        if self.gpu_failed() { return; }
         use crate::platform::layer_shell::Input;
         match input {
             Input::Move(x, y) => { self.dirty |= self.rt.observe_pointer(x, y); return; }
@@ -61,6 +63,7 @@ impl<T: 'static> Overlay<T> {
     }
 
     pub(super) fn draw_frame(&mut self, prewarm: bool) -> bool {
+        if self.gpu_failed() { return false; }
         let timer = !self.quiet.step(frame::QuietEvent::FrameStarts).is_empty();
         #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
         if let Some(Live { backing: Backing::Layer(layer), .. }) = self.surface.live_mut() {
@@ -145,6 +148,7 @@ impl<T: 'static> Overlay<T> {
             }
             None => None,
         };
+        if self.gpu_failure.failed_on(gpu) { self.gpu_failed(); return false; }
         #[cfg(target_os = "macos")]
         let target = {
             let opportunity = if prewarm { None } else { live.pacing.as_mut().map(|p| p.next_frame()) };
@@ -165,6 +169,7 @@ impl<T: 'static> Overlay<T> {
         let frame = match crate::window::acquire_checked(&live.surface, gpu, &live.config, true, if prewarm { 2 } else { 1 }, &mut self.meter, !read_occlusion) {
             Ok(frame) => frame,
             Err(missed) => {
+                if self.gpu_failed() { return false; }
                 if missed == crate::window::Missed::Unconfigured { self.surface_refused("its GPU surface refused a new configuration".into()); return false; }
                 if !prewarm {
                     #[cfg(target_os = "macos")]
@@ -174,6 +179,7 @@ impl<T: 'static> Overlay<T> {
                 return false;
             }
         };
+        if self.gpu_failure.failed_on(gpu) { return self.discard_failed_frame(frame); }
         let now = built.map_or_else(Instant::now, |(_, _, now)| now);
         #[cfg(not(target_os = "macos"))]
         let frame_time = now;
@@ -188,6 +194,7 @@ impl<T: 'static> Overlay<T> {
         } else {
             step(&mut self.rt, &mut self.clock, &self.compositor, frame_time, prewarm)
         };
+        if self.gpu_failure.failed_on(gpu) { return self.discard_failed_frame(frame); }
         #[cfg(target_os = "macos")]
         let frame = {
             let Backing::Window(window) = &live.backing;
@@ -197,6 +204,7 @@ impl<T: 'static> Overlay<T> {
                 drop(frame);
                 self.rt.native_materials = true;
                 animating |= self.rt.frame(0.0);
+                if self.gpu_failure.failed_on(gpu) { self.gpu_failed(); return false; }
                 match crate::window::acquire_checked(&live.surface, gpu, &live.config, true, if prewarm { 2 } else { 1 }, &mut self.meter, !read_occlusion) {
                     Ok(frame) => frame,
                     // Returning true turned the loop with ControlFlow::Poll; wait like any miss.
@@ -228,6 +236,7 @@ impl<T: 'static> Overlay<T> {
                 }
             }
         } else { frame };
+        if self.gpu_failure.failed_on(gpu) { return self.discard_failed_frame(frame); }
         let update_ms = if self.compositor.is_some() { now.elapsed().as_secs_f64() * 1000.0 } else { 0.0 };
         super::input::drop_window_requests(&mut self.rt);
         self.clipboard.flush(&mut self.rt);
@@ -256,10 +265,11 @@ impl<T: 'static> Overlay<T> {
             size: (live.config.width, live.config.height), dt, update_ms,
             rt: &mut self.rt, ui: renderer,
         }, &mut self.compositor);
+        if self.gpu_failure.failed_on(gpu) { return self.discard_failed_frame(frame); }
         if let Some(alpha) = &live.alpha {
             alpha.draw(&mut enc, &view);
         }
-        frame::submit_and_present(live, renderer, gpu, &self.rt, enc, frame, prewarm);
+        if !frame::submit_and_present(live, renderer, gpu, &self.rt, enc, frame, prewarm, &self.gpu_failure) { self.gpu_failed(); return false; }
         crate::render::gpu_events::presented();
         self.clock.presented(&mut self.rt, Instant::now());
         if !prewarm { self.meter.presented(); }
@@ -367,7 +377,9 @@ impl<T: 'static> Overlay<T> {
 
     /// Warm glyphs/pipelines and, on macOS, the retained alpha-zero host's actual surface.
     pub(super) fn warm(&mut self) {
+        if self.gpu_failed() { return; }
         self.rt.frame(0.0);
+        if self.gpu_failed() { return; }
         self.rt.settle_all();
         self.rt.frame(0.0);
         self.clock.hold(Instant::now());
@@ -375,6 +387,7 @@ impl<T: 'static> Overlay<T> {
     }
 
     pub(super) fn warm_frame(&mut self) {
+        if self.gpu_failed() { return; }
         self.publish_regions();
         #[cfg(target_os = "macos")]
         if let Some(panel) = &self.panel {
@@ -389,6 +402,7 @@ impl<T: 'static> Overlay<T> {
     }
 
     pub(super) fn warm_offscreen(&mut self, size: (u32, u32)) {
+        if self.gpu_failed() { return; }
         let (Some(renderer), Some(gpu)) = (&mut self.renderer, &self.gpu) else { return };
         let target = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("overlay prewarm"), size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
@@ -401,7 +415,8 @@ impl<T: 'static> Overlay<T> {
             target: &target.create_view(&Default::default()), format: renderer.format(), size,
             dt: 0.0, update_ms: 0.0, rt: &mut self.rt, ui: renderer,
         }, &mut self.compositor);
-        renderer.submit(&gpu.queue, enc);
+        if renderer.submit_if(&gpu.queue, enc, || !self.gpu_failure.failed_on(gpu)).is_none() { self.gpu_failed(); return; }
         let _ = gpu.device.poll(wgpu::PollType::wait_indefinitely());
+        self.gpu_failed();
     }
 }

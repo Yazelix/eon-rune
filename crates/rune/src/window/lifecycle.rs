@@ -452,7 +452,7 @@ impl<S: 'static> Host<S> {
     pub(super) fn create(&mut self, event_loop: &ActiveEventLoop, token: Option<String>, focus: bool) {
         let result = self.try_create(event_loop, token, focus);
         if let Err(error) = &result {
-            if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal) { self.fail_gpu(error.clone()); }
+            if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Terminal(_)) { self.fail_gpu(error.clone()); }
             eprintln!("rune: could not create the window {}: {error}", self.native_handle.key());
         }
         if matches!(self.hooks.gpu_failure, gpu_failure::Policy::Failed) { return; }

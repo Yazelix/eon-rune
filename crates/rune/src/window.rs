@@ -277,6 +277,7 @@ pub(crate) fn start<S: 'static>(mut spec: WindowSpec<S>, handle: Option<WindowHa
         return None;
     }
     crate::video::enable_playback();
+    for overlay in &mut spec.app.overlays { overlay.gpu_failure(spec.app.shared.gpu_failure.get().cloned()); }
     cx.overlays.append(&mut spec.app.overlays);
     let handle = handle.unwrap_or_else(|| WindowHandle::new(&spec.key));
     let open_urls = crate::open_url::incoming::listen(&spec.app);
