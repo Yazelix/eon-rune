@@ -477,6 +477,25 @@ policy changes are applied in the same mutation phase.
 
 ### Canvas handlers: live-only events and coordinate spaces
 
+For a custom editor or canvas needing native data, `App::on_window_event` receives
+`(&mut state, &rune::winit::window::Window, &rune::winit::event::WindowEvent, &mut Tx)`
+before Rune's native handling, including while a window cannot draw. Events arrive
+once in native order. The borrowed key retains physical/logical identity, location,
+text, repeat, synthetic status and platform modifier supplements. Pointer and touch
+positions are physical window pixels; wheel deltas retain native line/pixel units,
+axes and Started/Moved/Ended/Cancelled phases. `Tx::mods` is current and
+`Tx::input_time` retains the host's monotonic timestamp where available.
+
+Return true to consume input and report changed view state. False continues Rune's
+normal handling. While the native window exists, geometry, focus, close, redraw
+and modifier bookkeeping continue regardless of the return value. Use `tx.live_only()` for observation or
+input that changes no view state. An observer returning true for every redraw
+without `live_only()` keeps requesting frames. Only consume keys belonging to your
+custom surface: its press/release admission and IME coordination are its own.
+Use `App::on_ime` for composed text; a composition's confirmation/cancellation key
+must not also become committed text. Declining preserves Rune's field/widget route.
+This hook is native-only; scripted/headless events keep their existing APIs.
+
 Every event a handler hears re-runs the view, diffs and lays it out. A canvas camera lives in
 [`Live`](#high-frequency-values) values (`live_offset` and `live_scale` on the world), which
 the frame draws without any of that, so a pan or pinch handler that only sets them can say so

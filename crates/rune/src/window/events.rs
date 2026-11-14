@@ -194,6 +194,7 @@ impl<S: 'static> Host<S> {
         }
         self.a11y_window_event(&event);
         if !matches!(event, WindowEvent::RedrawRequested) && let Some(w) = &mut self.win { w.timer_frame.no_longer_quiet(); }
+        if self.before_window_event(event_loop, &event) { return; }
         #[cfg(target_os = "macos")]
         if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } | WindowEvent::Occluded(_))
             && let Some(w) = &mut self.win && let Some(pacing) = &mut w.native.pacing {
