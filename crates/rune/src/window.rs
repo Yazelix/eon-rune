@@ -59,6 +59,7 @@ mod event_loop;
 mod events;
 mod file_drop;
 pub(crate) mod frame;
+pub(crate) mod geometry;
 mod handle;
 pub use handle::WindowHandle;
 use handle::native_window_number;
@@ -371,6 +372,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
         // putting off behind another window's.
         let now = Instant::now();
         for host in self.hosts.iter_mut().flatten() { host.turn_ends(event_loop, now); }
+        if self.hosts.iter().flatten().any(|host| host.finished()) { self.cleanup(event_loop); }
         // Layer surfaces have no redraw events: keep turning while one animates (its vsync
         // paces the loop). Hosts whose only motion is an ambient loop sleep until its next step.
         let deadline = self.hosts.iter().flatten().filter_map(|host| host.wake_deadline()).min();

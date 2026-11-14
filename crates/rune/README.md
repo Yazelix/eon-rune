@@ -1001,6 +1001,30 @@ The app owns its tray; Rune supplies the window lifetime and handles.
 created: no Dock icon/default menu and no activation at launch. Other platforms
 ignore it; `run_windows` keeps its regular-launch default.
 
+### Observing native geometry
+
+`App::on_window_geometry(|s, geometry, tx| -> bool { ... })` reports physical
+content size (`physical_size`), native `scale_factor`, and `has_output` from
+`current_monitor()`. It runs at native creation before initial focus/first draw,
+then at idle when those facts change, including output entry at scale 1 without
+a resize. Every native recreation reports an initial sample. Return true when
+view state changed; Tx requests use the same handling as `on_window_event`.
+Unchanged samples invoke nothing and schedule no frames. Headless tooling and
+web do not synthesize these native snapshots.
+
+Opting in queries native size, scale and output presence on every idle turn,
+including turns during animation; deduplication skips callbacks, not queries.
+On X11, winit 0.30 performs a blocking server query for the inner size. The cost
+depends on the native backend/server; use only `on_window_event` if that sampling
+cost is unsuitable.
+
+For immediate input invalidation, also use `on_window_event`: handle native
+`Resized` (including zero width/height) and `ScaleFactorChanged` before accepting
+subsequent input, using the event's applied size/scale and the supplied window's
+output presence. Do not wait for idle or treat a requested resize as applied.
+A snapshot with output and nonzero size does not certify presentation; use the
+Drawn frame report for that. Destruction does not synthesize a geometry sample.
+
 ### Resizing and centring a window
 
 ```rust

@@ -5,11 +5,14 @@ pub(crate) type WindowEventHook<S> = fn(&mut S, &Window, &WindowEvent, &mut Tx) 
 
 pub(crate) struct AppHooks<S> {
     pub(crate) window_event: Option<WindowEventHook<S>>,
+    pub(crate) geometry: Option<fn(&mut S, crate::WindowGeometry, &mut Tx) -> bool>,
+    // Cache of the last native observation.
+    pub(crate) last_geometry: Option<crate::WindowGeometry>,
 }
 
 impl<S> Default for AppHooks<S> {
     fn default() -> Self {
-        Self { window_event: None }
+        Self { window_event: None, geometry: None, last_geometry: None }
     }
 }
 

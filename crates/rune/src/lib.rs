@@ -358,6 +358,7 @@ pub use video::Player;
 pub use video::PlayerState;
 pub use video::Video;
 pub use window::WindowHandle;
+pub use window::geometry::WindowGeometry;
 pub use window::spec as windows;
 pub use windows::AnyWindowSpec;
 pub use windows::ConfiguredWindowOptions;

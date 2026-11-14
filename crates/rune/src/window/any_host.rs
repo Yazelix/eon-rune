@@ -242,6 +242,7 @@ impl<S: 'static> Host<S> {
     }
 
     fn about_to_wait_in_turn(&mut self, event_loop: &ActiveEventLoop) -> bool {
+        if self.sample_geometry(event_loop, false) { return false; }
         #[cfg(target_os = "macos")]
         self.fn_key();
         self.flush_files(event_loop);
