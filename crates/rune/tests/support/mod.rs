@@ -3,6 +3,52 @@
 use rune::runtime::ElementInfo;
 use rune::{Key, KeyEvent, Mods, Runtime};
 
+/// The actual snapshot device, shared by a test's captures and optional compositor.
+#[derive(Clone, Default)]
+pub struct ColorAdapter(std::sync::Arc<std::sync::OnceLock<wgpu::AdapterInfo>>);
+
+impl ColorAdapter {
+    pub fn observe(&self, device: &wgpu::Device) {
+        let info = device.adapter_info();
+        let first = self.0.get_or_init(|| {
+            eprintln!("color reference adapter: {info:?}");
+            info.clone()
+        });
+        assert_eq!(first, &info, "color captures must use the same adapter");
+    }
+
+    pub fn tolerance(&self) -> u8 {
+        color_tolerance(self.0.get().expect("snapshot rendered before comparison"))
+    }
+
+    pub fn linear_tolerances(&self) -> [u8; 3] {
+        let info = self.0.get().expect("snapshot rendered before comparison");
+        // Only lavapipe's red differs; linear green/blue and Intel remain exact.
+        let red = if info.vendor == 0x10005 { color_tolerance(info) } else { 0 };
+        [red, 0, 0]
+    }
+}
+
+impl rune::compose::Compositor<()> for ColorAdapter {
+    fn render(&mut self, frame: &mut rune::compose::Frame<'_, ()>) {
+        self.observe(frame.device);
+        frame.draw_ui();
+    }
+}
+
+pub fn color_tolerance(info: &wgpu::AdapterInfo) -> u8 {
+    // Measured source-RGBA8 blend precision; other devices/drivers retain exact checks.
+    u8::from(info.backend == wgpu::Backend::Vulkan && matches!(
+        (info.vendor, info.device, info.name.as_str(), info.driver.as_str(), info.driver_info.as_str()),
+        (0x8086, 0xa78b, "Intel(R) Graphics (RPL-S)", "Intel open-source Mesa driver", "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea")
+        | (0x10005, 0, "llvmpipe (LLVM 20.1.2, 256 bits)", "llvmpipe", "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)")
+    ))
+}
+
+pub fn rgb_within(actual: [u8; 4], expected: [u8; 3], tolerances: [u8; 3]) -> bool {
+    actual[..3].iter().zip(expected).zip(tolerances).all(|((a, b), tolerance)| a.abs_diff(b) <= tolerance)
+}
+
 pub fn find<S: 'static>(rt: &Runtime<S>, key: &str) -> ElementInfo {
     rt.elements().into_iter().find(|e| e.key.as_deref() == Some(key)).unwrap_or_else(|| panic!("{key}"))
 }
