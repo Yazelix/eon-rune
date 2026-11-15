@@ -255,9 +255,17 @@ fn srgb_blend_matches_css_and_core_animation_glow_reference() {
     let linear_center = pixel(&px_linear, 240, 120, 120);
     let srgb_center = pixel(&px_srgb, 240, 120, 120);
 
-    // Default linear mode stays unchanged (green channel is 83 vs 42 in sRGB reference).
-    assert_eq!(linear_center, [29, 83, 56, 255]);
-    assert_eq!(&srgb_center[..3], &expected_center, "0 LSB centre error in srgb_blend");
+    // UNORM8 blending can round RGB by one level, as in the falloff and blur checks.
+    // Linear mode stays distinct (green channel is 83 vs 42 in the sRGB reference).
+    for (mode, center, expected) in [
+        ("linear", linear_center, [29, 83, 56]),
+        ("sRGB", srgb_center, expected_center),
+    ] {
+        for c in 0..3 {
+            assert!(center[c].abs_diff(expected[c]) <= 1, "{mode} centre channel {c}: got {center:?}, expected {expected:?}");
+        }
+        assert_eq!(center[3], 255, "opaque background stays opaque");
+    }
 
     // Check the Gaussian falloff across the left edge (x = 15..120 at y = 120, where sigma = 15 px).
     let erf = |x: f32| -> f32 {
