@@ -1,7 +1,7 @@
 //! On-demand unbuilt virtual-row building, copy collection, ⌘A span resolution, and programmatic
 //! selection requests on unbuilt rows.
 use super::{
-    EndRef, MAX_VIRTUAL_COPY_BYTES, MAX_VIRTUAL_COPY_ROWS, OffscreenText,
+    CopyRows, EndRef, MAX_VIRTUAL_COPY_BYTES, MAX_VIRTUAL_COPY_ROWS, OffscreenText,
     collect_virtual_row_selection, offscreen_piece,
 };
 use crate::el::{SelectRequest, SelectionCopy};
@@ -9,7 +9,7 @@ use crate::runtime::selectable::{CopyJoin, SelectedText, TextSelection, Unit, fl
 use crate::runtime::{Node, Runtime, playground_host};
 
 impl<S: 'static> Runtime<S> {
-    pub(crate) fn copy_virtual_text(&self) -> Option<String> {
+    pub(crate) fn copy_virtual_text(&self, rows: CopyRows) -> Option<String> {
         let h = self.selection_holder_end()?;
         let f = self.focus_holder_end(h)?;
         let node_for = |e: EndRef| match e {
@@ -23,13 +23,13 @@ impl<S: 'static> Runtime<S> {
         if let Some(p) = provider
             && let Some(copy_fn) = self.nodes[p].handlers.selection_copy.clone()
         {
-            let sel = self.collect_virtual_selection(Some(p))?;
+            let sel = self.collect_virtual_selection_with(Some(p), rows)?;
             if let Some(text) = copy_fn(&sel) {
                 return Some(text);
             }
             return Some(sel.text);
         }
-        self.collect_virtual_selection(None).map(|s| s.text)
+        self.collect_virtual_selection_with(None, rows).map(|s| s.text)
     }
 
     /// Builds an unmounted row `r` of `list_path` on demand (view only, no layout/mount/GPU) and
@@ -90,6 +90,10 @@ impl<S: 'static> Runtime<S> {
     /// Collects the full [`TextSelection`] when the selection touches offscreen or unbuilt rows,
     /// bounded by [`MAX_VIRTUAL_COPY_ROWS`] and [`MAX_VIRTUAL_COPY_BYTES`].
     pub(crate) fn collect_virtual_selection(&self, base: Option<usize>) -> Option<TextSelection> {
+        self.collect_virtual_selection_with(base, CopyRows::Build)
+    }
+
+    fn collect_virtual_selection_with(&self, base: Option<usize>, rows: CopyRows) -> Option<TextSelection> {
         let h = self.selection_holder_end()?;
         let f = self.focus_holder_end(h)?;
         let sel = &self.text_sel;
@@ -97,7 +101,7 @@ impl<S: 'static> Runtime<S> {
 
         if h == f {
             let (a, b) = (sel.anchor.min(sel.focus), sel.anchor.max(sel.focus));
-            return match h {
+            let selection = match h {
                 EndRef::Mounted(i) => {
                     if a >= b || b > self.content_of(i).len() { return None; }
                     let piece = self.selected_piece(i, a..b, base);
@@ -112,6 +116,7 @@ impl<S: 'static> Runtime<S> {
                     Some(TextSelection { texts: vec![piece], text, backward: self.selection_backward() })
                 }
             };
+            return selection.filter(|s| rows == CopyRows::Build || s.text.len() <= MAX_VIRTUAL_COPY_BYTES);
         }
 
         let ((first_end, first_byte), (last_end, last_byte)) = if self.tree_order(h) < self.tree_order(f) {
@@ -142,7 +147,10 @@ impl<S: 'static> Runtime<S> {
                     let piece = offscreen_piece(t, a..b, base_path);
                     let hit_cap = out.push(&t.spec, a..b, piece.text(), t.tab_before, MAX_VIRTUAL_COPY_BYTES);
                     texts.push(piece);
-                    if hit_cap { break; }
+                    if hit_cap {
+                        if rows == CopyRows::Retained { return None; }
+                        break;
+                    }
                 }
                 let text = out.finish();
                 return (!text.is_empty()).then_some(TextSelection { texts, text, backward: self.selection_backward() });
@@ -163,6 +171,13 @@ impl<S: 'static> Runtime<S> {
         let list_node = self.live(&list_path)?;
         let v = self.virtuals.get(&list_path)?;
         let g = self.live(g_path)?;
+
+        // This collector resolves one list; another list's unbuilt rows must not be omitted.
+        if rows == CopyRows::Retained && self.virtuals.keys().filter_map(|path| self.live(path))
+            .any(|i| i != list_node && (first_ord.0..=last_ord.0).contains(&(i * 2 + 1)))
+        {
+            return None;
+        }
 
         let (mut texts, mut out) = (Vec::new(), CopyJoin::default());
         let (mut unbuilt_rows, mut prev_mounted, mut hit_cap) = (0usize, None, false);
@@ -210,7 +225,10 @@ impl<S: 'static> Runtime<S> {
                     let row_path = format!("{list_path}/{}", v.keys[r]);
                     let Some(row_node) = (list_node + 1..=list_end)
                         .find(|&j| self.nodes[j].parent == Some(list_node) && self.nodes[j].path == row_path)
-                    else { continue };
+                    else {
+                        if rows == CopyRows::Retained { return None; }
+                        continue;
+                    };
                     let inside_row = |j: usize| {
                         j == row_node || std::iter::successors(self.nodes[j].parent, |&p| self.nodes[p].parent).any(|p| p == row_node)
                     };
@@ -228,6 +246,8 @@ impl<S: 'static> Runtime<S> {
                     let row_texts: Vec<&OffscreenText> = if v.selection.texts.iter().any(|t| &t.row_key == row_key) {
                         v.selection.texts.iter().filter(|t| &t.row_key == row_key).collect()
                     } else {
+                        // Automatic primary export must not run an unmounted row's view.
+                        if rows == CopyRows::Retained { return None; }
                         if unbuilt_rows >= MAX_VIRTUAL_COPY_ROWS || out.text().len() >= MAX_VIRTUAL_COPY_BYTES {
                             hit_cap = true;
                             break;
@@ -263,12 +283,14 @@ impl<S: 'static> Runtime<S> {
             if !hit_cap {
                 for j in (list_end + 1..self.nodes.len()).take_while(|&j| inside_g(j)).filter(|&j| self.member(j, g)) {
                     if append_mounted(j, &mut out, &mut texts, &mut prev_mounted) {
+                        hit_cap = true;
                         break;
                     }
                 }
             }
         }
 
+        if hit_cap && rows == CopyRows::Retained { return None; }
         let text = out.finish();
         (!text.is_empty()).then_some(TextSelection { texts, text, backward: self.selection_backward() })
     }

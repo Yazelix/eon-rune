@@ -3,6 +3,10 @@
 //! unbuilt rows (with `\t` for side-by-side cells and `\n` otherwise), Cmd+A /
 //! `Tx::select_all_text` over a virtual list, `Tx::select_text` on an unbuilt row, and bounded
 //! off-screen collection.
+#[cfg(target_os = "linux")]
+#[path = "virtual_primary_tests.rs"]
+mod primary_tests;
+
 use std::cell::Cell;
 use std::time::Instant;
 

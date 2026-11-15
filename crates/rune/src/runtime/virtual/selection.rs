@@ -24,6 +24,12 @@ pub(crate) const MAX_VIRTUAL_COPY_ROWS: usize = 10_000;
 /// virtual rows (4 MiB). Past this cap, collection stops and truncates on a character boundary.
 pub(crate) const MAX_VIRTUAL_COPY_BYTES: usize = 4 * 1024 * 1024;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CopyRows {
+    Build,
+    Retained,
+}
+
 /// Identity of a selection endpoint inside a virtual list: `(row key/index, element path within
 /// the row, text offset)`.
 #[derive(Clone, Debug, PartialEq, Eq)]

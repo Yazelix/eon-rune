@@ -263,6 +263,8 @@ impl<S: 'static> Runtime<S> {
     pub(super) fn run_action(&mut self, action: Action, tx: &mut Tx) -> bool {
         let selects = cfg!(target_os = "linux") && matches!(action, Action::Key { .. } | Action::Physical(..) | Action::Focus(..) | Action::A11y(..));
         let before = selects.then(|| self.primary_selection());
+        // An explicit export only overrides automatic export from its own action.
+        let previous_primary = tx.primary.copy.take();
         #[cfg(debug_assertions)]
         let (name, path, at) = (handler_name(&action), stall_path(&action).map(str::to_owned), self.handler_location(&action));
         let stall = crate::tooling::perf_warn::Stall::start();
@@ -271,6 +273,7 @@ impl<S: 'static> Runtime<S> {
         if let Some(before) = before {
             self.export_primary_selection(before, tx);
         }
+        if tx.primary.copy.is_none() { tx.primary.copy = previous_primary; }
         if ran && let Some((note, started)) = timed { self.interaction_ran(note, started); }
         #[cfg(debug_assertions)]
         if ran && name.starts_with("on_") { self.watch.meter.handler(name, path.as_deref(), at); }

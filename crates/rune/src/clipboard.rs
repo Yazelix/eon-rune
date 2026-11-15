@@ -125,6 +125,7 @@ enum Request {
     Plain(plain::Operation),
     Write(ClipboardWrite, Option<Notify>),
     WritePrimary(String),
+    ClearPrimary,
     /// Clear this secret, or whichever secret is held, if the clipboard still holds it.
     Clear(Option<Arc<Slot>>),
     Read { purpose: Purpose, reply: mpsc::Sender<Reply>, wake: Waker },
@@ -200,7 +201,7 @@ fn deliver<S: 'static>(rt: &mut Runtime<S>, reply: Reply) {
 pub(crate) fn flush_memory<S: 'static>(rt: &mut Runtime<S>) {
     let Some(m) = rt.clipboard.clone() else { return };
     let primary = rt.take_primary();
-    if let Some(text) = primary.copy { m.handle(Request::WritePrimary(text)); }
+    if let Some(copy) = primary.copy { m.handle(copy.into()); }
     if let Some(target) = primary.paste {
         if let Some(reply) = m.answer(Purpose::PrimaryPaste(target)) { deliver(rt, reply); }
     }
@@ -271,6 +272,7 @@ impl std::fmt::Debug for MemoryClipboard {
 impl Backend for Board {
     fn primary_text(&mut self) -> Option<String> { self.primary.clone() }
     fn write_primary(&mut self, text: String) -> Result<(), String> { if let Some(error) = &self.fail { return Err(error.clone()); } self.primary = Some(text); Ok(()) }
+    fn clear_primary(&mut self) -> Result<(), String> { if let Some(error) = &self.fail { return Err(error.clone()); } self.primary = None; Ok(()) }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String> {
         if let Some(error) = &self.fail { return Err(error.clone()); }
         self.content = Some(copy.content.clone());
@@ -296,6 +298,7 @@ pub(crate) fn shutdown() {
 trait Backend {
     fn primary_text(&mut self) -> Option<String> { None }
     fn write_primary(&mut self, _text: String) -> Result<(), String> { Ok(()) }
+    fn clear_primary(&mut self) -> Result<(), String> { Ok(()) }
     #[cfg(not(target_arch = "wasm32"))]
     fn bounded_text(&mut self, _primary: bool, _cap: usize) -> plain::Outcome { plain::Outcome::Unsupported }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String>;
@@ -344,6 +347,7 @@ impl Core {
         match request {
             Request::Write(copy, notify) => self.write(cb, copy, notify, &RealTime),
             Request::WritePrimary(text) => { drop(cb.write_primary(text)); }
+            Request::ClearPrimary => { drop(cb.clear_primary()); }
             #[cfg(not(target_arch = "wasm32"))]
             Request::Plain(operation) => operation.run(self, cb),
             Request::Clear(which) => self.clear(cb, which.as_ref()),

@@ -9,7 +9,7 @@ impl Client {
     pub fn flush<S: 'static>(&self, rt: &mut Runtime<S>) {
         if rt.clipboard.is_some() { return flush_memory(rt); }
         let primary = rt.take_primary();
-        if let Some(text) = primary.copy { let _ = worker().send(Request::WritePrimary(text)); }
+        if let Some(copy) = primary.copy { let _ = worker().send(copy.into()); }
         if let Some(target) = primary.paste { self.read_for(Purpose::PrimaryPaste(target)); }
         // Nothing to clear before the first write.
         if std::mem::take(&mut rt.clear_secret_request) && let Some(w) = WORKER.get() { let _ = w.sender.send(Request::Clear(None)); }
@@ -72,6 +72,11 @@ impl Backend for arboard::Clipboard {
     fn write_primary(&mut self, text: String) -> Result<(), String> {
         use arboard::{SetExtLinux, LinuxClipboardKind};
         self.set().clipboard(LinuxClipboardKind::Primary).text(text).map_err(|e| e.to_string())
+    }
+    #[cfg(target_os = "linux")]
+    fn clear_primary(&mut self) -> Result<(), String> {
+        use arboard::{ClearExtLinux, LinuxClipboardKind};
+        self.clear_with().clipboard(LinuxClipboardKind::Primary).map_err(|e| e.to_string())
     }
     fn bounded_text(&mut self, primary: bool, cap: usize) -> plain::Outcome {
         use plain::Outcome;

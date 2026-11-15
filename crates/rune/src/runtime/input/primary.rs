@@ -1,5 +1,7 @@
 //! Linux's default selection export and middle-button field paste.
 use super::*;
+use crate::clipboard::primary::Export;
+use selectable::virtual_selection::CopyRows;
 
 #[derive(PartialEq, Eq)]
 pub(in crate::runtime) struct PrimarySelection {
@@ -74,7 +76,15 @@ impl<S: 'static> Runtime<S> {
             return (!edit.is_secure() && edit.anchor != edit.focus)
                 .then(|| edit.selected().to_owned());
         }
-        self.copy_text()
+        self.copy_text_with(CopyRows::Retained)
+    }
+
+    fn primary_export(
+        before: Option<PrimarySelection>,
+        after: Option<PrimarySelection>,
+        text: impl FnOnce() -> Option<String>,
+    ) -> Option<Export> {
+        (after != before && after.is_some()).then(|| text().map_or(Export::Clear, Export::Write))
     }
 
     pub(in crate::runtime) fn export_primary_selection(
@@ -82,20 +92,19 @@ impl<S: 'static> Runtime<S> {
         before: Option<PrimarySelection>,
         tx: &mut Tx,
     ) {
-        if cfg!(target_os = "linux") {
+        if cfg!(target_os = "linux") && !matches!(tx.primary.copy, Some(Export::Explicit(_))) {
             let after = self.primary_selection();
-            if after != before
-                && after.is_some()
-                && let Some(text) = self.primary_selection_text()
+            if let Some(copy) =
+                Self::primary_export(before, after, || self.primary_selection_text())
             {
-                tx.copy_primary(text);
+                tx.primary.copy = Some(copy);
             }
         }
     }
 
     pub(in crate::runtime) fn latch_primary(&mut self, tx: &mut Tx) {
-        if let Some(text) = tx.primary.copy.take() {
-            self.input_click.primary.copy = Some(text);
+        if let Some(copy) = tx.primary.copy.take() {
+            self.input_click.primary.copy = Some(copy);
         }
         if tx.primary.paste.take().is_some() {
             self.input_click.primary.paste = Some(if tx.blur { None } else { self.paste_target() });
@@ -116,11 +125,10 @@ impl<S: 'static> Runtime<S> {
     pub(in crate::runtime) fn export_primary_text(&mut self, before: Option<PrimarySelection>) {
         if cfg!(target_os = "linux") {
             let after = self.primary_text_selection();
-            if after != before
-                && after.is_some()
-                && let Some(text) = self.copy_text()
+            if let Some(copy) =
+                Self::primary_export(before, after, || self.copy_text_with(CopyRows::Retained))
             {
-                self.input_click.primary.copy = Some(text);
+                self.input_click.primary.copy = Some(copy);
             }
         }
     }

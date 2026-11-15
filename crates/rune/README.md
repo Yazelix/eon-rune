@@ -1412,6 +1412,12 @@ On Linux, editable and selectable read-only text exports its selection to primar
 selection. Secure fields never export. Middle-click pastes plain primary text at
 the clicked field's caret; an explicit Middle handler takes precedence. Primary
 selection stays independent of the regular clipboard, including when no owner exists.
+Automatic export uses only mounted or retained row text. A virtual selection
+with missing text, or one exceeding the virtual copy byte limit, clears primary
+instead of building unmounted rows or serving an incomplete or older selection.
+Explicit Copy still collects virtual rows on demand with its usual limits.
+For groups containing multiple virtual lists, automatic export may also clear
+conservatively when unmounted text is involved.
 Custom hosts export with `tx.copy_primary(selection)` and request primary text
 with `tx.blur(); tx.request_primary_paste()` in their Middle handler; the app's
 existing `on_paste` receives the text. These requests are ignored outside Linux.
