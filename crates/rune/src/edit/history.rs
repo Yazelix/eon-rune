@@ -308,5 +308,8 @@ impl TextEdit {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "history_tests.rs"]
 mod tests;
+}

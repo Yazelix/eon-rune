@@ -123,6 +123,8 @@ fn apply() {
     unsafe { app.setApplicationIconImage(Some(&image)) };
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
@@ -141,4 +143,5 @@ mod tests {
         assert!(!LAUNCHED.load(Ordering::Acquire));
         assert!(PENDING.lock().unwrap().is_some());
     }
+}
 }

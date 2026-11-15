@@ -74,5 +74,8 @@ impl Life {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "life_tests.rs"]
 mod tests;
+}

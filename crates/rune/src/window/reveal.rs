@@ -89,5 +89,8 @@ impl Reveal {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "reveal_tests.rs"]
 mod tests;
+}

@@ -30,7 +30,10 @@ mod tape;
 mod track;
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests;
+}
 
 pub use bundle::Bundle;
 pub use clip::{Change, Clip, Shot};

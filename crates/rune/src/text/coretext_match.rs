@@ -245,5 +245,8 @@ pub(crate) fn coverage_exponent(mode: FontSmoothing, fill: [f32; 4], apple: bool
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "coretext_match_tests.rs"]
 mod tests;
+}

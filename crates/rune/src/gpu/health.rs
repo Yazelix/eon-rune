@@ -41,5 +41,8 @@ impl ErrorLog {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "health_tests.rs"]
 mod tests;
+}

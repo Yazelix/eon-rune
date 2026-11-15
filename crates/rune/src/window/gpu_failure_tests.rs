@@ -1,5 +1,7 @@
 use super::*;
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn terminal_transition_is_permanent_and_reports_only_once() {
     let mut policy = Policy::Terminal(Arc::default());
@@ -14,7 +16,10 @@ fn terminal_transition_is_permanent_and_reports_only_once() {
     assert!(policy.step("later loss".into()).is_empty());
     assert!(matches!(policy, Policy::Failed));
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn policy_step_returns_effects_without_recording_or_waking() {
     let latch = Arc::new(crate::render::failure::Failure::default());
@@ -36,7 +41,10 @@ fn policy_step_returns_effects_without_recording_or_waking() {
     assert_eq!(wakes.load(Ordering::SeqCst), 0);
     assert!(latch.message().is_none());
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn recover_is_the_default_and_never_latches_a_failure() {
     let mut policy = Policy::default();
@@ -52,7 +60,10 @@ fn recover_is_the_default_and_never_latches_a_failure() {
     let spec = WindowSpec::from_app("terminal", app.terminal_gpu_loss());
     assert!(matches!(spec.app.hooks.gpu_failure, Policy::Terminal(_)));
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(target_os = "linux")]
 #[test]
 fn destroyed_device_callback_preserves_default_recovery_and_stops_terminal() {
@@ -72,7 +83,10 @@ fn destroyed_device_callback_preserves_default_recovery_and_stops_terminal() {
     assert!(Policy::Terminal(Arc::default()).failed_on(&gpu));
     assert!(!Policy::Recover.failed_on(&gpu));
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(target_os = "linux")]
 #[test]
 #[ignore = "requires a private headless Wayland session"]
@@ -432,11 +446,15 @@ fn native_terminal_window_and_same_device_surface_control() {
         })
         .unwrap();
 }
+}
 
 #[cfg(target_os = "linux")]
 #[path = "gpu_failure_regression_tests.rs"]
 pub(crate) mod regressions;
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(target_os = "linux")]
 #[path = "overlay_owner_tests.rs"]
 mod overlay_owner;
+}

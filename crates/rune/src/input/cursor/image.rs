@@ -135,5 +135,8 @@ impl<T: Clone> ImageCursors<T> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "image_tests.rs"]
 mod tests;
+}

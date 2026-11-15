@@ -614,6 +614,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 mod tests {
     use crate::{Env, Runtime, col, el};
 
@@ -700,4 +702,5 @@ mod tests {
         assert!(!rt.set_window_origin((50.0, 50.0)));
         assert_eq!(rt.state.local.len(), 1);
     }
+}
 }

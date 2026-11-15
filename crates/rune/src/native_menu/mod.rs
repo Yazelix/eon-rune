@@ -14,7 +14,10 @@ mod default_macos;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod key_equivalent;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod key_equivalent_tests;
+}
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod standard;
 #[cfg(target_os = "macos")]
@@ -360,6 +363,8 @@ impl<S: 'static> Drop for Guard<S> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{AppSpec, el};
@@ -457,4 +462,5 @@ mod tests {
         assert_eq!(app.handle().set_menu([item("other")]), Err(MenuError::Unsupported));
         assert_eq!(app.shared.menus.0.lock().unwrap().items[0].description.id, "quick");
     }
+}
 }

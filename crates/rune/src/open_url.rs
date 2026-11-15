@@ -222,6 +222,8 @@ fn open(url: &str) -> Result<(), OpenUrlError> {
 fn open(_: &str) -> Result<(), OpenUrlError> { Err(OpenUrlError::Failed("this platform can't open links".into())) }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Cx, Env, Runtime, el::{El, el}};
@@ -292,4 +294,5 @@ mod tests {
         ]);
         assert!(rt.take_url_requests().is_empty());
     }
+}
 }

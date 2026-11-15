@@ -553,5 +553,8 @@ impl Control {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "phases_tests.rs"]
 mod tests;
+}

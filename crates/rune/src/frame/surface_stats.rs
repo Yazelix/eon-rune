@@ -282,6 +282,8 @@ pub(crate) fn read(shared: &Mutex<SurfaceStats>) -> SurfaceStats {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -396,7 +398,11 @@ mod tests {
         }
     }
 }
+}
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "surface_stats_walk_tests.rs"]
 mod walk_tests;
+}

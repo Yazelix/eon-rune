@@ -33,10 +33,16 @@ pub(crate) mod bench;
 mod builtin;
 mod compute;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod compute_tests;
+}
 mod derive;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod derive_tests;
+}
 mod device;
 mod encode;
 mod layout;
@@ -46,14 +52,23 @@ mod query;
 mod resource;
 mod shader;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod shader_tests;
+}
 mod store;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod store_tests;
+}
 mod submit;
 mod surface;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}
 
 use std::future::ready;
 use std::pin::Pin;

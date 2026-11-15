@@ -43,6 +43,8 @@ pub(crate) fn presented() {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::Mutex;
@@ -62,4 +64,5 @@ mod tests {
         use GpuEvent::*;
         assert_eq!(*HEARD.lock().unwrap(), [Starting, Drew, Starting, Drew]);
     }
+}
 }

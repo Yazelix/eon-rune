@@ -143,4 +143,7 @@ impl<E> Iterator for EffectsIter<E> {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests;
+}

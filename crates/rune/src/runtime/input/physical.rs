@@ -219,6 +219,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Cx, El, Env, Key, Mods, PhysicalKeyCode, TextEdit, TextStyle, col, el, text_input};
@@ -671,4 +673,5 @@ mod tests {
         rt.frame(0.0);
         assert_eq!(rt.state, "app");
     }
+}
 }

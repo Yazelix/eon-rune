@@ -153,5 +153,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "window_requests_tests.rs"]
 mod tests;
+}

@@ -54,5 +54,8 @@ impl PressRun {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "press_run_tests.rs"]
 mod tests;
+}

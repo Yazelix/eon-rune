@@ -336,6 +336,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::el::{col, el};
@@ -1087,4 +1089,5 @@ mod tests {
             }
         }
     }
+}
 }

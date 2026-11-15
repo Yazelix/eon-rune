@@ -83,5 +83,8 @@ fn log_uncaptured(device: &wgpu::Device, failure: Arc<super::failure::Failure>) 
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "gpu_loss_tests.rs"]
 mod tests;
+}

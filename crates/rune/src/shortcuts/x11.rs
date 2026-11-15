@@ -139,6 +139,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -147,4 +149,5 @@ mod tests {
             sequence: 1, bad_value: 0, minor_opcode: 0, major_opcode: 33, extension_name: None, request_name: None };
         assert_eq!(reply_error(ReplyError::X11Error(native)), ShortcutError::Conflict);
     }
+}
 }

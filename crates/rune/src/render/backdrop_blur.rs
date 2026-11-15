@@ -443,5 +443,8 @@ impl Renderer {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "backdrop_blur_tests.rs"]
 mod tests;
+}

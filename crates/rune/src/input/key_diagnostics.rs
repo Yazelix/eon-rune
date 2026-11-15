@@ -165,6 +165,8 @@ pub(crate) fn warn_once(found: &[Duplicate]) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{col, el};
@@ -255,4 +257,5 @@ mod tests {
         let mut clean = col().children([el().key("a"), el().key("b")]);
         assert!(repair(&mut clean).is_empty());
     }
+}
 }

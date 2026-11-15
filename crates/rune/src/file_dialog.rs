@@ -366,6 +366,8 @@ fn show_over(kind: FileDialogKind, options: FileDialogOptions, window: &winit::w
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -523,4 +525,5 @@ mod tests {
             "queued answers, the open dialog, and a dialog asked for in its callback all settle before the host drops"
         );
     }
+}
 }

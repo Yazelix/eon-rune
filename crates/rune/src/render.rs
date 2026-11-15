@@ -1147,12 +1147,20 @@ pub fn write_png(path: &std::path::Path, width: u32, height: u32, rgba: &[u8]) -
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod backdrop_tests;
+}
 
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 #[path = "render/warm_tests.rs"]
 mod warm_tests;
+}
 
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 mod prewarm_order_tests {
     #[test]
@@ -1162,8 +1170,11 @@ mod prewarm_order_tests {
         assert_eq!(*log.borrow(), ["choose Metal", "start"]);
     }
 }
+}
 
 /// `prewarm_gpu` and how a window picks it up, on a bare Metal layer (no window server needed).
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(all(test, target_os = "macos"))]
 mod prewarm_tests {
     use super::{Gpu, Renderer};
@@ -1295,4 +1306,5 @@ mod prewarm_tests {
         let described = crate::gpu::backend::describe(&gpu.device);
         assert!(described.starts_with("Rune's Metal backend on ") && described.ends_with("(the default)"), "{described}");
     }
+}
 }

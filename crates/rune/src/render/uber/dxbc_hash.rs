@@ -1,4 +1,4 @@
-// Written by `cargo run -p rune --example regen_dxbc` (or `RUNE_REGENERATE_DXBC=1 cargo test -p rune --lib uber_dxbc_is_fresh`) on Windows.
+// Written by `cargo run -p rune --example regen_dxbc` (or `RUNE_REGENERATE_DXBC=1 cargo test -p rune --test unit_paint_tests uber_dxbc_is_fresh`) on Windows.
 pub(super) const UBER_DXBC_WGSL_BLAKE3: &str = "4566c05378d954a5c28dba3dedd4571c732f0b0b0107fdab0ef54631be4751a1";
 pub(super) const UBER_DXBC_ABI_FNV64: u64 = 0x1c1cb41ab8da9177;
 #[cfg(test)]

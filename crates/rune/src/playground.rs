@@ -462,5 +462,8 @@ pub(crate) fn is_stage(key: &str) -> bool {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "playground_tests.rs"]
 mod tests;
+}

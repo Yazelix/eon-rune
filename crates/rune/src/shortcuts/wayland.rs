@@ -175,6 +175,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -189,4 +191,5 @@ mod tests {
         assert_eq!(dbus_error(fdo(fdo::Error::UnknownMethod("BindShortcuts".into()))), ShortcutError::Unsupported);
         assert!(matches!(dbus_error(fdo(fdo::Error::Failed("x".into()))), ShortcutError::Backend(_)));
     }
+}
 }

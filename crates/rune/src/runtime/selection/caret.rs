@@ -107,6 +107,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 mod tests {
     use crate::{Cx, El, Env, GrowthSpec, Ime, Key, KeyEvent, Mods, Runtime, ScrollSpec, TextEdit, TextStyle, col, text_input};
 
@@ -382,4 +384,5 @@ mod tests {
             assert!(low <= bottom + 0.5, "up {step}: caret bottom {low} inside {bottom}");
         }
     }
+}
 }

@@ -208,6 +208,8 @@ fn parse_into(d: &str, out: &mut Vec<Command>) -> Option<()> {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use Command::*;
@@ -367,4 +369,5 @@ mod tests {
         check("L1 1", &[]);
         check("M0 0z1 1", &[MoveTo(pt(0.0, 0.0)), Close]);
     }
+}
 }

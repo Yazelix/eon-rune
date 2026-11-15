@@ -126,6 +126,8 @@ pub(crate) fn is_winit_default(tops: usize, app_menu: &[Option<&str>]) -> bool {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -227,4 +229,5 @@ mod tests {
         assert!(!is_winit_default(1, &[]), "an accessory app's empty app menu");
         assert!(!is_winit_default(0, &[]));
     }
+}
 }

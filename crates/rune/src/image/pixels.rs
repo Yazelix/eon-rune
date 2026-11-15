@@ -398,6 +398,8 @@ impl ImagePage {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -821,4 +823,5 @@ mod tests {
         atlas.end_frame();
         assert_eq!(atlas.pages.len(), 1, "the first page keeps its images");
     }
+}
 }

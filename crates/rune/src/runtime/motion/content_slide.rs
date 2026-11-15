@@ -119,5 +119,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "content_slide_tests.rs"]
 mod tests;
+}

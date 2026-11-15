@@ -16,5 +16,8 @@ pub(crate) fn hints(backend: wgpu::Backend) -> wgpu::MemoryHints {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "memory_tests.rs"]
 mod tests;
+}

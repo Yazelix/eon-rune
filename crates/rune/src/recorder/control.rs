@@ -368,5 +368,8 @@ impl Control {
 const STOPPED_EARLY: &str = "stopped before recording started";
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "control_tests.rs"]
 mod tests;
+}

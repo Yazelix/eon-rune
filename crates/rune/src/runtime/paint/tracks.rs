@@ -261,8 +261,14 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "../paint_tracks_tests.rs"]
 mod tests;
+}
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 #[path = "../live_colors_tests.rs"]
 mod live_colors_tests;
+}

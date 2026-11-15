@@ -111,8 +111,11 @@ impl Windows {
     }
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn an_event_loop_that_cant_start_is_an_error_naming_the_event_loop() {
     let error = event_loop_error(winit::error::EventLoopError::RecreationAttempt);
     assert!(error.starts_with("event loop: ") && error.contains("recreated"), "{error}");
+}
 }

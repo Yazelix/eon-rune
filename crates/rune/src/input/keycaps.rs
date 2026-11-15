@@ -290,6 +290,8 @@ fn ripple(id: u64, x: f32, y: f32) -> El {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -358,4 +360,5 @@ mod tests {
         assert_eq!((parse_theme("auto"), parse_theme("light"), parse_theme("dark"), parse_theme("blue")),
             (Some(None), Some(Some(false)), Some(Some(true)), None));
     }
+}
 }

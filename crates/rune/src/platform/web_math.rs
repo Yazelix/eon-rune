@@ -36,5 +36,8 @@ pub(crate) fn should_reconfigure_surface(current: (u32, u32), next: (u32, u32), 
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "web_math_tests.rs"]
 mod tests;
+}

@@ -759,9 +759,14 @@ impl<S: 'static> Runtime<S> {
 #[path = "../virtual/selection.rs"]
 pub(crate) mod virtual_selection;
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "../virtual_selection_tests.rs"]
 mod virtual_selection_tests;
+}
 
+#[cfg(test)]
+test_group! { selection =>
 #[cfg(test)]
 mod tests {
     use super::{Unit, extend, unit_at};
@@ -806,4 +811,5 @@ mod tests {
         assert_eq!(extend((8, 12), (9, 10)), (8, 12));
         assert_eq!(extend((5, 5), (2, 2)), (5, 2));
     }
+}
 }

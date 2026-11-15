@@ -54,5 +54,8 @@ impl super::Renderer {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "gpu_failure_tests.rs"]
 mod tests;
+}

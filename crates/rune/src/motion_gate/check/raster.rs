@@ -247,6 +247,8 @@ pub fn from_pixels(rgba: &[u8], pw: u32, ph: u32, size: (f32, f32)) -> Grid {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use bytemuck::Zeroable;
@@ -299,4 +301,5 @@ mod tests {
         assert_eq!((g.w, g.h), (2, 2));
         assert!(g.lab(0)[0] > 0.99 && g.lab(3)[0] < 0.01);
     }
+}
 }

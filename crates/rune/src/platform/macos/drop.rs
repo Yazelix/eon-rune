@@ -357,6 +357,8 @@ unsafe fn receive(key: usize, pb: &NSPasteboard, dir: &Path, paths: Vec<PathBuf>
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use objc2_foundation::NSData;
@@ -526,4 +528,5 @@ mod tests {
         let steps = DESTS.with(|d| std::mem::take(&mut d.borrow_mut().get_mut(&key).unwrap().steps));
         assert_eq!(steps, [Step::Enter(vec!["a".into()], (1.0, 1.0)), Step::Move((3.0, 3.0)), Step::Drop(vec!["a".into()], (3.0, 3.0))]);
     }
+}
 }

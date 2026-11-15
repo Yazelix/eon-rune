@@ -200,6 +200,8 @@ fn icon(c: Cursor) -> CursorIcon {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -229,4 +231,5 @@ mod tests {
         next(&mut applied, Cursor::Crosshair, true);
         assert!(!holds_image(applied), "nor for a system shape, which the window's cursor rects keep");
     }
+}
 }

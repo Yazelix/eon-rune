@@ -243,11 +243,16 @@ fn masks_match_coregraphics_within_three_levels() {
     }
 }
 
+fn apple_text_system() -> crate::text::TextSystem {
+    let mut ts = crate::text::TextSystem::default();
+    ts.set_font_smoothing(crate::text::FontSmoothing::On);
+    ts
+}
+
 /// The text system's own path: light ink dilates more than dark ink, so it gets its own masks.
 #[test]
 fn text_system_keys_glyphs_by_ink() {
-    let mut ts = crate::text::TextSystem::default();
-    ts.set_apple_pipeline(ApplePipeline::SMOOTHED);
+    let mut ts = apple_text_system();
     let style = crate::tok::TextStyle::new(16.0, 400.0);
     let mut dark = Vec::new();
     let mut light = Vec::new();
@@ -266,7 +271,7 @@ fn text_system_keys_glyphs_by_ink() {
 /// Each pipeline rasterizes its own masks; undilated glyphs ignore ink.
 #[test]
 fn pipelines_never_share_masks() {
-    let mut ts = crate::text::TextSystem::default();
+    let mut ts = apple_text_system();
     let style = crate::tok::TextStyle::new(16.0, 400.0);
     let mut seen = Vec::new();
     for pipeline in [ApplePipeline::SMOOTHED, ApplePipeline::UNSMOOTHED, ApplePipeline { flatten: false, ..ApplePipeline::UNSMOOTHED }] {

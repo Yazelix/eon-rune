@@ -500,7 +500,10 @@ pub(crate) fn file_input<S: 'static>(rt: &mut Runtime<S>, step: &FileStep, at: (
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 include!("tooling/parser_tests.rs");
+}
 
 pub(crate) mod headless_run;
 pub(crate) mod interaction;
@@ -510,9 +513,15 @@ pub(crate) mod virtual_desktop;
 #[cfg(test)]
 pub(crate) mod test_alloc;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "tooling/window_tests.rs"]
 mod window_tests;
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 #[path = "tooling/tests.rs"]
 mod tests;
+}

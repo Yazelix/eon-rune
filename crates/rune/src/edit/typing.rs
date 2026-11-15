@@ -34,5 +34,8 @@ impl Typing {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "typing_tests.rs"]
 mod tests;
+}

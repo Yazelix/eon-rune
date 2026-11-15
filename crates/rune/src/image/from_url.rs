@@ -160,5 +160,8 @@ fn percent_decode(s: &str) -> Option<String> {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "from_url_tests.rs"]
 mod tests;
+}

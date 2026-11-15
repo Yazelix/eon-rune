@@ -250,6 +250,8 @@ pub(super) fn with_text<R>(f: impl FnOnce(&mut TextSystem) -> R) -> R {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -275,4 +277,5 @@ mod tests {
         assert!(w <= 120.0 && h > plain_h * 2.0, "{w} {h} vs {plain_w} {plain_h}");
         assert_eq!(measure(link, &[], style, Some(120.0)), measure_with(link, &[], style, Some(120.0), RichLayoutOptions::new()));
     }
+}
 }

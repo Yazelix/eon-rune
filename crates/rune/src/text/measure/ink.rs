@@ -187,5 +187,8 @@ impl Acc {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "ink_tests.rs"]
 mod tests;
+}

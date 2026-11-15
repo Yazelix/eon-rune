@@ -119,6 +119,8 @@ impl rune_motion::Animatable for Color {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::hash::{BuildHasher, Hash, RandomState};
@@ -139,4 +141,5 @@ mod tests {
         assert_ne!(hash(a, &s), hash(a.alpha(0.6), &s));
         assert_eq!(hash(Color { a: f32::NAN, ..a }, &s), hash(Color { a: -f32::NAN, ..a }, &s));
     }
+}
 }

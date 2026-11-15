@@ -56,6 +56,8 @@ impl Source {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -80,4 +82,5 @@ mod tests {
         assert_eq!(shown, "οδος ω");
         assert_eq!(source.shown(8, false), 8);
     }
+}
 }

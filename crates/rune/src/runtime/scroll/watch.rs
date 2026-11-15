@@ -56,6 +56,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use crate::*;
 
@@ -209,4 +211,5 @@ mod tests {
         }
         assert!(seen.len() > 5, "the end followed over several frames: {seen:?}");
     }
+}
 }

@@ -390,6 +390,8 @@ impl Drop for Source {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicUsize;
@@ -464,4 +466,5 @@ mod tests {
         assert!(!c.set(Color { r: f32::NAN, g: 0.0, b: 0.0, a: 1.0 }));
         assert_eq!(c.get().r, 1.0);
     }
+}
 }

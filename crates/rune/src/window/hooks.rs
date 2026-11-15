@@ -125,13 +125,22 @@ fn consumable(event: &WindowEvent) -> bool {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "hooks_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 #[path = "close_tests.rs"]
 mod close_tests;
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 #[path = "quit_request_tests.rs"]
 mod quit_request_tests;
+}

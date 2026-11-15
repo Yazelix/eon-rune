@@ -241,6 +241,8 @@ fn named_keysym(symbol: u32) -> Option<crate::Key> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::named_keysym;
     use crate::Key;
@@ -256,6 +258,7 @@ mod tests {
         }
         assert_eq!(named_keysym(0x61), None);
     }
+}
 }
 
 impl Dispatch<WlRegistry, GlobalListContents> for State {

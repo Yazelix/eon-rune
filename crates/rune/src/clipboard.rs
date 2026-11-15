@@ -24,7 +24,10 @@ pub mod plain;
 pub(crate) mod primary;
 mod secret;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod secret_tests;
+}
 pub(crate) mod tx;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -476,6 +479,8 @@ impl Core {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use super::native::Worker;
@@ -740,4 +745,5 @@ mod tests {
         assert_eq!(clone.state(), SecretState::Pending);
         assert!(!clone.holds());
     }
+}
 }

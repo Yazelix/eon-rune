@@ -128,6 +128,8 @@ impl Bindings {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -149,4 +151,5 @@ mod tests {
         }
         assert_eq!(Track::constant(1.0).settle_at(), 0.0);
     }
+}
 }

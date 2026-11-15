@@ -86,5 +86,8 @@ pub(super) fn text_mime(types: &[String]) -> Option<&'static str> {
 pub(super) fn missing_text(items: usize) -> Outcome { if items == 0 { Outcome::Empty } else { Outcome::NonText } }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "plain_tests.rs"]
 mod tests;
+}

@@ -102,5 +102,8 @@ mod js {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "page_clock_tests.rs"]
 mod tests;
+}

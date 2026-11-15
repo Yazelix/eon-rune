@@ -32,5 +32,8 @@ impl<T: 'static> Overlay<T> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "gpu_failure_tests.rs"]
 mod tests;
+}

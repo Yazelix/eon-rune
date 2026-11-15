@@ -311,5 +311,8 @@ impl TextSystem {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "glyph_cache_tests.rs"]
 mod tests;
+}

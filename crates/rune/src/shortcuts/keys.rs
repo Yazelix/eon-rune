@@ -150,6 +150,8 @@ fn us_label(name: &str) -> &str {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -175,4 +177,5 @@ mod tests {
         assert_eq!(capital("K".into()), "K");
         assert_eq!(capital("/".into()), "/");
     }
+}
 }

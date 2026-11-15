@@ -65,6 +65,8 @@ fn takes_over(pick: wgpu::DeviceType, candidate: wgpu::DeviceType) -> bool {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests {
     /// lavapipe never takes a translucent overlay from a hardware adapter (hex#1216), but a
     /// hardware adapter may still take one from software, and GPUs from each other.
@@ -79,4 +81,5 @@ mod tests {
         assert!(takes_over(DiscreteGpu, IntegratedGpu));
         assert!(takes_over(Cpu, Cpu));
     }
+}
 }

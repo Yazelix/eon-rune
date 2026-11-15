@@ -325,5 +325,8 @@ pub(crate) fn flush() {
 #[path = "interaction/tests.rs"]
 mod tests;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "interaction/sampler_tests.rs"]
 mod sampler_tests;
+}

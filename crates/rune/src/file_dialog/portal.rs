@@ -126,6 +126,8 @@ async fn run(kind: FileDialogKind, options: FileDialogOptions, parent: String, m
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -169,4 +171,5 @@ mod tests {
         assert_eq!(dbus_error(fdo(fdo::Error::SpawnChildExited("portal".into()))), unavailable());
         assert_ne!(dbus_error(fdo(fdo::Error::Failed("x".into()))), unavailable());
     }
+}
 }

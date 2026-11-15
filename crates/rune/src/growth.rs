@@ -430,6 +430,8 @@ impl GrowTrack {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -684,4 +686,5 @@ mod tests {
         assert!((t.v - v).abs() < v.abs() * 0.5 + 60.0, "{v} -> {}", t.v);
         assert!(t.h > h);
     }
+}
 }

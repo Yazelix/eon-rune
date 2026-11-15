@@ -273,6 +273,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -438,4 +440,5 @@ mod tests {
         run(&mut state, TouchEvent::Settled { moving: false });
         assert_eq!(state, Some(TouchScroll::Dragging { id: page, origin: 0.0, horizontal: false }), "a drag never settles itself");
     }
+}
 }

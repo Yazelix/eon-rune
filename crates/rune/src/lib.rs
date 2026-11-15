@@ -6,6 +6,14 @@
 #[cfg(all(target_arch = "wasm32", any(feature = "hot", feature = "native-file-dialog")))]
 compile_error!("web does not support Rune's hot or native-file-dialog features; disable them for wasm32");
 
+#[cfg(test)]
+include!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/src/test_shards/",
+    env!("CARGO_CRATE_NAME"),
+    ".rs"
+));
+
 mod a11y;
 mod app;
 mod cold;

@@ -195,5 +195,8 @@ impl Drop for Registration {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "request_tests.rs"]
 mod tests;
+}

@@ -543,6 +543,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{col, el, row, Mods};
@@ -1425,4 +1427,5 @@ mod tests {
             assert!(shown(&rt, want), "{want} scrolled into view");
         }
     }
+}
 }

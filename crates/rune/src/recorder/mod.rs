@@ -573,4 +573,7 @@ fn unpack(bits: u64) -> Level {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}

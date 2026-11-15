@@ -321,6 +321,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use winit::dpi::PhysicalPosition;
@@ -367,4 +369,5 @@ mod tests {
         assert_eq!(wheel_delta(trackpad, 2.0, true), (-4.0, 10.0), "a delta with a horizontal part stays as it is");
         assert!(SHIFT_TURNS_WHEEL != cfg!(target_os = "macos"));
     }
+}
 }

@@ -96,6 +96,8 @@ fn run_case(fit_height: bool, case: fn(&mut Host<State>, &ActiveEventLoop)) {
     event_loop.run_app(&mut Probe { host, case }).unwrap();
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 #[ignore = "requires a private headless Wayland session"]
 fn encoder_finish_validation_never_reaches_queue_submit() {
@@ -121,7 +123,10 @@ fn encoder_finish_validation_never_reaches_queue_submit() {
         println!("FINISH BOUNDARY PASS");
     });
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 #[ignore = "requires a private headless Wayland session"]
 fn fit_height_reopen_view_loss_never_creates_a_replacement() {
@@ -145,7 +150,10 @@ fn fit_height_reopen_view_loss_never_creates_a_replacement() {
         println!("REOPEN BOUNDARY PASS");
     });
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 #[ignore = "requires a private headless Wayland session"]
 fn poll_validation_stops_before_reblend_and_reacquire() {
@@ -171,7 +179,10 @@ fn poll_validation_stops_before_reblend_and_reacquire() {
         println!("POLL BOUNDARY PASS");
     });
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 #[ignore = "requires a private headless Wayland session"]
 fn guarded_video_submit_preserves_notifications_and_rejects_invalid_commands() {
@@ -276,4 +287,5 @@ fn guarded_video_submit_preserves_notifications_and_rejects_invalid_commands() {
         );
         println!("VIDEO SUBMISSION BOUNDARY PASS");
     });
+}
 }

@@ -295,6 +295,8 @@ pub(crate) fn scale_under(frame: [f64; 4], displays: &[([f64; 4], f64)]) -> Opti
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -330,4 +332,5 @@ mod tests {
         let r = local_rect(at, None, (960.0, 540.0));
         assert_eq!((-1920 + (r[0] * 2.0) as i32, -100 + (r[1] * 2.0) as i32), (-624, 772));
     }
+}
 }

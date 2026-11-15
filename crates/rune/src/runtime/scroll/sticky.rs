@@ -49,6 +49,8 @@ pub(super) struct Reveal {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Align, Live, Side, col, el, row};
@@ -290,6 +292,7 @@ mod tests {
         assert_eq!(h.rect[1], 0.0);
         assert_eq!(h.stuck, 100.0);
     }
+}
 }
 
 /// The nearest vertical scroll viewport around node `i` of `nodes`.

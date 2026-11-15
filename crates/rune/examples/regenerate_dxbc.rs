@@ -7,7 +7,7 @@
 //! It builds the uber pipeline from WGSL on a DX12 device, captures the HLSL wgpu generates for
 //! it, compiles that with FXC as wgpu does, and writes the bytecode and its hashes. The uber
 //! layout's ABI hash is kept from the file: when the layout changes, `uber_dxbc_is_fresh` names
-//! the new one. That test (`RUNE_REGENERATE_DXBC=1 cargo test -p rune --lib uber_dxbc_is_fresh`)
+//! the new one. That test (`RUNE_REGENERATE_DXBC=1 cargo test -p rune --test unit_paint_tests uber_dxbc_is_fresh`)
 //! writes the same files and checks them.
 
 #[cfg(not(target_os = "windows"))]
@@ -63,7 +63,7 @@ fn main() {
     write(format!("{root}/uber.fs.dxbc"), &fs);
     write(hash_rs, format!(
         "// Written by `cargo run -p rune --example regenerate_dxbc`, or by\n\
-         // `RUNE_REGENERATE_DXBC=1 cargo test -p rune --lib uber_dxbc_is_fresh`, on Windows.\n\
+         // `RUNE_REGENERATE_DXBC=1 cargo test -p rune --test unit_paint_tests uber_dxbc_is_fresh`, on Windows.\n\
          pub(super) const UBER_DXBC_WGSL_BLAKE3: &str = \"{wgsl}\";\n\
          pub(super) const UBER_DXBC_ABI_FNV64: u64 = {abi};\n\
          #[cfg(test)]\npub(super) const UBER_DXBC_HLSL_BLAKE3: &str = \"{hlsl}\";\n").as_bytes());

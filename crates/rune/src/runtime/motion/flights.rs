@@ -457,5 +457,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "flights_tests.rs"]
 mod tests;
+}

@@ -285,5 +285,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "../input_click_tests.rs"]
 mod tests;
+}

@@ -21,5 +21,8 @@ pub(super) const DEFAULT_FONTS: &[&[u8]] = &[
 pub(super) const DEFAULT_FONTS: &[&[u8]] = &[];
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "default_fonts_tests.rs"]
 mod tests;
+}

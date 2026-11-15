@@ -126,6 +126,9 @@ impl<S: 'static> Runtime<S> {
     }
 }
 
+#[cfg(test)]
+test_group! { input =>
 #[cfg(all(test, target_os = "linux"))]
 #[path = "primary_tests.rs"]
 mod tests;
+}

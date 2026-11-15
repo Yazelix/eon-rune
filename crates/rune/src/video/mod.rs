@@ -689,4 +689,7 @@ fn push_placeholder(surface: &NativeSurface) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}

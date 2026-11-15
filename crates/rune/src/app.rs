@@ -904,6 +904,8 @@ impl<S> Shared<S> {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::el::{El, Shell, el};
@@ -1312,4 +1314,5 @@ mod tests {
             assert_eq!(rt.stats.commits, commits + 1, "the frame that shows it builds once");
         }
     }
+}
 }

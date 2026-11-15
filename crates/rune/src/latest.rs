@@ -378,5 +378,8 @@ async fn sleep(wait: Duration) {
     let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
 }
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests;
+}

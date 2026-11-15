@@ -79,6 +79,8 @@ fn forget(mut keys: Vec<u8>, released: u8) -> Vec<u8> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::{Event, Held, step};
 
@@ -117,4 +119,5 @@ mod tests {
         assert!(press(&mut r, 38, 400), "a later fresh press of the other key still fires");
         assert!(press(&mut r, 65, 410));
     }
+}
 }

@@ -431,6 +431,8 @@ impl VirtualList {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{col, el};
@@ -480,4 +482,5 @@ mod tests {
         assert_eq!(bounds.of(&children[1]), f32::INFINITY, "free to grow past its parent");
         assert_eq!(bounds.of(&children[3]), 55.0, "in flow, what padding and the fixed sibling leave");
     }
+}
 }

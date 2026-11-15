@@ -213,10 +213,22 @@ impl<S: 'static> Run<S> {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests;
+}
+#[cfg(test)]
+test_group! { app =>
 #[cfg(test)]
 mod loop_tests;
+}
+#[cfg(test)]
+test_group! { app =>
 #[cfg(test)]
 mod paint_tests;
+}
+#[cfg(test)]
+test_group! { app =>
 #[cfg(test)]
 mod spring_none_tests;
+}

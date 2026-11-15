@@ -307,6 +307,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Env, Mods, PhysicalInput, PhysicalKeyCode, el};
@@ -414,4 +416,5 @@ mod tests {
         assert_eq!(rt.state.zoom, [20.0 / PINCH_WHEEL]);
         assert!(!rt.pinch_wheel(500.0, 50.0, -20.0), "off the window nothing takes it");
     }
+}
 }

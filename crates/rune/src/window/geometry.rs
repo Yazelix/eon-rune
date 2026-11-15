@@ -36,5 +36,8 @@ impl<S: 'static> Host<S> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "geometry_tests.rs"]
 mod tests;
+}

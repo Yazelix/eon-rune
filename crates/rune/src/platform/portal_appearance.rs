@@ -98,5 +98,8 @@ async fn watch(ready: mpsc::SyncSender<()>) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "portal_appearance_tests.rs"]
 mod tests;
+}
