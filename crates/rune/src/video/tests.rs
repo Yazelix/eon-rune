@@ -1,5 +1,29 @@
 use super::*;
 
+// Waker transitions are driven by the test, without an OS backend opening or rejecting media.
+fn manual_audio() -> Player {
+    let shared = Arc::new(Shared {
+        source: "manual.m4a".into(),
+        headers: Vec::new(),
+        kind: Kind::Audio,
+        ctl: Mutex::new(Control { kind: Kind::Audio, muted: false, ..Control::default() }),
+        wakes: Mutex::new(Vec::new()),
+        waker: WakerSlot::default(),
+        notified: AtomicU64::new(0),
+        native: Mutex::new(backend::Native::default()),
+    });
+    Player { surface: NativeSurface::with_video(shared.clone()), shared }
+}
+
+fn waker_calls(player: &Player) -> Arc<std::sync::atomic::AtomicUsize> {
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let seen = calls.clone();
+    player.set_waker(Arc::new(move || {
+        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }));
+    calls
+}
+
 fn meta() -> Meta {
     Meta { duration: 1.0, size: Some((64, 36)), frame: 0.25 }
 }
@@ -68,19 +92,18 @@ fn webm_video_fails_at_once() {
 
 #[test]
 fn the_waker_hears_each_state_change_once() {
-    let a = Player::audio("missing.m4a");
-    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let seen = calls.clone();
-    a.set_waker(Arc::new(move || {
-        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    }));
+    let a = manual_audio();
+    assert_eq!(a.shared.snapshot().state, PlayerState::Loading);
+    let calls = waker_calls(&a);
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0, "nothing changed yet");
     a.shared.ctl.lock().unwrap().open(Ok(Meta { duration: 2.0, size: None, frame: 1.0 / 30.0 }));
+    assert_eq!(a.shared.snapshot().state, PlayerState::Ready);
     a.shared.settle(false);
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
     a.shared.ctl.lock().unwrap().fail("gone".into());
+    assert_eq!(a.shared.snapshot().state, PlayerState::Failed("gone".into()));
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 2);
 }
@@ -92,11 +115,7 @@ fn the_waker_hears_each_state_change_once() {
 fn a_waker_set_after_a_failure_hears_it_once() {
     let a = Player::url("tap.ogv");
     assert!(matches!(a.shared.snapshot().state, PlayerState::Failed(_)));
-    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let seen = calls.clone();
-    a.set_waker(Arc::new(move || {
-        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    }));
+    let calls = waker_calls(&a);
     a.shared.settle(true);
     a.play();
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);

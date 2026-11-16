@@ -2,6 +2,13 @@ use super::*;
 use crate::PointerPress;
 use crate::el::{col, el};
 
+impl<S: 'static> Runtime<S> {
+    // These fixtures inspect mask UV footprints; moving outlines use a different representation.
+    pub(crate) fn use_classic_masks(&mut self) {
+        self.set_font_smoothing(crate::FontSmoothing::classic());
+    }
+}
+
 #[cfg(test)]
 test_group! { input =>
 mod app_ime;

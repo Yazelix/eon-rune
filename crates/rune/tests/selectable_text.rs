@@ -149,19 +149,45 @@ fn copy_select_all_and_the_context_menu() {
     assert_eq!(clipboard.text().as_deref().map(String::as_str), Some(CMD));
     wait(&mut rt);
 
-    // A right-click outside the selection selects the word there and offers Copy.
+    fn secondary_click(rt: &mut Runtime<S>, (x, y): (f32, f32)) {
+        rt.pointer_move(x, y);
+        rt.secondary_down(x, y);
+        rt.secondary_up(x, y);
+        tick(rt);
+    }
+    let copy_selection = |rt: &mut Runtime<S>, expected: &str| {
+        assert_eq!(rt.selected_text().as_deref(), Some(expected));
+        let copy = rt.popup_menu().and_then(|m| m.find("copy")).expect("a Copy menu");
+        assert!(copy.title() == "Copy" && copy.is_enabled());
+        rt.resolve_popup(Some("copy")).unwrap();
+        tick(rt);
+        assert_eq!(clipboard.text().as_deref().map(String::as_str), Some(expected));
+        assert_eq!(rt.selected_text().as_deref(), Some(expected), "picking Copy keeps the selection");
+    };
+
+    // macOS selects the clicked word; other platforms offer Copy for the existing selection.
     let p = glyphs(&rt, "para");
-    rt.pointer_move(p[1].0, p[1].1);
-    rt.secondary_down(p[1].0, p[1].1);
-    rt.secondary_up(p[1].0, p[1].1);
-    tick(&mut rt);
-    assert_eq!(rt.selected_text().as_deref(), Some("first"));
+    secondary_click(&mut rt, p[1]);
+    copy_selection(&mut rt, if cfg!(target_os = "macos") { "first" } else { CMD });
+    wait(&mut rt);
+
+    // An explicitly selected word is copied identically on every platform.
+    click(&mut rt, p[1]);
+    click(&mut rt, p[1]);
+    secondary_click(&mut rt, p[1]);
+    copy_selection(&mut rt, "first");
+    wait(&mut rt);
+
+    let other = centre(&find(&rt, "other"));
+    click(&mut rt, other);
+    assert_eq!(rt.selected_text(), None);
+    secondary_click(&mut rt, p[1]);
+    let selects_word = cfg!(target_os = "macos");
+    assert_eq!(rt.selected_text().as_deref(), selects_word.then_some("first"));
     let copy = rt.popup_menu().and_then(|m| m.find("copy")).expect("a Copy menu");
-    assert!(copy.title() == "Copy" && copy.is_enabled());
-    rt.resolve_popup(Some("copy")).unwrap();
-    tick(&mut rt);
-    assert_eq!(clipboard.text().as_deref().map(String::as_str), Some("first"));
-    assert_eq!(rt.selected_text().as_deref(), Some("first"), "picking Copy keeps the selection");
+    assert_eq!(copy.title(), "Copy");
+    assert_eq!(copy.is_enabled(), selects_word, "without a selection only macOS selects a word for Copy");
+    rt.resolve_popup(None).unwrap();
 }
 
 #[test]
