@@ -4,6 +4,7 @@
 
 use std::ops::Range;
 
+use icu_properties::{CodePointSetData, props::EmojiPresentation};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Why a byte range is routed ahead of the style's own fonts.
@@ -12,8 +13,8 @@ pub(super) enum Route {
     /// Mathematical Alphanumeric Symbols: one math font for a whole formula, so bold, italic
     /// and script letters don't mix designs when an earlier fallback covers a few of them.
     Math,
-    /// A grapheme asking for emoji presentation with `U+FE0F` (`❤️`, `☀️`, `✔️`): the colour
-    /// emoji font first, so a text font with a plain `❤` doesn't take it.
+    /// A grapheme with default emoji presentation or `U+FE0F`: the colour emoji font first,
+    /// so a text font covering the base character doesn't take it. `U+FE0E` keeps text priority.
     Emoji,
 }
 
@@ -96,6 +97,12 @@ pub(super) fn is_math_alphanumeric(ch: char) -> bool {
         | 0x212F..=0x2131 | 0x2133..=0x2134 | 0x2145..=0x2149)
 }
 
+/// Whether a whole grapheme wants colour emoji ahead of the text fonts.
+pub(super) fn prefers_emoji(grapheme: &str) -> bool {
+    !grapheme.contains('\u{FE0E}')
+        && (grapheme.contains('\u{FE0F}') || grapheme.chars().any(|ch| CodePointSetData::new::<EmojiPresentation>().contains(ch)))
+}
+
 /// Routed byte ranges of `text`, merging neighbours on the same route.
 pub(super) fn routes(text: &str) -> Vec<(Range<usize>, Route)> {
     let mut out = Vec::new();
@@ -106,9 +113,9 @@ pub(super) fn routes(text: &str) -> Vec<(Range<usize>, Route)> {
         Some((last, r)) if *r == route && last.end == range.start => last.end = range.end,
         _ => out.push((range, route)),
     };
-    // Whole graphemes, so a ZWJ sequence with an `FE0F` inside keeps one font.
+    // Whole graphemes, so an emoji ZWJ sequence keeps one font.
     for (i, g) in text.grapheme_indices(true) {
-        if g.contains('\u{FE0F}') {
+        if prefers_emoji(g) {
             push(i..i + g.len(), Route::Emoji);
             continue;
         }

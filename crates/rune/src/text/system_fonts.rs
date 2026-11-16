@@ -8,6 +8,8 @@
 
 use super::*;
 
+use unicode_segmentation::UnicodeSegmentation;
+
 #[cfg(windows)]
 mod direct_write;
 
@@ -23,7 +25,7 @@ pub(super) const SYMBOL_FAMILIES: &[&str] = &["System Font", ".SF NS", "Apple Sy
 // SF italic rides along so `Family::Named("System Font").italic()` gets the real face.
 pub(super) const SYMBOL_FONT_FILES: &[&str] = &["sfnsttf", "sfnsitalic", "applesymbols", "sfnssymbols", "menlo", "applecoloremoji"];
 // Windows loads its symbol fonts as its own fallback names them (`direct_write::fallback_files`),
-// and this colour emoji family for a `U+FE0F` sequence.
+// and this colour emoji family for default or explicitly requested emoji presentation.
 #[cfg(windows)]
 pub(super) const SYMBOL_FAMILIES: &[&str] = &["Segoe UI Emoji"];
 // DejaVu Sans lacks ⎋ (U+238B), which DejaVu Sans Mono has; `dejavusans` loads both files.
@@ -234,7 +236,8 @@ impl TextSystem {
         let locale = self.language.as_ref().map(|l| l.to_string());
         let own: Vec<skrifa::charmap::Charmap<'static>> = self.fallbacks.own.iter().filter_map(|data| skrifa::FontRef::from_index(data, 0).ok()).map(|f| skrifa::MetadataProvider::charmap(&f)).collect();
         let covered = |ch: char| own.iter().any(|map| map.map(ch).is_some());
-        let (mut math, mut emoji, mut scripts) = (false, false, Vec::new());
+        let (mut math, mut scripts) = (false, Vec::new());
+        let emoji = self.emoji.is_none() && !self.fallbacks.asked.contains(&'\u{FE0F}') && text.graphemes(true).any(fallback::prefers_emoji);
         let (mut cjk, mut missing): (Vec<char>, Vec<char>) = (Vec::new(), Vec::new());
         let cjk_done = self.fallbacks.cjk.contains(&if cfg!(windows) { locale.clone() } else { None });
         let generic = cfg!(windows) || !self.fallbacks.symbols;
@@ -254,7 +257,6 @@ impl TextSystem {
             }
             // Windows' fallback covers symbol blocks; only math alphanumerics want one math font.
             math |= self.math.is_none() && if cfg!(windows) { fallback::is_math_alphanumeric(ch) } else { fallback::needs_symbols(ch) };
-            emoji |= ch == '\u{FE0F}' && self.emoji.is_none() && !self.fallbacks.asked.contains(&'\u{FE0F}');
             if generic && !needs_no_font(ch) && !self.fallbacks.asked.contains(&ch) && !missing.contains(&ch) && !covered(ch) {
                 missing.push(ch);
             }
@@ -539,4 +541,11 @@ fn walk_font_dirs() -> Vec<(String, std::path::PathBuf)> {
 fn font_file_name(path: &std::path::Path) -> Option<String> {
     let name = path.file_name()?.to_string_lossy().to_lowercase();
     [".ttf", ".otf", ".ttc", ".otc"].iter().any(|ext| name.ends_with(ext)).then(|| name.replace([' ', '.'], ""))
+}
+
+#[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
+#[path = "system_fonts/tests.rs"]
+mod tests;
 }

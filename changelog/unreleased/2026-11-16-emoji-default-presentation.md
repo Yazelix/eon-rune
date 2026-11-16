@@ -1,0 +1,1 @@
+- Emoji-default characters, including BMP symbols such as ✅ and ⚡, prefer the colour emoji face on Linux, macOS and Windows, including monospace spans. Text-default symbols and explicit text presentation (FE0E) retain text font priority.
