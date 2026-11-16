@@ -63,6 +63,25 @@ blend state, atlas upload and sRGB Offscreen readback. `Primitive::from_instance
 accepts real emitted instances with a node/source sidecar. Frozen atlas bytes in
 a JSON scene make replay independent of subsequent font/shaper changes.
 
+### Portable atlas-mask glyph ABI
+
+Scene kind 2 is a grayscale R8 mask in its single frozen atlas. Rect, fill,
+rotation (`params[0]`), positive coverage exponent (`params[3]`), UV footprint
+and screen clip/fades define its rendering. `radii`, `border` and `params[2]`
+are legacy nonsemantic payload, retained for exact replay and generator stability.
+The dashed and radial generators also derive shape data from that stored payload.
+Validation accepts it without modifying the Scene. GPU conversion clears glyph
+radii and selects page zero so the default renderer samples the same mask as
+the CPU; it cannot interpret legacy values as outline/LCD flags or atlas pages.
+
+Production glyph capture is stricter: `Primitive::from_instance` panics unless
+the glyph has zero radii, page zero and a positive exponent. Actual outlines,
+LCD masks and overflow atlas pages are unsupported captures, not mask replays.
+Other malformed geometry/colors remain subject to `Scene::validate`. Neither
+this restriction nor portable replay lowering changes production text rendering
+or the platform's default renderer. A deliberate Classic renderer can serve as
+an atlas-mask control; differential qualification uses the real default path.
+
 ## One generator drives the checks
 
 `generate::scene` decodes a vector of bounded 32-byte records. Each record controls

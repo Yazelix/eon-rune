@@ -63,6 +63,7 @@ pub fn scene(records: &[[u8; 32]]) -> Scene {
         match kind as u32 {
             1 => p.radii = [p.radii[0]; 4],
             2 => {
+                // Keep unused radii/page payload stable: dashed/radial derive their shapes from it.
                 // params[0] turns a glyph. At arbitrary angles a rotated edge can pass within
                 // the rasterizer's sub-pixel precision of a pixel centre, where it and the
                 // oracle's inside test may disagree by a whole pixel. Quarter turns have their
