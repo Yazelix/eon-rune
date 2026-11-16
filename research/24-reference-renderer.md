@@ -153,11 +153,11 @@ This qualification applies only to the measured 64×64 portable Scene domain:
 clear alpha exactly 1, primitive kinds 0–4 and 12, and kind 11 only when both
 radial extents `uv[2]` and `uv[3]` are positive; default production renderer,
 premultiplied source-over into Rgba8UnormSrgb, and a caller requesting the
-existing two-level comparison. Angled-linear kind 11 primitives, layer scopes,
-other blend modes, dimensions, transparent clears and identities retain the
-existing raw comparison. A supplied stricter tolerance is never relaxed.
-This does not repair or excuse band-coverage disagreements, or qualify grain,
-layers or unmeasured backends.
+existing two-level comparison. Angled-linear kind 11 primitives have only the
+separate beta boundary exception below. Layer scopes, other blend modes,
+dimensions, transparent clears and identities retain the existing raw comparison.
+A supplied stricter tolerance is never relaxed. This framebuffer allowance does
+not repair band coverage or qualify grain, layers or unmeasured backends.
 
 Kind 2 atlas-mask sampling is inside this domain. A one-level RGB defect that
 satisfies every guard is indistinguishable from measured precision; this
@@ -198,6 +198,83 @@ driver/device or a new failure class requires qualification evidence before
 changing the policy. Canonical expected images are never regenerated to fit
 a backend. Raw final deltas, active-operation counts, first failed guard,
 pixel/channel and contributor are retained in failure diagnostics.
+
+### Beta exception for ambiguous angled-gradient owners
+
+Production gradient ownership remains unfixed. The beta gate explicitly waives
+regression detection of a recurrence of the frozen boundary-ownership values.
+The unchanged `gradient-band-pixel-center.json` remains executed evidence;
+accepting its alternative owner does not establish a canonical production owner.
+The post-beta product repair must restore deterministic ownership and that
+regression check. This is a membership exception: a one-adjacent-binary32-value
+switch in the parameter can produce a 48-level rendered-channel difference.
+
+Only the two measured Vulkan identities and compiled Windfoil path above may use
+this exception. The target remains 64×64, opaque-clear, Rgba8UnormSrgb source-over
+with caller tolerance 2. There may be at most 16 primitive records, no turns or
+layer scopes, and only the existing measured kinds plus angled-linear kind 11
+with both `uv.z` and `uv.w` zero. Decoded linear endpoints must be finite and
+ordered within [0,1]. Radial ownership and excluded domains get no new exception.
+
+The ambiguity set is computed entirely from immutable Scene inputs, before any
+GPU image selects an allowed result. Let R round each operation to binary32 with
+ties to even, P be the exact absolute pixel center, and
+`c = R(rect.origin + R(rect.size * .5))`. With
+`X = R(R(P.x-c.x) * uv.x)` and `Y = R(R(P.y-c.y) * uv.y)`, evaluate:
+
+```text
+C  = R(.5 + R(X + Y))
+Cx = R(R(.5 + X) + Y)
+Cy = R(R(.5 + Y) + X)
+```
+
+These are the canonical form and the two measured final-add regroupings. An
+ambiguous pixel requires positive normal finite results occupying at most two
+adjacent binary32 values, straddling exactly one decoded open stop strictly
+between 0 and 1, with different inclusion decisions. No tunable epsilon or
+general WGSL error envelope is implied. An unexplained case requires evidence
+and a contract decision before changing this finite model.
+
+For an ambiguous pixel, test qualification permits only the same scalar shaded
+source with inclusion chosen from those forms, or its exclusion as a no-op.
+Closing the CPU-only primitive's decoded open markers forces inclusion while
+preserving its numeric endpoints and continuous shading. Canonical rendering
+still uses the original Scene. Colors, shape coverage, clip/fades and blending
+are not chosen independently or replaced by a channel allowance.
+
+Instances with bit-identical rect/direction and a shared decoded stop use one
+consistent side choice per pixel. Adjacent lower/upper bands therefore cannot
+independently choose a hole or double paint. Differently encoded mappings are
+not equated. The 16-record limit bounds the per-scene state to at most 32 endpoint
+keys over 4096 pixels; it is not a runtime or cross-frame cache.
+
+Maintain Q_i, an independent scalar prefix using the consistent choices made
+so far, alongside the unchanged canonical R_i. Each candidate prediction P_i
+applies the corresponding scalar step to actual GPU destination G_(i−1). Choose
+a permitted side only when the existing fresh RGB ≤1, exact opaque alpha,
+zero-source no-op and propagation guards hold against Q_i. If both choices are
+indistinguishable, prefer the canonical side; a later incompatibility fails
+rather than backtracking or widening. The selected positive-source-alpha count
+bounds G_i−Q_i; excluded/zero-alpha/effect-slot operations add none. The canonical
+count and G_i−R_i remain separate diagnostics and can include the large ownership
+delta. They are not excused by a framebuffer accumulation count.
+
+The final image must also agree with selected Q within the unchanged two-level,
+zero-outlier comparison. At pixels outside the independent ambiguity set Q=R,
+so their raw comparison remains strict. Every pixel and prefix is checked.
+Canonical bytes, hashes, raw `compare` and CLI `--diff` remain unchanged. The
+qualifier returns the raw maximum and reports raw outliers, ambiguity count,
+selected endpoint groups and the first failed guard/contributor.
+
+The gate observes outputs, not proof that the GPU's internal parameter equals
+one listed word. A defect producing an explicitly permitted image only at an
+ambiguous pixel is indistinguishable there. The frozen recurrence waiver is
+intentional; it must not be reported as regression detection. Controls verify
+the ambiguity set is invariant under arbitrary actual/prefix-image corruption,
+and reject wrong color/alpha, paint outside that set, holes, double painting,
+inconsistent groups and reversed-order mutations. Dyadic equality cases where
+all three forms agree have no exception. Transparent/layered product cases keep
+their raw-policy result, including known outliers, until the product repair.
 
 ### FX grain symmetry and quantized output
 

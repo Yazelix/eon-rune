@@ -1,0 +1,1 @@
+- Reference GPU tests qualify the measured angled-gradient boundary alternatives on two Vulkan paths, retaining raw differences and strict checks elsewhere. The beta gate explicitly accepts recurrence of the frozen ownership defect; deterministic production ownership remains product follow-up work.

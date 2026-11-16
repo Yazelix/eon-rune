@@ -1,6 +1,8 @@
 //! Empirical framebuffer qualification; canonical rendering and raw comparison stay independent.
 use super::{GpuRenderer, OFFSCREEN_FORMAT};
-use crate::{Frame, Scene, compare};
+use crate::{Frame, Primitive, Scene, compare};
+
+mod bands;
 
 #[cfg(test)]
 mod tests;
@@ -47,16 +49,34 @@ fn measured_renderer(gpu: &GpuRenderer) -> bool {
     )
 }
 
-fn eligible(scene: &Scene, tolerance: u8, linear_srgb_target: bool) -> bool {
+fn target_eligible(scene: &Scene, tolerance: u8, linear_srgb_target: bool) -> bool {
     tolerance == 2
         && linear_srgb_target
         && scene.width == 64
         && scene.height == 64
         && scene.clear[3] == 1.0
-        && scene.primitives.iter().all(|p| {
-            matches!(p.params[1], 0.0 | 1.0 | 2.0 | 3.0 | 4.0 | 12.0)
-                || (p.params[1] == 11.0 && p.uv[2] > 0.0 && p.uv[3] > 0.0)
-        })
+}
+
+fn framebuffer_kind(p: &Primitive) -> bool {
+    matches!(p.params[1], 0.0 | 1.0 | 2.0 | 3.0 | 4.0 | 12.0)
+        || (p.params[1] == 11.0 && p.uv[2] > 0.0 && p.uv[3] > 0.0)
+}
+
+fn eligible(scene: &Scene, tolerance: u8, linear_srgb_target: bool) -> bool {
+    target_eligible(scene, tolerance, linear_srgb_target)
+        && scene.primitives.iter().all(framebuffer_kind)
+}
+
+fn apply(scene: &Scene, index: usize, rgba: &mut [u8], owners: Option<&mut [Option<usize>]>) {
+    Frame::render_range(
+        scene.width,
+        scene.height,
+        rgba,
+        owners,
+        scene,
+        index,
+        index + 1,
+    );
 }
 
 fn pixel(bytes: &[u8], at: usize) -> [u8; 4] {
@@ -96,6 +116,8 @@ impl GpuRenderer {
     ///
     /// The CPU frame and actual final bytes must be for `scene`. Other adapters/scenes use
     /// raw comparison. Eligible scenes check every prefix, even if the final raw delta fits.
+    /// The beta boundary exception intentionally accepts recurrence of the frozen ownership
+    /// values; its input-only ambiguity set is separate from framebuffer precision.
     /// Returns the raw maximum, not a local allowance. Canonical bytes and `compare` are unchanged.
     pub fn qualify(
         &mut self,
@@ -107,12 +129,10 @@ impl GpuRenderer {
         scene.validate()?;
         assert_eq!((cpu.width, cpu.height), (scene.width, scene.height));
         let raw = compare(scene, cpu, actual, tolerance);
+        let target = OFFSCREEN_FORMAT.is_srgb() && !self.renderer.srgb_blend();
         if !measured_renderer(self)
-            || !eligible(
-                scene,
-                tolerance,
-                OFFSCREEN_FORMAT.is_srgb() && !self.renderer.srgb_blend(),
-            )
+            || !(eligible(scene, tolerance, target)
+                || (target_eligible(scene, tolerance, target) && bands::eligible(scene)))
         {
             return if raw.outlier_pixels == 0 {
                 Ok(raw.max_channel)
@@ -153,6 +173,10 @@ fn qualify_prefixes(
         ));
     }
     let pixels = (scene.width * scene.height) as usize;
+    let mut boundary = bands::Qualification::new(scene, &reference.rgba);
+    if boundary.is_some() {
+        reference.owners = Some(vec![None; pixels]);
+    }
     let mut owners = vec![None; pixels];
     let mut operations = vec![0u32; pixels];
     let mut before = reference.rgba.clone();
@@ -161,35 +185,53 @@ fn qualify_prefixes(
         prefix.primitives.push(primitive.clone());
         before.copy_from_slice(&reference.rgba);
         owners.fill(None);
-        Frame::render_range(
-            scene.width,
-            scene.height,
-            &mut reference.rgba,
-            Some(&mut owners),
-            scene,
-            index,
-            index + 1,
-        );
+        apply(scene, index, &mut reference.rgba, Some(&mut owners));
         predicted.copy_from_slice(&gpu_before);
-        Frame::render_range(
-            scene.width,
-            scene.height,
-            &mut predicted,
-            None,
-            scene,
-            index,
-            index + 1,
-        );
+        apply(scene, index, &mut predicted, None);
+        let inclusion = boundary
+            .as_mut()
+            .and_then(|q| q.step(scene, index, &before, &gpu_before));
         let current = if index + 1 == scene.primitives.len() {
             actual.to_vec()
         } else {
             render(&prefix)
         };
         for at in 0..pixels {
-            let active = owners[at].is_some();
-            operations[at] += u32::from(active);
-            let r = pixel(&reference.rgba, at);
+            let mut active = owners[at].is_some();
             let g = pixel(&current, at);
+            if let (Some(q), Some(inclusion)) = (&mut boundary, &inclusion) {
+                match q.choose(
+                    index,
+                    at,
+                    pixel(&before, at),
+                    pixel(&gpu_before, at),
+                    g,
+                    inclusion,
+                ) {
+                    Ok(Some(choice)) => {
+                        reference.rgba[at * 4..at * 4 + 4].copy_from_slice(&choice.reference);
+                        predicted[at * 4..at * 4 + 4].copy_from_slice(&choice.predicted);
+                        active = choice.active;
+                    }
+                    Ok(None) => {}
+                    Err(group) => {
+                        return Err(serde_json::json!({
+                            "guard": "boundary-owner", "prefix": index + 1,
+                            "x": at as u32 % scene.width, "y": at as u32 / scene.width,
+                            "node": primitive.node, "source": primitive.source,
+                            "group": group, "selected_below": q.side(group, at),
+                            "canonical": pixel(&q.canonical.rgba, at), "actual": g,
+                            "raw_difference": raw
+                        })
+                        .to_string());
+                    }
+                }
+            }
+            operations[at] += u32::from(active);
+            if active && let Some(last) = &mut reference.owners {
+                last[at] = Some(index);
+            }
+            let r = pixel(&reference.rgba, at);
             if let Some((failed, channel)) = guard(
                 pixel(&before, at),
                 pixel(&gpu_before, at),
@@ -206,13 +248,16 @@ fn qualify_prefixes(
                     "channel": channel,
                     "node": primitive.node,
                     "source": primitive.source,
-                    "canonical_before": pixel(&before, at),
+                    "canonical_before": boundary.as_ref().map_or(pixel(&before, at), |q| pixel(&q.before, at)),
+                    "qualified_before": pixel(&before, at),
                     "actual_before": pixel(&gpu_before, at),
-                    "canonical": r,
+                    "canonical": boundary.as_ref().map_or(r, |q| pixel(&q.canonical.rgba, at)),
+                    "qualified": r,
                     "predicted": pixel(&predicted, at),
                     "actual": g,
                     "operations": operations[at],
                     "derived_rgb_bound": operations[at],
+                    "canonical_operations": boundary.as_ref().map_or(operations[at], |q| q.operations[at]),
                     "raw_difference": raw
                 })
                 .to_string());
@@ -221,8 +266,33 @@ fn qualify_prefixes(
         }
         gpu_before = current;
     }
-    if reference.rgba != cpu.rgba {
+    let canonical = boundary
+        .as_ref()
+        .map_or(&reference.rgba, |q| &q.canonical.rgba);
+    if canonical != &cpu.rgba {
         return Err("CPU frame does not match scene".into());
+    }
+    if let Some(q) = &boundary {
+        let selected = compare(scene, &reference, actual, 2);
+        if selected.outlier_pixels > 0 {
+            return Err(
+                serde_json::json!({"guard": "boundary-final", "qualified_difference": selected,
+                "raw_difference": raw})
+                .to_string(),
+            );
+        }
+        eprintln!(
+            "boundary-qualified: raw_max={} raw_outliers={} ambiguity_pixels={} changed_decisions={}",
+            raw.max_channel,
+            raw.outlier_pixels,
+            q.ambiguous_pixels(),
+            q.changed_decisions
+        );
+        eprintln!(
+            "boundary-groups: {}",
+            serde_json::Value::Array(q.selected_groups())
+        );
+        return Ok(raw.max_channel);
     }
     if raw.outlier_pixels > 0 {
         eprintln!(

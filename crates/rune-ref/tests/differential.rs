@@ -13,6 +13,9 @@ use std::{cell::RefCell, path::PathBuf};
 // Measured Vulkan qualification checks each step instead; see research/24.
 mod framebuffer_precision;
 
+#[path = "differential/gradient_band.rs"]
+mod gradient_band;
+
 const BUDGET: [u8; 5] = [2, 2, 2, 2, 2];
 fn check(gpu: &mut GpuRenderer, scene: &Scene, tolerance: u8) -> Result<u8, String> {
     let mut cpu = Frame::new(scene.width, scene.height, true);
