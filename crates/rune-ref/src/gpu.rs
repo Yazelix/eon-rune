@@ -1,4 +1,6 @@
 //! Adapter to the production renderer. No copied WGSL or substitute GPU pipeline.
+mod qualification;
+
 use crate::{Primitive, Scene};
 use rune::{
     render::{Gpu, Instance, OFFSCREEN_FORMAT, Offscreen, Renderer},

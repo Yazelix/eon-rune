@@ -8,7 +8,8 @@ the production wgpu renderer against it. The first corpus found a glyph sampling
 bug: interpolated screen coordinates selected an adjacent atlas column. Its
 single-primitive regression differed by up to 83 channel levels before the fix.
 After the fix, measured single-primitive errors are at most 1 level; composited
-scenes reach 2. The gate allows 2 per channel and **zero outlier pixels**.
+scenes reach 2. Raw comparison allows 2 per channel and **zero outlier pixels**. The measured
+Vulkan test qualification below additionally checks every framebuffer operation.
 
 ## The oracle evaluates the formulas Rune actually ships
 
@@ -130,6 +131,73 @@ Also passed: 128 GPU proptest scenes, 128 CPU metamorphic cases, 32 GPU
 metamorphic scenes, and the saved glyph regression. The allocation gates passed
 for 30 warmed CPU-reference frames and Rune's existing 30-frame streaming runtime
 test. These exclude scene construction, shaping/commit and GPU/driver allocations.
+
+### Measured Vulkan framebuffer qualification
+
+The canonical reference remains strict scalar f32 with pinned libm, quantizing
+clear and each source-over result to sRGB RGBA8. Its bytes, provenance and
+golden hashes do not depend on the GPU. The raw `compare` function and CLI
+`--diff` retain their explicit two-level, zero-outlier comparison.
+
+The differential test qualification additionally recognizes the following
+actual Vulkan adapter identities, using backend, vendor, device, name, driver
+and driver_info together:
+
+- Intel(R) Graphics (RPL-S), vendor 0x8086/device 0xa78b, driver
+  `Intel open-source Mesa driver`, driver_info
+  `Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea`.
+- llvmpipe (LLVM 20.1.2, 256 bits), vendor 0x10005/device 0, driver `llvmpipe`,
+  driver_info `Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)`.
+
+This qualification applies only to the measured 64×64 portable Scene domain:
+clear alpha exactly 1, primitive kinds 0–4 and 12, and kind 11 only when both
+radial extents `uv[2]` and `uv[3]` are positive; default production renderer,
+premultiplied source-over into Rgba8UnormSrgb, and a caller requesting the
+existing two-level comparison. Angled-linear kind 11 primitives, layer scopes,
+other blend modes, dimensions, transparent clears and identities retain the
+existing raw comparison. A supplied stricter tolerance is never relaxed.
+This does not repair or excuse band-coverage disagreements, or qualify grain,
+layers or unmeasured backends.
+
+Kind 2 atlas-mask sampling is inside this domain. A one-level RGB defect that
+satisfies every guard is indistinguishable from measured precision; this
+qualification does not certify detection of every one-level shader defect.
+
+Let R_i be the canonical prefix image after primitive i, G_i the GPU prefix
+rendered through the production renderer, and P_i the result of applying the
+unchanged canonical step i to destination G_(i−1). All images use the same
+Scene geometry, atlas, clip/fades, shader path and painter order. Clear is
+prefix 0. Comparisons inspect every pixel and every channel, with no permitted
+outliers or image-average criterion.
+
+Clear RGBA must match the canonical clear exactly, including alpha 255.
+For a pixel where step i has zero canonical source alpha, G_i must equal
+G_(i−1) exactly; it contributes no precision allowance. Effect slots likewise contribute none.
+For a positive-source-alpha operation, each RGB channel must satisfy
+abs(G_i−P_i)≤1. Every prefix alpha must equal the canonical opaque alpha 255.
+Each RGB channel must also satisfy the propagation guard
+abs(P_i−R_i)≤abs(G_(i−1)−R_(i−1)). A failure of any guard fails qualification,
+regardless of the final image's agreement.
+
+Exact clear fixes e_0(x,c)=0. Let n_i(x) count only positive-source-alpha
+operations through prefix i at pixel x. The derived per-channel accumulated
+bound is B_i(x,c)=n_i(x). The guards imply abs(G_i−R_i)≤B_i by the triangle
+inequality and induction. B_i is reported as a diagnostic and checked by
+unit-test assertions; it is not a separate qualification stage. Counters
+never wrap or saturate to a smaller allowance. Zero-alpha padding, invisible
+primitives and effect slots cannot increase n_i. The alpha allowance is zero.
+
+These are joint conditions. B_i alone is insufficient to accept a frame.
+A two-level fresh error fails even in a pixel with a large n_i, and a faulty
+intermediate draw fails even when a later opaque draw makes the final image
+exact. With exact clear and three contributing draws, the derived RGB bound
+is 3; this explains the measured failures without a universal three-level cap.
+
+These bounds are empirical for the listed adapters and domain. A changed
+driver/device or a new failure class requires qualification evidence before
+changing the policy. Canonical expected images are never regenerated to fit
+a backend. Raw final deltas, active-operation counts, first failed guard,
+pixel/channel and contributor are retained in failure diagnostics.
 
 ## The glyph regression fixes a discontinuity
 

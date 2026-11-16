@@ -9,19 +9,16 @@ use rune_ref::{
 };
 use std::{cell::RefCell, path::PathBuf};
 
-// A provisional 2-LSB cap per primitive; measured maxima and backend in research/24.
-// Composite has its own 2-LSB cap, never multiplied by primitive count.
+// Raw 2-LSB fallback budgets for isolated primitives and composites.
+// Measured Vulkan qualification checks each step instead; see research/24.
+mod framebuffer_precision;
+
 const BUDGET: [u8; 5] = [2, 2, 2, 2, 2];
 fn check(gpu: &mut GpuRenderer, scene: &Scene, tolerance: u8) -> Result<u8, String> {
     let mut cpu = Frame::new(scene.width, scene.height, true);
     cpu.render(scene);
     let actual = gpu.render(scene);
-    let diff = compare(scene, &cpu, &actual, tolerance);
-    if diff.outlier_pixels > 0 {
-        Err(serde_json::to_string(&diff).unwrap())
-    } else {
-        Ok(diff.max_channel)
-    }
+    gpu.qualify(scene, &cpu, &actual, tolerance)
 }
 fn save(name: &str, scene: &Scene) {
     let dir = std::env::var_os("RUNE_REF_FAILURES")
@@ -259,20 +256,24 @@ fn cpu_gpu_dashed() {
     eprintln!("METRIC channel_max_dashed={max}");
 }
 
+fn effect_slots(mut scene: Scene) -> Scene {
+    let mut slots = scene.primitives.clone();
+    for slot in &mut slots {
+        slot.fill = [0.0, 0.0, 0.0, 1.0];
+        slot.border = [0.0; 4];
+        slot.params = [0.0, 12.0, 6.0, 1.0];
+        slot.uv = [0.0; 4];
+    }
+    scene.primitives.extend(slots);
+    scene.primitives.rotate_right(4);
+    scene
+}
+
 #[test]
 fn cpu_gpu_effect_slots() {
     let mut gpu = GpuRenderer::default();
     for seed in 0..16 {
-        let mut scene = generate::seeded(seed, 8);
-        let mut slots = scene.primitives.clone();
-        for slot in &mut slots {
-            slot.fill = [0.0, 0.0, 0.0, 1.0];
-            slot.border = [0.0; 4];
-            slot.params = [0.0, 12.0, 6.0, 1.0];
-            slot.uv = [0.0; 4];
-        }
-        scene.primitives.extend(slots);
-        scene.primitives.rotate_right(4);
+        let scene = effect_slots(generate::seeded(seed, 8));
         if let Err(e) = check(&mut gpu, &scene, 2) {
             save(&format!("effect-{seed}"), &scene);
             panic!("{e}");
