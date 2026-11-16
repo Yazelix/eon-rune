@@ -1,0 +1,1 @@
+- Linux and Android callback timing samples use allocation-free syscalls instead of reading scheduler files. Blocked-callback warnings retain wall/CPU checks and forgive unknown scheduler wait on loaded machines; load queries also avoid file reads, using the core count cached at runtime construction.

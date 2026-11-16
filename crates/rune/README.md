@@ -842,6 +842,12 @@ rune: `on_layout_tx` on "#0/feed/rows/r3" (set at src/feed.rs:43:35) committed t
 scroll: when the handler only moves live values or bookkeeping, say `Tx::live_only` [...]
 ```
 
+Debug callback warnings compare wall and thread CPU time. On Linux and Android, timing samples use
+syscalls without allocating or reading files. A context switch makes scheduler wait unknown, including
+a sleep's wake-up; a loaded machine then gets the benefit of the doubt. The available core count is
+cached when the first runtime is constructed, so later affinity or CPU quota changes are not reflected.
+The warning setting is read during runtime construction. Failed load queries are treated as loaded on Unix.
+
 `RUNE_COMMIT_BUDGET_MS=N` prints a line for each commit over `N` ms, in any build, with where its time went and
 what made the frame commit, at most once a second:
 
