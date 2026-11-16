@@ -199,6 +199,58 @@ changing the policy. Canonical expected images are never regenerated to fit
 a backend. Raw final deltas, active-operation counts, first failed guard,
 pixel/channel and contributor are retained in failure diagnostics.
 
+### FX grain symmetry and quantized output
+
+The grain integration test uses a fixed 96×96 #808080 scene, amount 0.06,
+seed 1, static frame 0, scale 1, default feather, full viewport clip, opacity 1
+and normal premultiplied source-over. Time is 1 second with fps 0, so it does
+not advance the noise frame. Every pixel, including the antialiased edge,
+participates in the statistic. Linear and gamma blending have separate test
+entries so one failure cannot hide the other.
+
+Normalized symmetry is measured by rendering directly through the real
+FxRenderer into a Rgba16Float test target, independently of the App's byte target.
+Let b and v be baseline and grain red-channel values in the blend space. Up is
+the image mean of max(v−b,0)/(1−b); down is the mean of max(b−v,0)/b. Both must
+exceed 0.005, and abs(up−down) must be at most 0.1*(up+down)/2. The signal
+check rejects a blank float target. Float RGBA must be finite, RGB must lie in
+[0,1], and the uniform baseline RGB must lie strictly between 0 and 1. Float
+alpha need not equal 1 exactly. Amount-zero grain is culled and leaves the
+matching no-effect float baseline exactly unchanged.
+
+In linear mode the float attachment holds linear premultiplied values; its
+gray clear is srgb_decode(128/255). In gamma mode it holds encoded premultiplied
+values and its clear is 128/255. Set the corresponding shader blend flag once;
+do not decode gamma pixels, encode linear pixels, or resolve through an 8-bit
+target before measuring. Readback uses eight bytes per pixel with valid
+texture-copy row alignment.
+
+The App's 8-bit captures retain up>0.005 and down>0.005 in their respective
+blend spaces, exact opaque alpha 255, the amount-zero #808080 baseline, and
+gamma mean byte drift of at most 1 level. They have no normalized symmetry
+promise. On the measured Vulkan devices, source/blend/encoding/storage precision
+makes this small signal's byte statistic asymmetric. Rounding source RGBA to
+8 bits gives odd source magnitudes a darkward half-byte contribution in the
+gamma scene, predicting about −0.2254 mean byte shift on llvmpipe. Changing
+the background or seed to avoid rounding would change the scene.
+
+The byte checks accept a measured gamma source with 25% stronger positive
+grain; the float symmetry check rejects it. The maintained GPU control instead
+draws the normal grain followed by the same seed/frame/shape grain at amount
+0.018 with Screen blending. This leaves black-source RGB unchanged and has an
+ideal positive gain of 28.2–30% before framebuffer rounding, a stronger control
+than the measured 25% case. Its measured float imbalance is 22.24–25.30%.
+It must remain visible and fail the same 10% symmetry predicate.
+
+This precision choice is measured on the two Vulkan adapter identities listed
+in the framebuffer qualification above. Good float imbalance is 0.119–1.853%,
+versus 15.67–24.02% in their byte captures. Intel float alpha can be
+0.99951171875; no exact-one float alpha claim is made. The same tests and limits
+run on every backend with no backend-specific allowance. Unmeasured backends
+remain unqualified until measured; a failure requires evidence rather than a
+skip, identity fallback or wider limit. This separate FX contract does not
+extend the portable Scene framebuffer allowance to FX or layers.
+
 ## The glyph regression fixes a discontinuity
 
 `regressions/glyph-texel-boundary.json` came from seed 15, primitive 4. Its glyph
