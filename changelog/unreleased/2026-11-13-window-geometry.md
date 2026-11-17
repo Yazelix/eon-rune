@@ -1,0 +1,1 @@
+- `App::on_window_geometry` reports initial and changed idle native content size, scale and output presence; pair it with `on_window_event` to invalidate geometry before input.

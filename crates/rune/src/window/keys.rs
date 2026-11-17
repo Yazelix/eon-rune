@@ -8,7 +8,7 @@ pub(crate) fn map_mods(m: ModifiersState) -> Mods {
         alt: m.alt_key(), ctrl: m.control_key(), logo: m.super_key() }
 }
 
-pub(crate) fn map_key(key: &WKey, m: ModifiersState) -> Option<KeyEvent> {
+pub(crate) fn map_key(key: &WKey, text: Option<&str>, m: ModifiersState) -> Option<KeyEvent> {
     let mods = map_mods(m);
     let key = match key {
         WKey::Named(n) => match n {
@@ -29,7 +29,8 @@ pub(crate) fn map_key(key: &WKey, m: ModifiersState) -> Option<KeyEvent> {
             NamedKey::Pause => Key::Pause,
             NamedKey::Escape => Key::Escape,
             NamedKey::Tab => Key::Tab,
-            NamedKey::Space => Key::Text(" ".into()),
+            // A dead key followed by Space can commit its spacing accent.
+            NamedKey::Space => Key::Text(text.filter(|_| !mods.cmd && !mods.ctrl).unwrap_or(" ").into()),
             NamedKey::F1 => Key::Function(1),
             NamedKey::F2 => Key::Function(2),
             NamedKey::F3 => Key::Function(3),
@@ -77,7 +78,7 @@ pub(crate) fn map_key(key: &WKey, m: ModifiersState) -> Option<KeyEvent> {
 /// follow the key's Latin virtual key and macOS's switch to a Latin layout under ⌘: Ctrl+V
 /// pastes on every layout.
 pub(crate) fn map_key_event(event: &winit::event::KeyEvent, m: ModifiersState) -> Option<KeyEvent> {
-    let mut ev = map_key(&event.logical_key, m).or_else(|| unidentified(event, m))?;
+    let mut ev = map_key(&event.logical_key, event.text.as_deref(), m).or_else(|| unidentified(event, m))?;
     if !cfg!(target_os = "macos")
         && let Key::Command(c) = ev.key
         && !c.is_ascii()
@@ -138,7 +139,7 @@ mod tests {
             (NamedKey::ScrollLock, Key::ScrollLock), (NamedKey::Pause, Key::Pause), (NamedKey::ContextMenu, Key::ContextMenu),
             (NamedKey::PrintScreen, Key::PrintScreen), (NamedKey::Insert, Key::Insert),
         ] {
-            assert_eq!(map_key(&WKey::Named(named), ModifiersState::empty()).map(|ev| ev.key.clone()), Some(key));
+            assert_eq!(map_key(&WKey::Named(named), None, ModifiersState::empty()).map(|ev| ev.key.clone()), Some(key));
         }
     }
 }

@@ -26,7 +26,7 @@ fn dvorak_shift_command_o_reaches_the_app_with_a_field_focused() {
     rt.frame(0.0);
     // Dvorak O lives on ANSI S; the logical chord must win over that position.
     let command = if cfg!(target_os = "macos") { ModifiersState::SUPER } else { ModifiersState::CONTROL };
-    let logical = map_key(&WKey::Character("O".into()), command | ModifiersState::SHIFT).unwrap();
+    let logical = map_key(&WKey::Character("O".into()), None, command | ModifiersState::SHIFT).unwrap();
     rt.physical_with_fallback(PhysicalInput::Key {
         key: PhysicalKeyCode::KeyS, mods: logical.mods, pressed: true, repeat: false,
     }, Some(logical));
@@ -46,7 +46,7 @@ fn dvorak_paste_uses_the_logical_character_not_the_physical_period() {
     // macOS supplies charactersIgnoringModifiers="v" at ANSI Period (47)
     // on Dvorak, including a synthesized Command-V from a dictation app.
     let command = if cfg!(target_os = "macos") { ModifiersState::SUPER } else { ModifiersState::CONTROL };
-    let logical = map_key(&WKey::Character("v".into()), command).unwrap();
+    let logical = map_key(&WKey::Character("v".into()), None, command).unwrap();
     assert_eq!(logical.key, Key::Command('v'));
     rt.physical_with_fallback(PhysicalInput::Key {
         key: PhysicalKeyCode::Period, mods: logical.mods, pressed: true, repeat: false,
@@ -56,4 +56,12 @@ fn dvorak_paste_uses_the_logical_character_not_the_physical_period() {
     rt.paste_result(target, crate::ClipboardContent::new("Dictated reply"));
     rt.frame(0.0);
     assert_eq!(rt.state.edit.text, "Dictated reply");
+}
+
+#[test]
+fn space_keeps_the_dead_keys_composed_text() {
+    let space = WKey::Named(NamedKey::Space);
+    assert_eq!(map_key(&space, Some("'"), ModifiersState::empty()).unwrap().key, Key::Text("'".into()));
+    assert_eq!(map_key(&space, None, ModifiersState::empty()).unwrap().key, Key::Text(" ".into()));
+    assert_eq!(map_key(&space, Some("\0"), ModifiersState::CONTROL).unwrap().key, Key::Text(" ".into()));
 }

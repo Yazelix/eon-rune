@@ -385,6 +385,7 @@ pub use video::Player;
 pub use video::PlayerState;
 pub use video::Video;
 pub use window::WindowHandle;
+pub use window::geometry::WindowGeometry;
 pub use window::spec as windows;
 pub use windows::AnyWindowSpec;
 pub use windows::ConfiguredWindowOptions;
@@ -395,6 +396,7 @@ pub use windows::WindowOptions;
 pub use windows::WindowPlacement;
 pub use windows::WindowSpec;
 pub use windows::open_window;
+pub use winit;
 pub use winit::raw_window_handle;
 
 /// The logical clock a scene fn (`AppSpec::scenes`) builds its state against. `--scene` starts

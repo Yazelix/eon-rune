@@ -145,7 +145,8 @@ impl<S: 'static> Host<S> {
         self.clipboard.flush(&mut self.rt);
         self.take_frame_request(0.0, false);
         // macOS sets the frame at once: the first drawable and layout take the new size.
-        // Elsewhere the window's `Resized` brings it.
+        // Wayland takes the immediately applied size in `take_frame_request`; elsewhere
+        // the window's `Resized` brings it.
         #[cfg(target_os = "macos")]
         if let (Some(w), Some((gpu, ..))) = (self.win.as_mut(), self.gpu.as_ref()) {
             let size = w.window.inner_size();

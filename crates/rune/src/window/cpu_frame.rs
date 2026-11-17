@@ -309,19 +309,7 @@ impl<S: 'static> Host<S> {
             redraw: std::cell::Cell::new(Redraw::Idle),
         });
         self.apply_placement(event_loop);
-        crate::marks::mark("window.created");
-        if let Some(created) = self.on_created.take() { created(self.native_handle.clone()); }
-        if let Some(on_window) = self.on_window.as_mut() { on_window(&self.native_handle); }
-        if let Some(w) = self.win.as_mut() {
-            let size = w.window.inner_size();
-            let scale = w.window.scale_factor() as f32;
-            if size.width > 0 && size.height > 0 {
-                w.resize_surface(None, size);
-                self.rt.set_viewport((size.width as f32 / scale, size.height as f32 / scale), scale);
-            }
-            sync_chrome(&mut self.rt, w, self.chrome, self.titlebar);
-            sync_screen_origin(&mut self.rt, &w.window);
-        }
+        if self.finish_creation(event_loop) { return Ok(()); }
         // The first frame, into the hidden window, then the window with it.
         crate::marks::mark("frame.first.begin");
         self.draw_cpu(false);

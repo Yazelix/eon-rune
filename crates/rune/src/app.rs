@@ -28,6 +28,8 @@ use std::sync::{Arc, Mutex};
 use crate::el::Tx;
 use crate::tooling::{AppSpec, Args};
 
+pub(crate) mod hooks;
+
 #[path = "app/web.rs"]
 mod web;
 #[cfg(target_arch = "wasm32")]
@@ -52,6 +54,7 @@ impl<S> Copy for TurnScope<S> {}
 /// An `AppSpec` with its lifetime: by default it opens one window and quits when it closes,
 /// like `rune::run`.
 pub struct App<S: 'static> {
+    pub(crate) hooks: hooks::AppHooks<S>,
     pub(crate) spec: AppSpec<S>,
     pub(crate) chrome: crate::Chrome,
     pub(crate) titlebar: Option<crate::Titlebar>,
@@ -117,6 +120,7 @@ impl<S: 'static> App<S> {
         let shared: Arc<Shared<S>> = Arc::default();
         shared.shortcuts.named(spec.title);
         App {
+            hooks: Default::default(),
             spec,
             chrome: crate::Chrome::DEFAULT,
             titlebar: None,

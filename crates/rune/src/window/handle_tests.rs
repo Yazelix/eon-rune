@@ -15,3 +15,14 @@ fn an_unbound_handle_queues_its_requests_for_the_host_or_a_headless_run() {
     handle.hide();
     assert!(matches!(handle.take_headless()[..], [WakeEvent::Window(0, WindowRequest::Hide)]));
 }
+
+#[test]
+fn focus_then_close_keeps_fifo_order_before_binding() {
+    let handle = WindowHandle::new("ordered");
+    handle.focus();
+    handle.close();
+    assert!(matches!(handle.take_headless()[..], [WakeEvent::Focus(0), WakeEvent::Window(0, WindowRequest::Close)]));
+    assert!(handle.take_headless().is_empty());
+    handle.close();
+    assert!(matches!(handle.take_headless()[..], [WakeEvent::Window(0, WindowRequest::Close)]));
+}

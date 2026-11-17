@@ -1,0 +1,1 @@
+- Native apps can opt into `App::on_window_event` to observe original winit events and consume input before key mapping, pointer recognition or wheel normalization.

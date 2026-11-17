@@ -321,6 +321,10 @@ name = "secondary_window"
 harness = false
 
 [[test]]
+name = "self_resize"
+harness = false
+
+[[test]]
 name = "macos_overlay_source"
 harness = false
 

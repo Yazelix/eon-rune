@@ -75,9 +75,11 @@ mod event_loop;
 mod events;
 mod file_drop;
 pub(crate) mod frame;
+pub(crate) mod geometry;
 mod handle;
 pub use handle::WindowHandle;
 use handle::native_window_number;
+mod hooks;
 mod life;
 pub(crate) use life::Life;
 mod sight;
@@ -447,6 +449,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
         // putting off behind another window's.
         let now = Instant::now();
         for host in self.hosts.iter_mut().flatten() { host.turn_ends(event_loop, now); }
+        if self.hosts.iter().flatten().any(|host| host.finished()) { self.cleanup(event_loop); }
         // Layer surfaces have no redraw events: keep turning while one animates (its vsync
         // paces the loop). Hosts whose only motion is an ambient loop sleep until its next step.
         let deadline = self.hosts.iter().flatten().filter_map(|host| host.wake_deadline()).min();
@@ -482,6 +485,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
 use file_drop::{DROP_SAMPLE, FileDrop, FileStep};
 
 struct Host<S: 'static> {
+    hooks: crate::app::hooks::AppHooks<S>,
     /// `App::chrome`, as the app set it (`chrome::frame_chrome` lays a titlebar over it).
     chrome: Chrome,
     /// `App::titlebar`, unless the window is borderless.
@@ -572,6 +576,7 @@ impl<S: 'static> Host<S> {
         let mut args = app.resolve_args(args);
         let on_window = app.on_window.take();
         let on_ready = app.on_ready.take();
+        let hooks = std::mem::take(&mut app.hooks);
         let frame_reports = crate::frame::encoded::FrameReports::new(app.on_frame_encoded.take(), Some(native_handle.key())).inspecting(app.on_frame_drawn.take());
         let macos_window = std::mem::take(&mut app.macos_window);
         // Before the menu guard, so custom items in Edit or Window join these menus.
@@ -655,6 +660,7 @@ impl<S: 'static> Host<S> {
         let shortcuts = crate::shortcuts::Guard::attach(&shared, waker, false, wayland);
         let menus = crate::native_menu::Guard::attach(&shared, false);
         Host {
+            hooks,
             chrome,
             titlebar,
             options,

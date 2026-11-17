@@ -263,23 +263,9 @@ impl<S: 'static> Host<S> {
         self.apply_placement(event_loop);
         #[cfg(target_os = "macos")]
         if visible && let Some(w) = &self.win && w.native.panel.is_some() { w.show(focus); }
-        crate::marks::mark("window.created");
-        if let Some(created) = self.on_created.take() { created(self.native_handle.clone()); }
-        if let Some(on_window) = self.on_window.as_mut() { on_window(&self.native_handle); }
-        if let (Some(w), Some((gpu, ..))) = (self.win.as_mut(), self.gpu.as_ref()) {
-            #[cfg(target_os = "macos")]
-            if let Some(pacing) = &mut w.native.pacing { pacing.update_display(&w.window); }
-            let size = w.window.inner_size();
-            let scale = w.window.scale_factor() as f32;
-            if size.width > 0 && size.height > 0 {
-                w.resize_surface(Some(&**gpu), size);
-                self.rt.set_viewport((size.width as f32 / scale, size.height as f32 / scale), scale);
-            }
-            sync_chrome(&mut self.rt, w, self.chrome, self.titlebar);
-            sync_screen_origin(&mut self.rt, &w.window);
-            if w.window.has_focus() {
-                self.rt.window_focus(true);
-            }
+        if self.finish_creation(event_loop) { return Ok(()); }
+        if self.win.as_ref().is_some_and(|w| w.window.has_focus()) {
+            self.rt.window_focus(true);
         }
         // The first frame, now, so the window comes on screen with it instead of empty for a
         // frame or two. AppKit has ordered the window in, but it reaches the screen with this
@@ -299,6 +285,28 @@ impl<S: 'static> Host<S> {
             w.request_redraw();
         }
         Ok(())
+    }
+
+    /// Notify before drawing or focus; a hidden retained window still takes its viewport.
+    /// True stops the creation's first frame after a hook hid/closed it or ended the loop.
+    pub(super) fn finish_creation(&mut self, event_loop: &ActiveEventLoop) -> bool {
+        crate::marks::mark("window.created");
+        if let Some(created) = self.on_created.take() { created(self.native_handle.clone()); }
+        if let Some(on_window) = self.on_window.as_mut() { on_window(&self.native_handle); }
+        let stopped = self.sample_geometry(event_loop, true);
+        if self.life.finished() || event_loop.exiting() { return true; }
+        let Some(w) = self.win.as_mut() else { return true };
+        #[cfg(target_os = "macos")]
+        if let Some(pacing) = &mut w.native.pacing { pacing.update_display(&w.window); }
+        let size = w.window.inner_size();
+        let scale = w.window.scale_factor() as f32;
+        if size.width > 0 && size.height > 0 {
+            w.resize_surface(self.gpu.as_ref().map(|(gpu, ..)| &**gpu), size);
+            self.rt.set_viewport((size.width as f32 / scale, size.height as f32 / scale), scale);
+        }
+        sync_chrome(&mut self.rt, w, self.chrome, self.titlebar);
+        sync_screen_origin(&mut self.rt, &w.window);
+        stopped
     }
 
     /// UI Automation's (or the platform's) accessibility adapter for the window.
