@@ -194,8 +194,8 @@ pub(crate) trait AnyHost {
     fn quit_hook(&mut self) {}
     /// The app quits: off the screen now, before any hook runs.
     fn vanish(&mut self) {}
-    /// The close about to come ends the app (`Host::close`).
-    fn closing_ends_app(&mut self) {}
+    /// Whether the native close about to come ends the app (`Host::close`).
+    fn closing_ends_app(&mut self, _ends: bool) {}
     /// Ends a tracking pop-up menu and answers waiting ones `None`, before the host drops or
     /// the loop exits.
     fn cancel_menus(&mut self) {}
@@ -298,7 +298,7 @@ impl Windows {
                 self.quit(event_loop, false, true);
                 for host in self.hosts.iter_mut().flatten() { host.terminate(); }
             }
-            event_loop.exit();
+            crate::quit::request::exit(event_loop);
         }
     }
 }
@@ -415,13 +415,12 @@ impl ApplicationHandler<WakeEvent> for Windows {
         let _handling = crate::quit::handling();
         // The last window's close ends a fast-exiting app: the window can go at once.
         #[cfg(not(target_arch = "wasm32"))]
-        if matches!(event, WindowEvent::CloseRequested) && crate::quit::fast_exit_hook().is_some()
-            && !self.hosts.iter().flatten().any(|h| !h.owns(id) && !h.finished() && h.keeps_loop())
-            && let Some(host) = self.hosts.iter_mut().flatten().find(|h| h.owns(id) && h.keeps_loop())
-        {
-            host.closing_ends_app();
-        }
+        let ends = matches!(event, WindowEvent::CloseRequested) && crate::quit::fast_exit_hook().is_some()
+            && !self.hosts.iter().flatten().any(|h| !h.owns(id) && !h.finished() && h.keeps_loop());
+        #[cfg(target_arch = "wasm32")]
+        let ends = false;
         if let Some(host) = self.hosts.iter_mut().flatten().find(|h| h.owns(id)) {
+            if matches!(event, WindowEvent::CloseRequested) { host.closing_ends_app(ends && host.keeps_loop()); }
             let _input = crate::input::time::arrived(&event);
             host.window_event(event_loop, id, event);
         }
@@ -469,7 +468,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
         }
         for host in self.hosts.iter_mut().flatten() { host.cancel_menus(); }
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(last) = crate::quit::fast_exit_hook() { crate::quit::end_fast(last); }
+        crate::quit::finish_fast();
         // Surfaces go while winit's display connection is still open (layer surfaces live on it).
         self.hosts.clear();
         crate::marks::mark("windows.dropped");
@@ -485,7 +484,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
 use file_drop::{DROP_SAMPLE, FileDrop, FileStep};
 
 struct Host<S: 'static> {
-    hooks: crate::app::hooks::AppHooks<S>,
+    hooks: hooks::HostHooks<S>,
     /// `App::chrome`, as the app set it (`chrome::frame_chrome` lays a titlebar over it).
     chrome: Chrome,
     /// `App::titlebar`, unless the window is borderless.
@@ -660,7 +659,7 @@ impl<S: 'static> Host<S> {
         let shortcuts = crate::shortcuts::Guard::attach(&shared, waker, false, wayland);
         let menus = crate::native_menu::Guard::attach(&shared, false);
         Host {
-            hooks,
+            hooks: hooks.into(),
             chrome,
             titlebar,
             options,

@@ -1,0 +1,1 @@
+- **A deferred native close forgets its last-window status.** If another main window opens before permission arrives, closing the original window uses normal window cleanup while the app keeps running.

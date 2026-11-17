@@ -167,6 +167,9 @@ impl<S: 'static> Host<S> {
             WakeEvent::GpuReady(_) => self.gpu_ready(),
             #[cfg(not(target_os = "windows"))]
             WakeEvent::GpuReady(_) => {}
+            WakeEvent::Quit(false) if crate::quit::request::asking() => {
+                self.quit_requested(event_loop)
+            }
             WakeEvent::Reopen | WakeEvent::Turn | WakeEvent::Quit(_) => {}
         }
     }
@@ -243,7 +246,9 @@ impl<S: 'static> Host<S> {
                 if self.life.finished() || self.win.is_none() { return; }
             }
             WindowEvent::CloseRequested => {
-                self.close(event_loop);
+                if !self.close_requested(event_loop) {
+                    self.close(event_loop);
+                }
                 return;
             }
             WindowEvent::HoveredFile(path) => { self.files.file(path, false); return; }

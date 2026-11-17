@@ -172,6 +172,7 @@ impl WindowHandle {
     /// Windows added with `App::window` always reopen. Requests made before the loop runs
     /// apply once the window's host starts.
     pub fn open(&self) { self.send(|slot| WakeEvent::Window(slot, WindowRequest::Open(None))); }
+    /// Close without native close-request consent; `App::on_close` runs.
     pub fn close(&self) { self.send(|slot| WakeEvent::Window(slot, WindowRequest::Close)); }
     /// Borrow a raw native handle while alive. Platform thread restrictions still apply;
     /// do not retain an extracted pointer beyond the callback.

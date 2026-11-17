@@ -198,7 +198,7 @@ impl<S: 'static> Host<S> {
             // A tracking menu holds the event loop until it ends.
             self.popup.cancel(&mut self.rt);
             self.file_dialog.cancel(&mut self.rt);
-            event_loop.exit();
+            crate::quit::request::exit(event_loop);
             return;
         }
         #[cfg(target_os = "macos")]
@@ -315,7 +315,7 @@ impl<S: 'static> Host<S> {
                     let _ = crate::quit::send(crate::quit::Event::Start { ending: false, after });
                     self.popup.cancel(&mut self.rt);
                     self.file_dialog.cancel(&mut self.rt);
-                    event_loop.exit();
+                    crate::quit::request::exit(event_loop);
                 }
                 Some(Shell::Close) => self.close(event_loop),
                 None if minimize => self.minimize(),
@@ -374,7 +374,7 @@ impl<S: 'static> Host<S> {
             }
             self.popup.cancel(&mut self.rt);
             self.file_dialog.cancel(&mut self.rt);
-            event_loop.exit();
+            crate::quit::request::exit(event_loop);
             return;
         }
         if !self.keep_running {

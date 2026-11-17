@@ -101,10 +101,10 @@ impl<T: 'static> AnyHost for Overlay<T> {
             self.rt.ignore_minimize("an overlay");
             match self.rt.shell_request.take() {
                 Some(crate::el::Shell::Close) => self.hide(),
-                Some(crate::el::Shell::Quit) => event_loop.exit(),
+                Some(crate::el::Shell::Quit) => crate::quit::request::exit(event_loop),
                 Some(crate::el::Shell::Relaunch) => {
                     let _ = crate::quit::send(crate::quit::Event::Start { ending: false, after: crate::quit::After::Relaunch });
-                    event_loop.exit();
+                    crate::quit::request::exit(event_loop);
                 }
                 None => {}
             }

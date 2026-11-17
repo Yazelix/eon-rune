@@ -1,0 +1,1 @@
+- `App::on_close_request` can defer a native window close before the window hides or its first-frame state changes. Programmatic close and application quit bypass consent; `on_close` remains a teardown notification.
