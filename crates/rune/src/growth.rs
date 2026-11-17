@@ -565,6 +565,8 @@ impl GrowTrack {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -846,6 +848,10 @@ mod tests {
         assert!(t.h > h);
     }
 }
+}
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod walk;
+}

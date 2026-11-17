@@ -504,6 +504,8 @@ pub(crate) fn validate(windows: &[AnyWindowSpec]) -> Result<(), String> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use winit::dpi::{LogicalSize, Size};
@@ -631,4 +633,5 @@ mod tests {
         let options = WindowOptions { min_size: Some((300.0, 500.0)), ..Default::default() };
         assert_eq!(options.size_limits(options.fit_min_size(None)), ((300.0, 500.0), None));
     }
+}
 }

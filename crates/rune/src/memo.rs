@@ -1038,6 +1038,8 @@ pub(crate) fn keep_rows(tags: impl Iterator<Item = u64>) {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use std::cell::Cell;
 
@@ -1422,7 +1424,7 @@ mod tests {
         assert!(rt.key_warnings.as_ref().unwrap().is_empty());
     }
 
-    /// `cargo test -p rune --profile perf --lib memo_build_time -- --ignored --nocapture`
+    /// `cargo test -p rune --profile perf --test unit_app_tests memo_build_time -- --ignored --nocapture`
     #[test]
     #[ignore]
     fn memo_build_time() {
@@ -1445,4 +1447,5 @@ mod tests {
             }
         }
     }
+}
 }

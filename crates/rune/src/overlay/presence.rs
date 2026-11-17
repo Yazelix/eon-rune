@@ -161,5 +161,8 @@ impl Presence {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "presence_tests.rs"]
 mod tests;
+}

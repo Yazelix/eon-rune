@@ -68,5 +68,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "../row_reorder_tests.rs"]
 mod tests;
+}

@@ -150,6 +150,8 @@ impl RowSource {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use std::cell::{Cell, RefCell};
     use std::time::Instant;
@@ -882,7 +884,7 @@ mod tests {
         assert_eq!(BUILDS.get(), first + 1, "and only it builds");
     }
 
-    /// `cargo test -p rune --profile perf --lib virtual_rows_time -- --ignored --nocapture`
+    /// `cargo test -p rune --profile perf --test unit_app_tests virtual_rows_time -- --ignored --nocapture`
     #[test]
     #[ignore]
     fn virtual_rows_time() {
@@ -953,4 +955,5 @@ mod tests {
             for s in slow.iter().take(6) { println!("  {s}"); }
         }
     }
+}
 }

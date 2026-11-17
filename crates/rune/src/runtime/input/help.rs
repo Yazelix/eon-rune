@@ -552,6 +552,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use crate::{Cx, El, Env, el, row};
     use super::{Runtime, subtract};
@@ -658,4 +660,5 @@ mod tests {
         let texts: Vec<&str> = rt.help_regions().iter().map(|(_, t)| t.as_str()).collect();
         assert_eq!(texts, ["Goes to b"]);
     }
+}
 }

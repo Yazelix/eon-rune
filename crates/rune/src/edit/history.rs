@@ -726,5 +726,8 @@ fn snapshot_from(v: &serde_json::Value) -> Option<Snapshot> {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "history_tests.rs"]
 mod tests;
+}

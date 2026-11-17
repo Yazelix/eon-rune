@@ -736,8 +736,13 @@ use mips::byte;
 pub(crate) use from_url::font_file;
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod mip_tests;
+}
 
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1070,4 +1075,5 @@ mod tests {
         std::fs::write(resources.join("icon.icns"), icns).unwrap();
         app
     }
+}
 }

@@ -156,5 +156,8 @@ impl TextEdit {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "secure_tests.rs"]
 mod tests;
+}

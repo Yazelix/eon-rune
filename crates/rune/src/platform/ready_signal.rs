@@ -127,5 +127,8 @@ fn on_exit() {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "ready_signal_tests.rs"]
 mod tests;
+}

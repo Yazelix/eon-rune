@@ -106,7 +106,7 @@ fn uber_dxbc_is_fresh() {
         std::fs::write(format!("{root}/uber.vs-dual.dxbc"), &vs_dual).unwrap();
         std::fs::write(format!("{root}/uber.fs-dual.dxbc"), &fs_dual).unwrap();
         std::fs::write(format!("{root}/src/render/uber/dxbc_hash.rs"), format!(
-            "// Written by `cargo run -p rune --example regen_dxbc` (or `RUNE_REGENERATE_DXBC=1 cargo test -p rune --lib uber_dxbc_is_fresh`) on Windows.\n\
+            "// Written by `cargo run -p rune --example regen_dxbc` (or `RUNE_REGENERATE_DXBC=1 cargo test -p rune --test unit_paint_tests uber_dxbc_is_fresh`) on Windows.\n\
              pub(super) const UBER_DXBC_WGSL_BLAKE3: &str = \"{wgsl}\";\n\
              pub(super) const UBER_DXBC_ABI_FNV64: u64 = {abi:#018x};\n\
              #[cfg(test)]\npub(super) const UBER_DXBC_HLSL_BLAKE3: &str = \"{hlsl}\";\n\

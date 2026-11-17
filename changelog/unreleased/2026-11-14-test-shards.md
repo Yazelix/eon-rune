@@ -1,0 +1,1 @@
+- Split Rune's private unit tests into separately compiled Cargo harnesses to reduce peak compiler memory. `cargo test -p rune` runs every group; `--lib` selects only the core group, and `--test unit_layout_tests`, for example, selects one group. Runtime code and public APIs are unchanged.

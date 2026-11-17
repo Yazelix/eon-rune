@@ -236,6 +236,8 @@ fn sweep(dir: &Path) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -290,4 +292,5 @@ mod tests {
         assert!(!sniff(b"RIFF\0\0\0\0WAVE"));
         assert!(Wav::decode(b"OggS but not really".to_vec()).is_err());
     }
+}
 }

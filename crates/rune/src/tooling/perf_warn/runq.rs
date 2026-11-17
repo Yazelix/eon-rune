@@ -49,6 +49,8 @@ pub(crate) fn blocked_ms(wall: f64, cpu: f64, wait: Option<f64>, loaded: bool) -
     (blocked > STALL_MS && blocked > STALL_CPU_RATIO * cpu).then_some(blocked)
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, debug_assertions))]
 mod tests {
     use super::*;
@@ -80,4 +82,5 @@ mod tests {
     fn the_wait_never_exceeds_the_wall() {
         assert_eq!(blocked_ms(20.0, 0.0, Some(99.0), false), None);
     }
+}
 }

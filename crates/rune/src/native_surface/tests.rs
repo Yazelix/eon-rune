@@ -748,11 +748,26 @@ fn publish_oriented(s: &NativeSurface, b: ByteFrame, id: u64, native: bool, o: O
 #[test]
 fn orientations_come_from_quarter_turn_transforms_only() {
     // An iPhone portrait clip: buffer (x, y) shows at (h - y, x).
-    assert_eq!(Orient::from_transform(0.0, 1.0, -1.0, 0.0), Orient([0, 1, -1, 0]));
+    assert_eq!(
+        Orient::from_transform(0.0, 1.0, -1.0, 0.0),
+        Orient([0, 1, -1, 0])
+    );
     assert_eq!(Orient::from_transform(1.0, 0.0, 0.0, 1.0), Orient::UP);
-    assert_eq!(Orient::from_transform(-1.0, 0.0, 0.0, -1.0), Orient([-1, 0, 0, -1]));
-    assert_eq!(Orient::from_transform(0.7071, 0.7071, -0.7071, 0.7071), Orient::UP, "45 degrees isn't a quarter turn");
-    assert_eq!(Orient::from_transform(2.0, 0.0, 0.0, 2.0), Orient::UP, "scales are ignored");
+    assert_eq!(
+        Orient::from_transform(-1.0, 0.0, 0.0, -1.0),
+        Orient([-1, 0, 0, -1])
+    );
+    let diagonal = std::f64::consts::FRAC_1_SQRT_2;
+    assert_eq!(
+        Orient::from_transform(diagonal, diagonal, -diagonal, diagonal),
+        Orient::UP,
+        "45 degrees isn't a quarter turn"
+    );
+    assert_eq!(
+        Orient::from_transform(2.0, 0.0, 0.0, 2.0),
+        Orient::UP,
+        "scales are ignored"
+    );
     assert!(Orient([0, 1, -1, 0]).swaps());
     assert_eq!(Orient([0, 1, -1, 0]).upright([64, 32]), [32, 64]);
     // The buffer's top-left pixel ends up top-right, as it does on the phone.

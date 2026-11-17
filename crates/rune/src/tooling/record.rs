@@ -303,6 +303,8 @@ impl Drop for Writer {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -404,4 +406,5 @@ mod tests {
         }
         assert_eq!(actual, expected, "no drops, duplicates, reordering or stale slot contents");
     }
+}
 }

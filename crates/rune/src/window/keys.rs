@@ -120,9 +120,14 @@ pub(crate) fn key_base(event: &winit::event::KeyEvent) -> Option<char> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "keys_tests.rs"]
 mod layout_tests;
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,4 +141,5 @@ mod tests {
             assert_eq!(map_key(&WKey::Named(named), ModifiersState::empty()).map(|ev| ev.key.clone()), Some(key));
         }
     }
+}
 }

@@ -160,6 +160,8 @@ fn config_dir(var: impl Fn(&str) -> Option<std::ffi::OsString>) -> Option<PathBu
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -264,4 +266,5 @@ mod tests {
             assert_eq!(config_dir(env(&[("HOME", "/h"), ("XDG_CONFIG_HOME", "rel")])), Some(PathBuf::from("/h/.config")));
         }
     }
+}
 }

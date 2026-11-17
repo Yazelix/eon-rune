@@ -496,6 +496,8 @@ fn native_uber_msl_hash([vs, fs]: &[String; 2]) -> blake3::Hash {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -957,4 +959,5 @@ pub(super) const UBER_WGSL_BLAKE3: &str = \"{wgsl_hash}\";", uber_abi_hash());
             }
         }
     }
+}
 }

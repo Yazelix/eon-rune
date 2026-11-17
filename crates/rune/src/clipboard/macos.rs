@@ -190,6 +190,8 @@ fn declare_utf8(html: &str) -> std::borrow::Cow<'_, str> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -304,4 +306,5 @@ mod tests {
         assert!(!tiff_dimensions_ok(&bomb));
         assert!(tiff_to_png(&bomb).is_none());
     }
+}
 }

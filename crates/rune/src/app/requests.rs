@@ -171,5 +171,8 @@ impl<S> Shared<S> {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "drain_tests.rs"]
 mod drain_tests;
+}

@@ -242,5 +242,8 @@ impl Pins {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 #[path = "pins_tests.rs"]
 mod tests;
+}

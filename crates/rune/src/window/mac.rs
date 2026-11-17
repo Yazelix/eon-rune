@@ -9,8 +9,11 @@ use winit::window::Window;
 use crate::platform::macos::{content_view, ns_window};
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "mac_tests.rs"]
 mod tests;
+}
 
 unsafe extern "C" fn cannot_move_window(_: &AnyObject, _: Sel) -> Bool {
     Bool::NO

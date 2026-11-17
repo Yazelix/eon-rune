@@ -143,6 +143,8 @@ pub(crate) fn transformed(mut q: Instance, from: Rect, to: Rect, scale: f32, alp
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -195,4 +197,5 @@ mod tests {
         assert!(!selects("body", "#0/#1", None), "unkeyed nodes never match");
         assert!(!selects("x/msg-42/body", path, Some("body")), "more scope than ancestors");
     }
+}
 }

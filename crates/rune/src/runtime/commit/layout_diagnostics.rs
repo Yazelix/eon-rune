@@ -77,6 +77,8 @@ pub(super) fn warned_at(needle: &str) -> bool {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 mod tests {
     use crate::{Env, Runtime, ScrollSpec, col, el};
 
@@ -101,4 +103,5 @@ mod tests {
             assert_eq!(warned(), !bounded);
         }
     }
+}
 }

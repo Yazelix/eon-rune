@@ -111,20 +111,38 @@ mod float_on_open;
 pub use event_loop::run;
 pub(crate) use event_loop::run_windows;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "window/covered_tests.rs"]
 mod covered;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, target_os = "macos"))]
 #[path = "window/occluded_surface_tests.rs"]
 mod occluded_surface;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod wake_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod backoff_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 #[path = "window/frame_move_tests.rs"]
 mod frame_move_tests;
+}
 
 pub(crate) enum WakeEvent {
     DisplayTick(usize),

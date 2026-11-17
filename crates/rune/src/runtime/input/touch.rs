@@ -175,6 +175,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{ScrollSpec, col, el};
@@ -279,4 +281,5 @@ mod tests {
         rt.touch(2, TouchPhase::Moved, 60.0, 20.0, 1.01);
         assert_eq!(rt.touch.finger.as_ref().map(|f| f.mode), Some(Mode::Drag), "on an element that drags it holds no viewport");
     }
+}
 }

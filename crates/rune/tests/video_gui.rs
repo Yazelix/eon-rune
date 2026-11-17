@@ -170,6 +170,7 @@ fn main() {
         *out.lock().unwrap() = Some(run.is_ok());
         main.close();
     });
+    rune::orderly_exit();
     app.run();
     assert_eq!(*result.lock().unwrap(), Some(true), "video_gui failed");
     println!("video_gui: ok");

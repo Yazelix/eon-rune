@@ -334,6 +334,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Env, Mods, PhysicalInput, PhysicalKeyCode, el};
@@ -594,4 +596,5 @@ mod tests {
         let id = rt.nodes.iter().find(|n| n.key.as_deref() == Some("list")).unwrap().id;
         assert_eq!(rt.scrolls[&id].offset, 10.0, "only the third gesture's own delta scrolled");
     }
+}
 }

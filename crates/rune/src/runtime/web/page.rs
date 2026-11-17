@@ -138,5 +138,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "page_tests.rs"]
 mod tests;
+}

@@ -152,5 +152,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "export/tests.rs"]
 mod tests;
+}

@@ -226,6 +226,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use zbus::Type;
@@ -270,4 +272,5 @@ mod tests {
         assert_eq!(item("my-app-symbolic").icon_name(), "my-app-symbolic");
         assert_eq!(item("my-app-symbolic").icon_pixmap(), vec![(1, 1, vec![4, 1, 2, 3])]);
     }
+}
 }

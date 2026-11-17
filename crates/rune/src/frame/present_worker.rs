@@ -118,5 +118,8 @@ fn interactive() {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "present_worker_tests.rs"]
 mod tests;
+}

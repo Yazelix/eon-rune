@@ -416,6 +416,8 @@ pub(crate) fn unpack_cf_html(raw: &[u8]) -> Option<String> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::{pack_cf_html, sanitize_html as clean, unpack_cf_html};
 
@@ -545,4 +547,5 @@ mod tests {
         let out_of_bounds = "Version:0.9\r\nStartHTML:0000000100\r\nEndHTML:0000099999\r\nStartFragment:0000000500\r\nEndFragment:0000099999\r\n<b>fallback</b>";
         assert_eq!(unpack_cf_html(out_of_bounds.as_bytes()).as_deref(), Some("<b>fallback</b>"));
     }
+}
 }

@@ -80,6 +80,8 @@ impl Observer {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -109,4 +111,5 @@ mod tests {
         observer.observe((260, 50));
         assert_eq!(observer.take(), Some((260, 50)), "moving the canvas under a stationary pointer must wake");
     }
+}
 }

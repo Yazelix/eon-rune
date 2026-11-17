@@ -400,6 +400,8 @@ fn mask(boundary: impl Fn(usize, usize) -> bool, a: usize, b: usize, c: usize) -
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -537,4 +539,5 @@ mod tests {
             .fill(vec![[0.0, 0.0], [1.0, 1.0]], Color::WHITE);
         assert!(s.is_empty());
     }
+}
 }

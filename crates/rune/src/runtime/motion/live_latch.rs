@@ -365,5 +365,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "live_latch_tests.rs"]
 mod tests;
+}

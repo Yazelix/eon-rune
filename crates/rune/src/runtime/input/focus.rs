@@ -716,6 +716,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{col, el, row, Mods};
@@ -1671,4 +1673,5 @@ mod tests {
         assert!(!rt.state.b.focused && !rt.state.c.focused);
         assert_eq!(rt.focus.tab_start(), was.as_deref(), "Tab still starts from where the keyboard was");
     }
+}
 }

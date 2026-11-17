@@ -7,7 +7,10 @@
 #[cfg(target_os = "macos")]
 pub(crate) mod macos;
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests;
+}
 
 use crate::Color;
 use rune_motion::NodeId;

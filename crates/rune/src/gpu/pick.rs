@@ -410,5 +410,8 @@ mod dmabuf {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "pick_tests.rs"]
 mod tests;
+}

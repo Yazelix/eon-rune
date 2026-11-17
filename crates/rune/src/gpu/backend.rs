@@ -187,6 +187,8 @@ fn defaulted(env: Option<&str>, chosen: Option<GpuBackend>) -> bool {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::{DEFAULT, GpuBackend, defaulted, resolve};
 
@@ -214,4 +216,5 @@ mod tests {
         let expected = if cfg!(feature = "metal-backend") { GpuBackend::Metal } else { GpuBackend::Wgpu };
         assert_eq!(DEFAULT, expected);
     }
+}
 }

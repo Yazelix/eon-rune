@@ -18,7 +18,7 @@ fi
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/rune-metallib.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
-if ! cargo test --locked -p rune --features metal-backend --lib render::metallib::tests::dump_uber_msl -- --ignored --exact --nocapture >"$tmp/dump.txt" 2>&1; then
+if ! cargo test --locked -p rune --features metal-backend --test unit_paint_tests render::metallib::tests::dump_uber_msl -- --ignored --exact --nocapture >"$tmp/dump.txt" 2>&1; then
     cat "$tmp/dump.txt" >&2
     exit 1
 fi

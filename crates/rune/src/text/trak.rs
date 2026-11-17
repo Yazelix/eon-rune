@@ -100,6 +100,8 @@ impl Trak {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::Trak;
 
@@ -198,6 +200,7 @@ mod tests {
             sane(Trak::parse(&t, 2048));
         }
     }
+}
 }
 
 /// Fonts' `trak` tables (None for an untracked font), by blob and index.

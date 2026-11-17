@@ -117,6 +117,8 @@ pub(crate) fn rescaled(size: (u32, u32), from: f64, to: f64) -> (u32, u32) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -203,4 +205,5 @@ mod tests {
         assert_eq!(a.merge(b), FrameRequest { size: Some((3.0, 4.0)), animate: false, spring: None, center: true });
         assert_eq!(b.merge(FrameRequest { center: true, ..Default::default() }), FrameRequest { center: true, ..b });
     }
+}
 }

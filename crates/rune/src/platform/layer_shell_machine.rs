@@ -140,5 +140,8 @@ pub(crate) mod readiness {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "layer_shell_machine_tests.rs"]
 mod tests;
+}

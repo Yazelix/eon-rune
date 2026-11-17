@@ -553,6 +553,8 @@ fn centred(parent: Rest, (a, b): (usize, usize), (ra, rb): (f32, f32), slack: f3
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod layer_tests {
     use super::*;
 
@@ -575,4 +577,5 @@ mod layer_tests {
         assert_eq!(paint(&mut g, frame + 2.0 * SETTLE, b).1, 1.0);
         assert_eq!(g.layers[&id].outs[0].1, 0.0, "the old rest let go once settled");
     }
+}
 }

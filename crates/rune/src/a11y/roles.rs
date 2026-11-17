@@ -158,6 +158,8 @@ pub(crate) fn name(role: Role) -> String {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -204,4 +206,5 @@ mod tests {
         assert_eq!(name(Role::ListBoxOption), "list-box-option");
         assert_eq!(name(Role::Button), "button");
     }
+}
 }

@@ -226,6 +226,7 @@ fn hidden_multiline_pristine_replace_and_delete() {
         k(Key::Delete),
         KeyEvent { key: Key::Backspace, mods: Mods { cmd: true, ..Mods::default() } },
         KeyEvent { key: Key::Backspace, mods: Mods { alt: true, ..Mods::default() } },
+        #[cfg(target_os = "macos")]
         KeyEvent { key: Key::Text("k".into()), mods: Mods { ctrl: true, ..Mods::default() } },
     ] {
         let mut e = TextEdit::new("existing-fictional-key\nline-two").secure();
@@ -238,6 +239,15 @@ fn hidden_multiline_pristine_replace_and_delete() {
         e.key(&k(Key::Text("x".into())), None);
         e.key(&k(Key::Text("y".into())), None);
         assert_eq!(e.text, "xy");
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let mut e = TextEdit::new("existing-fictional-key\nline-two").secure();
+        e.set_single_line(false);
+        e.key(&KeyEvent { key: Key::Text("k".into()), mods: Mods { ctrl: true, ..Mods::default() } }, None);
+        assert_eq!(e.text, "existing-fictional-key\nline-two", "Ctrl-K is a command chord off macOS");
+        assert!(e.is_pristine());
     }
 
     // 4. Toggling revealed (Show -> Hide) without editing keeps pristine; editing while revealed clears it.

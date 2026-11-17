@@ -75,6 +75,7 @@ fn main() {
         // The settings window is open and retained, yet the app ends with its main window.
         main.close();
     });
+    rune::orderly_exit();
     app.run();
     assert_eq!(*result.lock().unwrap(), Some(true), "secondary_window failed");
     assert_eq!(CLOSES.load(Ordering::SeqCst), 2, "the open settings window closes with the app");

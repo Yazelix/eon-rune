@@ -118,6 +118,7 @@ mod win {
             *out.lock().unwrap() = Some(run.is_ok());
             handle.quit();
         });
+        rune::orderly_exit();
         app.run();
         assert_eq!(*result.lock().unwrap(), Some(true), "accessibility_windows failed");
         println!("accessibility_windows: ok");

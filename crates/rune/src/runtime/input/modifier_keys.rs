@@ -215,6 +215,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Cx, El, Env, KeySide, TextEdit, TextStyle, col, el, text_input};
@@ -495,4 +497,5 @@ mod tests {
             assert_eq!(sent(keys.apply(&key(Code::ControlLeft, false, ctrl), false, true)), [(Modifier::ControlLeft, false)]);
         }
     }
+}
 }

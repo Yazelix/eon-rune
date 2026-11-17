@@ -307,5 +307,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "edge_scroll_tests.rs"]
 mod tests;
+}

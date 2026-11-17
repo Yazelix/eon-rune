@@ -163,6 +163,8 @@ mod mac {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -172,4 +174,5 @@ mod tests {
         assert_eq!((a.accent(false).hex(), a.accent(true).hex()), ("#007affff".into(), "#0a84ffff".into()));
         assert_eq!((a.focus(false).hex(), a.focus(true).hex()), ("#007aff80".into(), "#0a84ff80".into()));
     }
+}
 }

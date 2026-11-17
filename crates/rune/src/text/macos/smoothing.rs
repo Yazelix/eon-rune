@@ -482,5 +482,8 @@ pub(crate) fn dilate(path: &[Cmd], dx: f64, dy: f64) -> Path {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "smoothing_tests.rs"]
 mod tests;
+}

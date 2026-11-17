@@ -98,6 +98,8 @@ pub(super) fn step(watch: &mut Watch, event: Event<'_>) -> Effects<Effect> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use crate::*;
     use std::rc::{Rc, Weak};
@@ -363,4 +365,5 @@ mod tests {
             prefix.pop();
         }
     }
+}
 }

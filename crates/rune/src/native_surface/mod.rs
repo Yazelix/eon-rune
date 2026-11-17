@@ -3,10 +3,16 @@
 //! CPU byte frames provide a portable source and a reference for headless verification.
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "tests.rs"]
 mod gpu_tests;
+}
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 mod place_tests;
+}
 #[cfg(target_os = "macos")]
 pub mod macos;
 mod pipeline;
@@ -450,6 +456,8 @@ pub fn synthetic(width: u32, height: u32, phase: u64) -> ByteFrame {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -487,4 +495,5 @@ mod tests {
             }
         }
     }
+}
 }

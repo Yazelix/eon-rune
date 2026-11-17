@@ -5,8 +5,11 @@
 use super::*;
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "plan_tests.rs"]
 mod tests;
+}
 
 /// A layer's scope, as the planning walk recorded it.
 #[derive(Clone, Copy, Debug)]

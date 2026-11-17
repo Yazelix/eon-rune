@@ -133,6 +133,8 @@ pub fn events(vals: &[Option<V>], tune: &Tune, weight: &dyn Fn(usize) -> f32) ->
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -223,4 +225,5 @@ mod tests {
         xs.extend([0.0; 4]);
         assert!(run(&xs).is_empty(), "{:?}", run(&xs));
     }
+}
 }

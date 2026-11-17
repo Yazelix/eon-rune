@@ -56,8 +56,11 @@ mod span;
 mod system_fonts;
 mod system_weight;
 mod default_fonts;
+#[cfg(test)]
+test_group! { core =>
 #[cfg(all(test, target_os = "macos"))]
 mod core_text_tests;
+}
 pub(crate) mod coretext_match;
 pub use coretext_match::FontSmoothing;
 #[cfg(not(target_arch = "wasm32"))]
@@ -1044,13 +1047,22 @@ impl TextSystem {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "text/tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "text/quality_tests.rs"]
 mod quality_tests;
+}
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "text/rewrap_tests.rs"]
 mod rewrap_tests;
+}

@@ -267,59 +267,113 @@ pub(crate) use scroll_offset::ScrollRequest;
 pub(crate) use reveal::ScrollReveal;
 pub use selectable::{SelectedText, SelectionChange, TextSelection};
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "runtime/timer_wake_tests.rs"]
 mod timer_wake_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "runtime/grid_tests.rs"]
 mod grid_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "runtime/truncate_tests.rs"]
 mod truncate_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "runtime/truncate_fade_tests.rs"]
 mod truncate_fade_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "runtime/line_clamp_tests.rs"]
 mod line_clamp_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "runtime/aspect_fit_tests.rs"]
 mod aspect_fit_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "runtime/anchor_fit_tests.rs"]
 mod anchor_fit_tests;
+}
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 #[path = "drop_tests.rs"]
 mod drop_tests;
+}
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 #[path = "runtime/on_key_tests.rs"]
 mod on_key_tests;
+}
+#[cfg(test)]
+test_group! { motion =>
 #[cfg(test)]
 #[path = "live_only_tests.rs"]
 mod live_only_tests;
+}
+#[cfg(test)]
+test_group! { motion =>
 #[cfg(test)]
 #[path = "runtime/live_check_tests.rs"]
 mod live_check_tests;
+}
+#[cfg(test)]
+test_group! { selection =>
 #[cfg(test)]
 #[path = "runtime/virtual_store_tests.rs"]
 mod virtual_store_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "runtime/virtual/fill_resume_tests.rs"]
 mod fill_resume_tests;
+}
 #[path = "runtime/selection/select_all.rs"]
 mod select_all;
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "runtime/select_all_tests.rs"]
 mod select_all_tests;
+}
+#[cfg(test)]
+test_group! { selection =>
 #[cfg(test)]
 #[path = "runtime/selection_api_tests.rs"]
 mod selection_api_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "runtime/anchored_grow_tests.rs"]
 mod anchored_grow_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod pixel_snap_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod size_tests;
+}
 
 #[cfg(any(test, target_arch = "wasm32"))]
 #[path = "runtime/web/runtime.rs"]
@@ -377,8 +431,11 @@ mod a11y_text;
 mod a11y_actions;
 use a11y_actions::A11yAct;
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "a11y/tests.rs"]
 mod a11y_tests;
+}
 #[path = "runtime/paint_probe.rs"]
 mod paint_probe;
 pub use elements::{ElementInfo, Pick, Picked, Pose};

@@ -787,8 +787,11 @@ fn join_inline(prev: &mut A11yItem, rect: [f32; 4], mut runs: Vec<A11yRun>, gap:
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "a11y_tests.rs"]
 mod tests;
+}
 
 /// The ARIA role a browser's reader knows for an AccessKit role, for the focus proxy.
 fn focus_role(role: accesskit::Role) -> &'static str {

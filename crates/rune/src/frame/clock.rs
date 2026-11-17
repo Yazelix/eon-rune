@@ -173,9 +173,14 @@ impl FrameClock {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "clock_walk_tests.rs"]
 mod walk_tests;
+}
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -402,4 +407,5 @@ mod tests {
         advance_by(&mut rt, 0.049);
         assert!((width(&rt, "b") - width(&steady, "b")).abs() < 0.01, "a late headless frame keeps its time");
     }
+}
 }

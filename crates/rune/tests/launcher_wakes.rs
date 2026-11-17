@@ -86,6 +86,7 @@ mod mac {
             *out.lock().unwrap() = Some(run.is_ok());
             handle.quit();
         });
+        rune::orderly_exit();
         app.run();
         assert_eq!(*result.lock().unwrap(), Some(true), "launcher_wakes failed");
         println!("launcher_wakes: ok");

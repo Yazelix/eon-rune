@@ -25,5 +25,8 @@ pub(super) const DEFAULT_FAMILIES: [&str; 4] = ["Inter", "Inter", "Inter", "IBM 
 pub(super) const DEFAULT_FONTS: &[&[u8]] = &[];
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "default_fonts_tests.rs"]
 mod tests;
+}

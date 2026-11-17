@@ -191,5 +191,8 @@ pub(super) fn native_window_number(window: &Window) -> Option<u32> {
 pub(super) fn native_window_number(_: &Window) -> Option<u32> { None }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "handle_tests.rs"]
 mod tests;
+}

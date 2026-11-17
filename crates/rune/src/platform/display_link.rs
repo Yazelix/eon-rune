@@ -258,6 +258,8 @@ fn defers_start(running: bool, last: Option<Instant>, last_target: Option<Instan
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -332,4 +334,5 @@ mod tests {
         // While moving, a rejected tick right after a frame waits for the next one.
         assert_eq!(opportunity(Some(ms(116)), Some(ms(100)), Some(ms(108)), ms(102), period), Opportunity::Wait);
     }
+}
 }

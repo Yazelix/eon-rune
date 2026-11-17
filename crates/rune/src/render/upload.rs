@@ -526,4 +526,7 @@ impl Renderer {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests;
+}

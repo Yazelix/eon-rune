@@ -437,9 +437,14 @@ impl Drop for Source {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "live/wake_tests.rs"]
 mod wake_tests;
+}
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -515,4 +520,5 @@ mod tests {
         assert!(!c.set(Color { r: f32::NAN, g: 0.0, b: 0.0, a: 1.0 }));
         assert_eq!(c.get().r, 1.0);
     }
+}
 }

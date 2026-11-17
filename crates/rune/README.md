@@ -711,7 +711,7 @@ Staying fast afterwards is "Fast apps" (`site/src/FastApps.tsx`) and "Smooth scr
   fingerprint doesn't match or when Metal rejects the library. Rune's own Metal backend (`metal-backend`) loads
   `uber_native.metallib`, built from the MSL that backend emits (first `Renderer::new` 222 ms to 90 ms cold,
   4.0 ms to 0.9 ms warm). After editing `clip.wgsl` or `shader.wgsl`, run
-  `cargo test -p rune --lib --features metal-backend precompiled_uber_metallib_is_fresh` on a Mac. If it says the MSL
+  `cargo test -p rune --test unit_paint_tests --features metal-backend precompiled_uber_metallib_is_fresh` on a Mac. If it says the MSL
   is byte-identical, paste the printed lines into `uber/metallib_hash.rs`. If it says the MSL, flags or library hash
   changed, run `scripts/precompile-metal-shaders.sh` (needs Xcode's Metal toolchain) and commit both libraries and
   `uber/metallib_hash.rs`. Effect, lighting and blur shaders and iOS aren't precompiled; binary archives would need
@@ -2423,6 +2423,52 @@ feature (`crate::a11y`, `runtime/a11y`).
   update's size and cost.
 
 ## Run
+
+### Tests
+
+```sh
+cargo test -p rune -p rune-mermaid -p rune-kit --jobs 1 --features rune-kit/markdown,rune-kit/mermaid
+cargo test --workspace --jobs 1 --features rune-kit/markdown,rune-kit/mermaid
+```
+
+Rune's private unit tests use eight separately compiled harnesses sharing `src/lib.rs`.
+`cargo test -p rune` runs them all, alongside the integration tests and doctests.
+`--lib` runs only the core partition. A name filter without `--lib` searches every
+harness; use `--test unit_layout_tests`, for example, to build one group.
+
+| Harness | Tests |
+| --- | --- |
+| library (`--lib`) | Core types, text and editing |
+| `unit_app_tests` | Views, memoization, playground and motion auditing |
+| `unit_input_tests` | Runtime input and accessibility |
+| `unit_layout_tests` | Runtime layout and sizing |
+| `unit_motion_tests` | Runtime motion, scrolling and live updates |
+| `unit_native_tests` | Native hosts, services and tooling |
+| `unit_paint_tests` | Rendering, images and native surfaces |
+| `unit_selection_tests` | Runtime selection, focus, pointer dragging and hit testing |
+
+Tests stay beside their owners. Register a test module with `test_group!` and keep
+an entire test subtree in one group where possible. Shared test helpers remain
+available independently of the tests that exercise them. The selector files in
+`src/test_shards/` choose the group using Cargo's crate name; unknown groups fail
+compilation. Cargo reports that `src/lib.rs` belongs to multiple targets; this is
+intentional. Separate harnesses lower peak compiler memory at the cost of repeated
+compilation and larger build artifacts. Use `--jobs 1` when the whole build must
+fit within one compiler's memory budget.
+
+Run `python3 scripts/test-shards.py --check` from the repository root after changing
+registrations (Python 3.11 or later). It rejects unowned registrations and checks
+the target/selector mapping. Its `--strip FILE` command emits a JSON record with
+the unwrapped source; `--restore RECORD MERGED_SOURCE` restores those registrations
+after a source merge. Resolve new or moved registrations explicitly. This removes
+only group wrappers: production merge conflicts still need review.
+
+Rustfmt treats brace-delimited `test_group!` calls as opaque, so `cargo fmt` skips
+wrapped inline modules and does not discover the test files they register. Format
+standalone test files directly. For inline modules, strip and restore wrappers in
+a disposable copy, then review the formatting diff before applying it.
+
+### Application
 
 ```sh
 cargo build --release -p settings

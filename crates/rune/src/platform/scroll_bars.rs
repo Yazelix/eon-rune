@@ -236,6 +236,8 @@ mod mac {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -262,4 +264,5 @@ mod tests {
         assert_eq!(parse_show_scroll_bars(Some("Always")), ScrollBars::Always);
         assert_eq!(parse_show_scroll_bars(Some("Unexpected")), ScrollBars::Automatic);
     }
+}
 }

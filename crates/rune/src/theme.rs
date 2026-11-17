@@ -190,6 +190,8 @@ impl Theme {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -203,4 +205,5 @@ mod tests {
         let got = c.a * c.r + (1.0 - c.a) * bg.r;
         assert!((got - want).abs() < 1e-4, "{got} vs {want}");
     }
+}
 }

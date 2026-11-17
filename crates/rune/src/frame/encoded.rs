@@ -146,5 +146,8 @@ impl<S: 'static> FrameReports<S> {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "encoded_tests.rs"]
 mod tests;
+}

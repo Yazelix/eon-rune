@@ -182,6 +182,8 @@ pub(super) fn register(collection: &mut Collection, fallbacks: &[FamilyId]) {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -221,4 +223,5 @@ mod tests {
         assert!(!ts.set_language(ja));
         assert_eq!(ts.language(), ja);
     }
+}
 }

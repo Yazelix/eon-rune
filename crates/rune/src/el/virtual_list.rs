@@ -551,6 +551,8 @@ impl VirtualList {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{col, el};
@@ -650,4 +652,5 @@ mod tests {
         v.range = 0..10;
         assert_eq!(v.unfilled(0.0, true), 32, "a window left at the top after rows landed below it");
     }
+}
 }

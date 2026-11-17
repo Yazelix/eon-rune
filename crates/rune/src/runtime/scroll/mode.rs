@@ -223,6 +223,8 @@ pub(super) fn step(mode: &mut ScrollMode, event: Event) -> Effects<Effect> {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -451,4 +453,5 @@ mod tests {
         }
         assert!(mode.hand().direct && mode.hand().laid == Some(300.0));
     }
+}
 }

@@ -124,6 +124,8 @@ impl Tray {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -138,4 +140,5 @@ mod tests {
         let spec = TraySpec::new("t", "T", TrayIcon::rgba(2, 2, vec![0; 3]));
         assert!(matches!(Tray::new(spec, |_| {}), Err(TrayError::Backend(_))));
     }
+}
 }

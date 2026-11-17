@@ -404,6 +404,8 @@ fn headless<S: 'static>(spec: &AppSpec<S>, state: S, args: Args, (srgb_blend, fo
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Key, TextEdit, col, el, text_input};
@@ -734,4 +736,5 @@ mod tests {
         assert_eq!(s.edit.text, "state kept");
         assert_eq!(rt.copy_request.as_deref(), Some("state kept"));
     }
+}
 }

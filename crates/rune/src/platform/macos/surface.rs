@@ -153,5 +153,8 @@ pub(super) fn occlusion_hidden(window: &NSWindow) -> bool {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "surface_tests.rs"]
 mod tests;
+}

@@ -981,5 +981,8 @@ fn count_newlines(s: &[u8]) -> usize {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "edit/tests.rs"]
 mod tests;
+}

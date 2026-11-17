@@ -51,6 +51,8 @@ impl Mirror {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -197,6 +199,7 @@ mod tests {
             (crate::Key::Command('k'), Some(KeyK), false),
         ]);
     }
+}
 }
 
 /// Reject offsets in the middle of a surrogate pair, rather than corrupting the Rust string.

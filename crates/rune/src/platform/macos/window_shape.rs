@@ -136,5 +136,8 @@ impl Shadow {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "window_shape_tests.rs"]
 mod tests;
+}

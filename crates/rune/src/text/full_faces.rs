@@ -77,5 +77,8 @@ impl TextSystem {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "full_faces_tests.rs"]
 mod tests;
+}

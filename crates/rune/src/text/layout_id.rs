@@ -88,5 +88,8 @@ impl TextSystem {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "layout_id_tests.rs"]
 mod tests;
+}

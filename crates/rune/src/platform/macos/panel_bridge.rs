@@ -293,6 +293,8 @@ impl Drop for Bridge {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use objc2::{class, declare::ClassBuilder};
@@ -354,4 +356,5 @@ mod tests {
         WINDOWS.with(|w| w.borrow_mut().remove(&(window as usize)));
         assert_eq!(RECEIVED.with(|r| r.take()), ["frame 1.5 2.5 300 200 true", "origin 7 8", "size 40 50", "level 3", "ignore true"]);
     }
+}
 }

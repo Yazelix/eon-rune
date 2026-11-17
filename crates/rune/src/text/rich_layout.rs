@@ -254,5 +254,8 @@ impl TextSystem {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "rich_layout_tests.rs"]
 mod tests;
+}

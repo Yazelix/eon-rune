@@ -229,6 +229,8 @@ impl<S: 'static> LayerHost<S> {
     }
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, target_os = "macos"))]
 mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -282,4 +284,5 @@ mod tests {
         assert!(out.drew);
         assert_eq!(seen.load(Ordering::Relaxed), 42);
     }
+}
 }

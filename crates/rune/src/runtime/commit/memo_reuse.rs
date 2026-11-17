@@ -789,5 +789,8 @@ impl crate::memo::MemoCache {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 #[path = "../memo_reuse_tests.rs"]
 mod tests;
+}

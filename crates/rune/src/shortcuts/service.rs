@@ -551,20 +551,43 @@ impl Drop for Guard {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod lifecycle_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod machine_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod routing_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod host_handler_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod generation_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod closed_wake_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, target_os = "linux"))]
 mod teardown_tests;
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -739,4 +762,5 @@ mod tests {
         assert!(!NATIVE.lock().unwrap().iter().any(|(.., s, _)| *s == shortcut), "the claim went with the registration");
         assert_eq!(*RETIRED_WITH_CLAIM.lock().unwrap(), vec![true], "the backend saw its chord still claimed while it was alive");
     }
+}
 }
