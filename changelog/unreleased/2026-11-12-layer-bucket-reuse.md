@@ -1,0 +1,1 @@
+- Reuse uncached isolation targets up to twice the rounded allocation bucket instead of replacing them when content shrinks slightly; cached targets keep their content-area bound when reused from either a slot or the spare pool.

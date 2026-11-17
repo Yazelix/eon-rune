@@ -1,7 +1,7 @@
 //! A walk of every frame sequence through the plan, checked against origin/dev's planning passes
 //! transcribed over plain records: what each layer draws, and what becomes of the target pools.
 //!
-//! The reference is dev's code as it was, not a cleaned-up version of it: the claim pass, the settle
+//! The reference is dev's code with the fork's rounded-bucket fit policy: the claim pass, the settle
 //! pass and the allocate pass, each with the pools it reads and rewrites in the order it rewrote
 //! them, its target writes where it made them, and what a blur scratch costs. The side under test
 //! is the real `Planner::decide`, whose moves are carried out by `apply` (a transcription of
@@ -243,10 +243,12 @@ impl Old {
         }
     }
 
-    fn take_spare(&mut self, width: u32, height: u32) -> Option<OldHeld> {
+    fn take_spare(&mut self, width: u32, height: u32, bucket: (u32, u32), cached: bool) -> Option<OldHeld> {
         let fits = |t: &OldHeld| {
             let size = (t.size[0], t.size[1]);
-            size.0 >= width && size.1 >= height && u64::from(size.0) * u64::from(size.1) <= 2 * u64::from(width.max(64)) * u64::from(height.max(64))
+            let limit = if cached { (width, height) } else { bucket };
+            size.0 >= width && size.1 >= height && (size == bucket
+                || u64::from(size.0) * u64::from(size.1) <= 2 * u64::from(limit.0) * u64::from(limit.1))
         };
         let at = self.spare.iter().position(fits)?;
         Some(self.spare.swap_remove(at))
@@ -341,9 +343,10 @@ impl Old {
             l.cache_target = cache_target;
             if self.slots[index].as_ref().is_none_or(|t| {
                 let size = (t.size[0], t.size[1]);
+                let limit = if cache_target.is_some() { (width, height) } else { bucket };
                 size.0 < width || size.1 < height || (size != bucket
-                    && u64::from(size.0) * u64::from(size.1) > 2 * u64::from(width) * u64::from(height))
-            }) && let Some(spare) = { self.release(index); self.take_spare(width, height) } {
+                    && u64::from(size.0) * u64::from(size.1) > 2 * u64::from(limit.0) * u64::from(limit.1))
+            }) && let Some(spare) = { self.release(index); self.take_spare(width, height, bucket, cache_target.is_some()) } {
                 self.slots[index] = Some(spare);
             }
             if self.slots[index].is_none() {
@@ -569,4 +572,32 @@ fn a_cached_leaf_with_a_draw_keeps_its_place_under_the_budget() {
     assert_eq!(decisions[0], Disposition::Inline, "the leaf with a draw draws again, straight into the window");
     assert!(!after.retained.iter().chain(after.slots.iter().flatten()).any(|t| t.cache == Some((11, 1))), "and its texture goes");
     assert!(matches!(decisions[1], Disposition::Cached { cache: None, .. }), "the empty leaf borrows its texture: {decisions:?}");
+}
+
+#[test]
+fn transient_reuse_is_bounded_by_the_rounded_bucket_and_dimensions() {
+    let (content, bucket) = ([65, 30], [128, 64]);
+    assert!(fits_target([192, 64], content, bucket, false));
+    assert!(fits_target([256, 64], content, bucket, false));
+    assert!(!fits_target([320, 64], content, bucket, false));
+    assert!(!fits_target([64, 64], content, bucket, false));
+    assert!(!fits_target([192, 16], content, bucket, false));
+    assert!(!fits_target([192, 64], content, bucket, true));
+    assert!(fits_target(bucket, content, bucket, true));
+}
+
+#[test]
+fn a_cached_target_cannot_reacquire_its_rejected_oversize_spare() {
+    let mut planner = Planner::default();
+    let mut pools = Old::default();
+    for (stamp, width) in [(1, 120.0), (2, 56.0)] {
+        let scene = [Spec { draws: 1, ..Spec::cached(
+            [0.0, 0.0, width, 30.0], [0.0, 0.0, 256.0, 64.0], (7, stamp),
+        ) }];
+        let mut after = Old::default();
+        frame(&mut planner, &pools, &mut after, &scene, true, DEFAULT_CACHE_BUDGET, stamp);
+        pools = after;
+    }
+    assert_eq!(pools.slots[0].as_ref().unwrap().size, [64, 64]);
+    assert!(pools.spare.iter().any(|t| t.size == [128, 64]));
 }

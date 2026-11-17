@@ -1,0 +1,1 @@
+- Linux Vulkan devices use 16 MiB initial allocation blocks (8 MiB host), retaining the existing 64/32 MiB per-block growth limits.
