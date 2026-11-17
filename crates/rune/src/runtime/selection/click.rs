@@ -36,6 +36,8 @@ enum Capture {
 
 #[derive(Default)]
 pub(super) struct InputClick {
+    pub(in crate::runtime) primary: crate::clipboard::primary::Requests,
+    pub(in crate::runtime) primary_boundary: keys::primary::Boundary,
     /// The run of non-Shift presses on inputs.
     presses: press_run::PressRun,
     /// What the press that started the current selection selects by, and the unit range it
@@ -44,7 +46,7 @@ pub(super) struct InputClick {
     unit: Unit,
     origin: (usize, usize),
     capture: Capture,
-    /// Queued press/drag steps paired with `Action::Focus` entries in `Runtime::queue`.
+    /// Queued press/drag steps paired with `Action::Focus` or `Action::PrimaryPaste`.
     steps: VecDeque<(String, Step)>,
 }
 
@@ -179,17 +181,17 @@ impl<S: 'static> Runtime<S> {
         self.press.hold(capture::Held::new(path, d, crate::PointerButton::Primary, (x, y), down_at, second, None));
     }
 
-    /// Focuses text field `ji` with its caret at (x, y), as a single click does, but holds no
-    /// press: nothing drags from it (Linux's middle-click paste, `primary_selection.rs`).
+    /// Middle paste places a caret with its own step, without holding a drag.
     #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-    pub(super) fn place_caret(&mut self, ji: usize, x: f32, y: f32) {
+    pub(super) fn queue_primary_paste(&mut self, ji: usize, x: f32, y: f32) {
         let [lx, ly] = self.to_local(ji, x, y);
         let jn = &self.nodes[ji];
         let path = jn.path.clone();
         let (ix, iy) = (lx - jn.inset[0], ly - jn.inset[1]);
         self.input_click.presses.clear();
+        self.press_clicks.clear();
         self.input_click.steps.push_back((path.clone(), Step::Down { clicks: 1, shift: false }));
-        self.queue.push(Action::Focus(path, ix, iy));
+        self.queue.push(Action::PrimaryPaste(path, ix, iy));
     }
 
     pub(super) fn input_drag(&mut self, x: f32, y: f32, drag_move: bool) {

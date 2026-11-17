@@ -192,9 +192,6 @@ impl<S: 'static> Runtime<S> {
         if self.press.is_held() { return; }
         self.pointer = Some((x, y));
         if button == PointerButton::Middle { self.tint_down(x, y, button); }
-        // On Linux a middle click in a text field pastes the primary selection there.
-        #[cfg(target_os = "linux")]
-        if button == PointerButton::Middle && self.primary_paste_down(x, y) { return; }
         self.dismiss_help();
         let hit = self.hits.iter().rev().find(|&&(id, r)| self.hit_contains(id, r, x, y)).and_then(|(id, _)| self.node_index.get(id).copied());
         let middle = button == PointerButton::Middle;
@@ -208,7 +205,12 @@ impl<S: 'static> Runtime<S> {
                 h.on_middle_press.is_some().then_some((i, None))
             });
         let Some((i, link)) = target else {
-            if middle { self.autoscroll_down(x, y); }
+            if cfg!(target_os = "linux") && middle
+                && let Some(i) = self.primary_target(x, y).and_then(|i| self.textbox_input(i))
+                && self.nodes[i].input.as_ref().is_some_and(|input| input.access.is_some() && !input.edit.is_secure())
+            {
+                self.queue_primary_paste(i, x, y);
+            } else if middle { self.autoscroll_down(x, y); }
             return;
         };
         let n = &self.nodes[i];

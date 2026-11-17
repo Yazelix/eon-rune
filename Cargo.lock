@@ -3851,6 +3851,7 @@ dependencies = [
  "windows-core",
  "windows-sys 0.59.0",
  "winit",
+ "wl-clipboard-rs",
  "x11rb",
  "xkbcommon",
  "zbus 6.1.0",

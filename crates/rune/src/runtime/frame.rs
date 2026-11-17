@@ -1,6 +1,9 @@
 //! Frame loop, clocks, wake deadlines, request latching and motion/paint-order stepping.
 use super::*;
 
+#[path = "frame/clipboard.rs"]
+mod clipboard_requests;
+
 impl<S: 'static> Runtime<S> {
     /// rame-profile: the paths of drawn nodes whose loop is running, which wake the window.
     #[cfg(feature = "frame-profile")]
@@ -223,32 +226,7 @@ impl<S: 'static> Runtime<S> {
         self.latch_playground(tx);
         for prefix in std::mem::take(&mut tx.evict_memos) { self.invalidate_memos_by_prefix(&prefix); }
         if !tx.open_urls.is_empty() { self.open_urls(std::mem::take(&mut tx.open_urls)); }
-        if std::mem::take(&mut tx.clear_secret) {
-            if self.copy_request.as_ref().is_some_and(crate::ClipboardWrite::is_secret) { self.copy_request = None; }
-            self.clear_secret_request = true;
-            self.pill_copy = None;
-        }
-        if let Some(copy) = tx.copy.take() {
-            self.pill_copy = (!copy.is_secret())
-                .then(|| copy.content().html())
-                .flatten()
-                .filter(|h| h.contains("<span data-pill="))
-                .map(|h| {
-                    let frag = crate::TextEdit::from_html(h);
-                    (
-                        zeroize::Zeroizing::new(copy.content().text().to_owned()),
-                        frag.pills().map(|(r, id)| (r, id.to_owned())).collect::<Vec<_>>(),
-                    )
-                })
-                .filter(|(_, pills)| !pills.is_empty());
-            self.copy_request = Some(copy);
-        }
-        if std::mem::take(&mut tx.paste) { self.paste_request = Some(self.paste_target()); }
-        for read in tx.clipboard_reads.drain(..).filter_map(|read| read.take()) {
-            self.next_clipboard_read += 1;
-            self.clipboard_reads.push((self.next_clipboard_read, read));
-            self.read_requests.push(self.next_clipboard_read);
-        }
+        self.latch_clipboard(tx);
         self.popups.extend(tx.popups.drain(..).filter_map(|call| call.take()));
         for request in tx.file_dialogs.drain(..).filter_map(|call| call.take()) {
             self.request_file_dialog(request);
@@ -648,8 +626,6 @@ impl<S: 'static> Runtime<S> {
             { ran_other |= r && checks == self.live_checks; }
             if r { ran = true; why |= CommitWhy::DIRTY; }
         }
-        #[cfg(target_os = "linux")]
-        self.note_primary_selection();
         let mut open_urls = std::mem::take(&mut tx.open_urls);
         self.latch_requests(&mut tx);
         // A handler asked for a menu: the hover it takes ends in this commit, not a frame later.
@@ -724,6 +700,8 @@ impl<S: 'static> Runtime<S> {
             let from_change = std::mem::take(&mut tx.select_from_change);
             self.apply_select_request(request, from_change);
         }
+        self.finish_primary_frame();
+        crate::clipboard::flush_memory(self);
         // What the commit or a `Tx::select_text` changed is heard next frame.
         let changes = self.selection_changes();
         self.queue.extend(changes);

@@ -4,13 +4,19 @@ use std::cell::Cell;
 use rune::{Cx, El, Env, GrowthSpec, Runtime, ScrollSpec, col, text};
 
 struct Counting;
-thread_local! { static ALLOCS: Cell<usize> = const { Cell::new(0) }; }
-fn bump() { let _ = ALLOCS.try_with(|c| c.set(c.get() + 1)); }
+thread_local! {
+    static ALLOCS: Cell<usize> = const { Cell::new(0) };
+    static ALLOCATED_BYTES: Cell<usize> = const { Cell::new(0) };
+}
+fn bump(bytes: usize) {
+    let _ = ALLOCS.try_with(|c| c.set(c.get() + 1));
+    let _ = ALLOCATED_BYTES.try_with(|c| c.set(c.get() + bytes));
+}
 unsafe impl GlobalAlloc for Counting {
-    unsafe fn alloc(&self, l: Layout) -> *mut u8 { bump(); unsafe { System.alloc(l) } }
-    unsafe fn alloc_zeroed(&self, l: Layout) -> *mut u8 { bump(); unsafe { System.alloc_zeroed(l) } }
+    unsafe fn alloc(&self, l: Layout) -> *mut u8 { bump(l.size()); unsafe { System.alloc(l) } }
+    unsafe fn alloc_zeroed(&self, l: Layout) -> *mut u8 { bump(l.size()); unsafe { System.alloc_zeroed(l) } }
     unsafe fn dealloc(&self, p: *mut u8, l: Layout) { unsafe { System.dealloc(p, l) } }
-    unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 { bump(); unsafe { System.realloc(p, l, n) } }
+    unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 { bump(n); unsafe { System.realloc(p, l, n) } }
 }
 #[global_allocator]
 static A: Counting = Counting;
@@ -154,4 +160,49 @@ fn a_cached_ink_probe_allocates_nothing() {
         assert_eq!(rune::text::ink("⌘K", style), first);
     }
     assert_eq!(allocs() - before, 0);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn primary_selection_unchanged_key_does_not_allocate_a_payload() {
+    use rune::{text_input, Key, KeyEvent, TextEdit, TextStyle};
+    fn view(edit: &TextEdit, _: &mut Cx<TextEdit>) -> El {
+        text_input(edit, TextStyle::new(16.0, 400.0))
+            .key("field")
+            .size(300.0, 40.0)
+            .on_edit(|edit: &mut TextEdit| edit)
+            .on_input_key(|_: &mut TextEdit, _, tx| {
+                tx.live_only();
+                true
+            })
+    }
+    fn key_bytes(rt: &mut Runtime<TextEdit>) -> usize {
+        let before = ALLOCATED_BYTES.with(Cell::get);
+        rt.key(KeyEvent {
+            key: Key::Function(8),
+            mods: Default::default(),
+        });
+        rt.frame(0.0);
+        ALLOCATED_BYTES.with(Cell::get) - before
+    }
+    let len = 16 * 1024;
+    let mut rt = Runtime::new(
+        TextEdit::new("x".repeat(len)),
+        view,
+        (300.0, 40.0),
+        Env::new(true, 1.0),
+    );
+    rt.frame(0.0);
+    rt.update(|_, tx| tx.focus("field", false));
+    rt.frame(0.0);
+    key_bytes(&mut rt);
+    let empty = key_bytes(&mut rt);
+    rt.update(|edit, _| edit.set_selection(0, len));
+    rt.frame(0.0);
+    key_bytes(&mut rt);
+    let selected = key_bytes(&mut rt);
+    assert!(
+        selected <= empty + 1024,
+        "unchanged selection duplicates its payload: empty={empty}, selected={selected}, len={len}"
+    );
 }

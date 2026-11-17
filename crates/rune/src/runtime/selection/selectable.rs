@@ -484,8 +484,12 @@ impl<S: 'static> Runtime<S> {
     /// What copying the selection puts on the clipboard: the nearest [`El::selection_copy`]
     /// around it says, else the text as drawn.
     pub(crate) fn copy_text(&self) -> Option<String> {
+        self.copy_text_with(virtual_selection::CopyRows::Build)
+    }
+
+    pub(crate) fn copy_text_with(&self, rows: virtual_selection::CopyRows) -> Option<String> {
         if self.selection_spans_unmounted() {
-            return self.copy_virtual_text();
+            return self.copy_virtual_text(rows);
         }
         let ranges = self.selection_ranges();
         let (&(first, ..), &(last, ..)) = (ranges.first()?, ranges.last()?);

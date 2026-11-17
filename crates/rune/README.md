@@ -1409,6 +1409,46 @@ Focused editors take precedence; late reads are discarded if the target changed.
 Headless `--script` `paste` supplies text directly through the same routing and
 records `paste window` or `paste field` in `--trace`, without recording contents.
 
+On Linux, editable and selectable read-only text exports its selection to primary
+selection. Secure fields never export. Middle-click pastes plain primary text at
+the clicked field's caret; an explicit Middle handler takes precedence. Primary
+selection stays independent of the regular clipboard, including when no owner exists.
+Automatic writes wait for a frame to settle after a held press ends, including
+cancelled drags, and validate the final selection before export. Explicit host
+exports survive a release with no Rune selection.
+Automatic export uses only mounted or retained row text. A virtual selection
+with missing text, or one exceeding the virtual copy byte limit, clears primary
+instead of building unmounted rows or serving an incomplete or older selection.
+Explicit Copy still collects virtual rows on demand with its usual limits.
+For groups containing multiple virtual lists, automatic export may also clear
+conservatively when unmounted text is involved.
+Custom hosts export with `tx.copy_primary(selection)` and request primary text
+with `tx.blur(); tx.request_primary_paste()` in their Middle handler; the app's
+existing `on_paste` receives the text. These requests are ignored outside Linux.
+
+#### Plain clipboard results
+
+Native custom hosts can use `clipboard::plain::read_text(selection, byte_cap, complete)`
+and `write_text(selection, text, complete)` for explicit `Outcome` results without
+pasting into a field. These functions always use the OS clipboard, even headless;
+`Runtime::use_clipboard` does not redirect them. Completions normally run on Rune's
+shared clipboard worker; unsupported primary and abandoned requests can complete
+on the calling/dropping thread. Marshal UI changes through `AppHandle`, return
+promptly, and never wait for another clipboard operation inside a completion.
+Panicking completions do not terminate the shared worker.
+
+Wayland reads consume at most the cap plus one probe byte before UTF-8 conversion;
+buffer capacity may grow further. macOS checks the cap after arboard allocates text
+and may receive plain text synthesized by AppKit from RTF. Linux reads require a
+Wayland compositor with data-control support. X11, Wayland without data-control,
+and other bounded-read backends report `Unsupported`; this API does not use
+arboard's X11 fallback. Primary operations outside Linux explicitly report
+`Unsupported` and never alias the regular clipboard. Legacy secret watching is
+independent of the new read's bound; clipboard I/O has no hard completion deadline.
+Direct operations follow the shared queue's order without coalescing. `Written`
+means native acceptance, not persistence. `Tx` copies enqueue at frame flush and
+have no same-handler ordering guarantee with these direct functions.
+
 #### Rich clipboard
 
 A `ClipboardContent` is plain text plus, optionally, HTML and RTF. Copy formatted text with

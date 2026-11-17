@@ -19,6 +19,9 @@ use crate::{Runtime, Waker};
 
 mod content;
 mod html;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod plain;
+pub(crate) mod primary;
 mod secret;
 #[cfg(test)]
 test_group! { native =>
@@ -30,8 +33,6 @@ pub(crate) mod tx;
 mod macos;
 #[cfg(not(target_arch = "wasm32"))]
 mod native;
-#[cfg(target_os = "linux")]
-mod primary;
 #[cfg(target_arch = "wasm32")]
 mod web;
 #[cfg(target_os = "macos")]
@@ -99,6 +100,7 @@ enum Purpose {
     Paste(Option<String>, Forms),
     /// `Tx::read_clipboard`'s callback with this id. It always hears back, empty or not.
     Read(u64),
+    PrimaryPaste(Option<String>),
 }
 
 /// The forms a paste target takes, so a read fetches no more than it needs.
@@ -119,7 +121,11 @@ impl Notify {
 }
 enum Request {
     Shutdown,
+    #[cfg(not(target_arch = "wasm32"))]
+    Plain(plain::Operation),
     Write(ClipboardWrite, Option<Notify>),
+    WritePrimary(String),
+    ClearPrimary,
     /// Clear this secret, or whichever secret is held, if the clipboard still holds it.
     Clear(Option<Arc<Slot>>),
     Read { purpose: Purpose, reply: mpsc::Sender<Reply>, wake: Waker },
@@ -130,20 +136,23 @@ impl Purpose {
         Purpose::Paste(target, forms)
     }
     fn forms(&self) -> Forms {
-        match self { Purpose::Paste(_, forms) => *forms, Purpose::Read(_) => Forms::All }
+        match self { Purpose::Paste(_, forms) => *forms, Purpose::Read(_) => Forms::All, Purpose::PrimaryPaste(_) => Forms::Text }
     }
     /// Reads what this purpose needs from `cb` and what to send back: a paste skips an empty
     /// clipboard.
     fn answer<B: Backend>(self, cb: &mut B) -> Option<Reply> {
-        let content = match self.forms() {
+        let content = match self {
+            Purpose::PrimaryPaste(_) => cb.primary_text().map(ClipboardContent::new),
+            _ => match self.forms() {
             Forms::Text => cb.text().map(ClipboardContent::from),
             forms => cb.content(forms == Forms::All),
+            },
         };
         self.reply(content)
     }
     fn reply(self, content: Option<ClipboardContent>) -> Option<Reply> {
         let content = match self {
-            Purpose::Paste(..) => content?,
+            Purpose::Paste(..) | Purpose::PrimaryPaste(_) => content?,
             Purpose::Read(_) => content.unwrap_or_default(),
         };
         Some(Reply { purpose: self, content: content.untrusted() })
@@ -182,7 +191,7 @@ impl Client {
 
 fn deliver<S: 'static>(rt: &mut Runtime<S>, reply: Reply) {
     match reply.purpose {
-        Purpose::Paste(target, _) => rt.paste_result(target, reply.content),
+        Purpose::Paste(target, _) | Purpose::PrimaryPaste(target) => rt.paste_result(target, reply.content),
         Purpose::Read(id) => rt.read_result(id, reply.content),
     }
 }
@@ -191,6 +200,11 @@ fn deliver<S: 'static>(rt: &mut Runtime<S>, reply: Reply) {
 /// every frame, so headless runtimes write too.
 pub(crate) fn flush_memory<S: 'static>(rt: &mut Runtime<S>) {
     let Some(m) = rt.clipboard.clone() else { return };
+    let primary = rt.take_primary();
+    if let Some(copy) = primary.copy { m.handle(copy.into()); }
+    if let Some(target) = primary.paste {
+        if let Some(reply) = m.answer(Purpose::PrimaryPaste(target)) { deliver(rt, reply); }
+    }
     if std::mem::take(&mut rt.clear_secret_request) { m.handle(Request::Clear(None)); }
     if let Some(copy) = rt.copy_request.take() {
         copy.bind(Route::Memory(m.clone()));
@@ -215,12 +229,16 @@ impl<S: 'static> Runtime<S> {
 pub struct MemoryClipboard(Arc<Mutex<Memory>>);
 struct Memory { core: Core, board: Board }
 #[derive(Default)]
-struct Board { content: Option<ClipboardContent>, revision: u64, fail: Option<String> }
+struct Board { content: Option<ClipboardContent>, primary: Option<String>, revision: u64, fail: Option<String> }
 
 pub fn memory() -> MemoryClipboard {
     MemoryClipboard(Arc::new(Mutex::new(Memory { core: Core::default(), board: Board::default() })))
 }
 impl MemoryClipboard {
+    /// Read the independent in-memory primary selection, for tests.
+    pub fn primary_text(&self) -> Option<String> { lock(&self.0).board.primary.clone() }
+    /// Change the primary selection as another client would, for tests.
+    pub fn set_primary_text(&self, text: &str) { lock(&self.0).board.primary = Some(text.into()); }
     pub fn text(&self) -> Option<Zeroizing<String>> { self.content().filter(ClipboardContent::has_plain).map(|mut c| Zeroizing::new(std::mem::take(&mut c.text.0))) }
     /// Every form on the clipboard, as written: pastes from it are sanitised, this isn't.
     pub fn content(&self) -> Option<ClipboardContent> { self.ticked(|_, board| board.content.clone()) }
@@ -252,6 +270,9 @@ impl std::fmt::Debug for MemoryClipboard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.debug_struct("MemoryClipboard").finish_non_exhaustive() }
 }
 impl Backend for Board {
+    fn primary_text(&mut self) -> Option<String> { self.primary.clone() }
+    fn write_primary(&mut self, text: String) -> Result<(), String> { if let Some(error) = &self.fail { return Err(error.clone()); } self.primary = Some(text); Ok(()) }
+    fn clear_primary(&mut self) -> Result<(), String> { if let Some(error) = &self.fail { return Err(error.clone()); } self.primary = None; Ok(()) }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String> {
         if let Some(error) = &self.fail { return Err(error.clone()); }
         self.content = Some(copy.content.clone());
@@ -282,6 +303,11 @@ pub(crate) fn shutdown() {
 }
 
 trait Backend {
+    fn primary_text(&mut self) -> Option<String> { None }
+    fn write_primary(&mut self, _text: String) -> Result<(), String> { Ok(()) }
+    fn clear_primary(&mut self) -> Result<(), String> { Ok(()) }
+    #[cfg(not(target_arch = "wasm32"))]
+    fn bounded_text(&mut self, _primary: bool, _cap: usize) -> plain::Outcome { plain::Outcome::Unsupported }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String>;
     fn text(&mut self) -> Option<Zeroizing<String>>;
     /// Every form a paste can use, unsanitised, and the image and files only when asked (`all`):
@@ -327,6 +353,10 @@ impl Core {
     fn handle<B: Backend>(&mut self, cb: &mut B, request: Request) {
         match request {
             Request::Write(copy, notify) => self.write(cb, copy, notify, &RealTime),
+            Request::WritePrimary(text) => { drop(cb.write_primary(text)); }
+            Request::ClearPrimary => { drop(cb.clear_primary()); }
+            #[cfg(not(target_arch = "wasm32"))]
+            Request::Plain(operation) => operation.run(self, cb),
             Request::Clear(which) => self.clear(cb, which.as_ref()),
             Request::Read { purpose, reply, wake } => {
                 if let Some(answer) = self.answer(cb, purpose) && reply.send(answer).is_ok() { wake(); }
@@ -356,13 +386,16 @@ impl Core {
     }
 
     fn write<B: Backend>(&mut self, cb: &mut B, copy: ClipboardWrite, notify: Option<Notify>, steps: &dyn WriteSteps) {
+        drop(self.try_write(cb, copy, notify, steps));
+    }
+    fn try_write<B: Backend>(&mut self, cb: &mut B, copy: ClipboardWrite, notify: Option<Notify>, steps: &dyn WriteSteps) -> Result<(), String> {
         let slot = copy.slot().cloned();
         let notify = notify.filter(|_| slot.is_some());
-        if slot.as_ref().is_some_and(|s| s.cancelled()) { return; } // `Unwritten` settles it as cleared.
+        if slot.as_ref().is_some_and(|s| s.cancelled()) { return Ok(()); } // `Unwritten` settles it as cleared.
         if let Err(error) = cb.write(&copy) {
-            if let Some(s) = &slot { s.set(SecretState::Failed(error)); }
+            if let Some(s) = &slot { s.set(SecretState::Failed(error.clone())); }
             if let Some(n) = &notify { n.send(); }
-            return;
+            return Err(error);
         }
         self.apply(cb, HoldEvent::Lost);
         let rev = cb.revision();
@@ -389,6 +422,7 @@ impl Core {
             self.apply(cb, HoldEvent::Written { slot: slot.clone(), notify, due, revision: rev, print });
             if slot.cancelled() { self.clear(cb, Some(&slot)); }
         }
+        Ok(())
     }
 
     /// Steps the hold and carries its effects out, in order.

@@ -1,0 +1,1 @@
+- Native custom hosts can read plain clipboard text and receive ordered write results through `clipboard::plain`, with bounded Wayland reads and explicit empty, unsupported, invalid-text and failure outcomes. macOS reads check the limit after allocation.
