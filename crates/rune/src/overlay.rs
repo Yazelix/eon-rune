@@ -44,6 +44,7 @@ use crate::{ConfiguredOverlay, DisplayTarget, KeyPolicy, OverlayInput, OverlayOp
 
 #[path = "overlay/draw.rs"]
 mod draw;
+mod gpu_failure;
 #[path = "overlay/frame.rs"]
 mod frame;
 use frame::{idle_after, render_frame, step};
@@ -281,6 +282,7 @@ impl<T: 'static> OverlayHandle<T> {
 
 /// An overlay before the event loop runs: the shell gives it a wake-up and the GPU pool.
 pub(crate) trait PendingOverlay: AnyHost {
+    fn gpu_failure(&mut self, latch: Option<Arc<crate::render::failure::Failure>>);
     fn connect(&mut self, wake: Waker, frame_wake: Waker, slot_wake: Waker, gpu: Rc<RefCell<Weak<Gpu>>>);
 }
 
@@ -321,6 +323,7 @@ struct Live {
 }
 
 pub(crate) struct Overlay<T: 'static> {
+    gpu_failure: crate::window::gpu_failure::Policy,
     on_created: Option<Box<dyn FnMut(crate::OverlayCreated)>>,
     setup: Option<fn(&mut T, Waker)>,
     pending_input: Option<OverlayInput>,
@@ -414,6 +417,7 @@ impl<T: 'static> Overlay<T> {
             pending_input: None,
             presence: Presence::default(),
             animate_reveal,
+            gpu_failure: Default::default(),
             options,
             canvas_size: spec.size,
             name: spec.name,

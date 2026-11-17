@@ -556,7 +556,7 @@ fn drag_region_policy_preserves_titled_windows_and_panels() {
 
 /// A GPU-free wgpu instance.
 #[cfg(target_os = "linux")]
-fn noop_instance() -> wgpu::Instance {
+pub(super) fn noop_instance() -> wgpu::Instance {
     let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
     descriptor.backends = wgpu::Backends::NOOP;
     descriptor.backend_options.noop.enable = true;
@@ -565,7 +565,7 @@ fn noop_instance() -> wgpu::Instance {
 
 /// A GPU on wgpu's noop backend: its device takes anything and refuses every surface.
 #[cfg(target_os = "linux")]
-fn noop_gpu(instance: &wgpu::Instance) -> (Gpu, wgpu::Surface<'static>) {
+pub(super) fn noop_gpu(instance: &wgpu::Instance) -> (Gpu, wgpu::Surface<'static>) {
     use std::num::NonZeroU32;
     use std::ptr::NonNull;
     use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle, XcbDisplayHandle, XcbWindowHandle};

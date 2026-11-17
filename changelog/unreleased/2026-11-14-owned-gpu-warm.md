@@ -1,0 +1,1 @@
+- `AppHandle::warm_gpu_with` attributes background GPU preparation to its app on Windows and Linux. Apps using `terminal_gpu_loss` retain failures from that work, including loss observed when taking its waiting device, and start no more preparation after failure; process-global warm-up keeps its existing behavior.

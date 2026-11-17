@@ -24,6 +24,7 @@ pub enum QuitResponse {
 pub(crate) struct AppHooks<S> {
     pub(crate) close_request: Option<fn(&mut S, &mut Tx) -> CloseResponse>,
     pub(crate) quit_request: Option<fn(&mut S, &mut Tx) -> QuitResponse>,
+    pub(crate) gpu_failure: crate::window::gpu_failure::Policy,
     pub(crate) window_event: Option<WindowEventHook<S>>,
     pub(crate) geometry: Option<fn(&mut S, crate::WindowGeometry, &mut Tx) -> bool>,
     // Cache of the last native observation.
@@ -32,7 +33,7 @@ pub(crate) struct AppHooks<S> {
 
 impl<S> Default for AppHooks<S> {
     fn default() -> Self {
-        Self { close_request: None, quit_request: None, window_event: None, geometry: None, last_geometry: None }
+        Self { close_request: None, quit_request: None, window_event: None, geometry: None, last_geometry: None, gpu_failure: Default::default() }
     }
 }
 

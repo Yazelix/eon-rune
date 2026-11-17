@@ -24,6 +24,7 @@ pub use fill::FillDrift;
 mod first_use;
 pub(crate) mod gpu_events;
 mod gpu_loss;
+pub(crate) mod failure;
 pub(crate) mod layer_blur;
 mod layers;
 mod metallib;
@@ -413,6 +414,7 @@ pub struct Gpu {
     /// Windows' Modern Standby) can't configure a surface, and wgpu drops that error, so nothing
     /// else would report it. See `is_lost`.
     lost: Arc<AtomicBool>,
+    pub(crate) failure: Arc<failure::Failure>,
 }
 
 /// The most views and buffers a device binds at once (`Limits::max_non_sampler_bindings`).
@@ -727,6 +729,7 @@ mod prewarm {
     pub(super) fn discard() {}
 }
 
+mod owned_warm;
 mod warmup;
 pub use warmup::{warm_gpu, warm_gpu_with};
 pub(crate) use warmup::{park_gpu, surface_gpu};
@@ -994,9 +997,8 @@ impl Renderer {
     /// premultiplied values, encoded by the `*Srgb` target on write.
     pub fn srgb_blend(&self) -> bool { self.srgb_blend }
 
-    pub fn submit(&self, queue: &wgpu::Queue, mut encoder: wgpu::CommandEncoder) -> wgpu::SubmissionIndex {
-        self.before_submit(&mut encoder);
-        if let Some(s) = &self.surfaces { s.submit(queue,encoder) } else { queue.submit([encoder.finish()]) }
+    pub fn submit(&self, queue: &wgpu::Queue, encoder: wgpu::CommandEncoder) -> wgpu::SubmissionIndex {
+        self.submit_if(queue, encoder, || true).unwrap()
     }
 
     /// Whether `submit` is `queue.submit` after `before_submit` and nothing more: no native video

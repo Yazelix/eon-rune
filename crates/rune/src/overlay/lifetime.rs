@@ -5,6 +5,7 @@ use super::*;
 
 impl<T: 'static> Overlay<T> {
     pub(super) fn show_fading(&mut self, event_loop: &ActiveEventLoop, fade: Duration) {
+        if self.gpu_failed() { return; }
         if self.presence.shown() { return; }
         // Hidden, it missed the redraws a new accent asks for (`accent::watch`).
         self.rt.set_system_dark(crate::platform::preferences::dark().unwrap_or(self.dark));
@@ -32,6 +33,7 @@ impl<T: 'static> Overlay<T> {
             // Retained alpha-zero hosts already have pixels. A hidden update must reach
             // the surface before exposing it, rather than flashing the old frame.
             if !fading { self.refresh_for_reveal_at(Instant::now()); }
+            if self.gpu_failed() { return; }
             self.show_window(&window, fade);
         }
         let effects = self.presence.step(presence::Event::Show, self.release);
@@ -54,6 +56,7 @@ impl<T: 'static> Overlay<T> {
     /// only its window at startup and parks it; its surface, and the GPU device for the first,
     /// wait for the show.
     pub(super) fn prepare(&mut self, event_loop: &ActiveEventLoop, showing: bool) {
+        if self.gpu_failed() { return; }
         if self.surface.live().is_some() { return; }
         let surface = showing || !self.defers_gpu();
         let wayland = crate::window::is_wayland(event_loop);
@@ -79,7 +82,8 @@ impl<T: 'static> Overlay<T> {
             Some(live) => {
                 self.surface.made(live);
                 // An earlier attempt's failure no longer holds.
-                self.shared.failure.lock().unwrap().take();
+                if self.gpu_failed() { return; }
+                if matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Recover) { self.shared.failure.lock().unwrap().take(); }
                 // The surface was made before the panel was adopted and placed; its display's
                 // scale is known now, before `warm` draws.
                 if let Some(Backing::Window(window)) = self.surface.live().map(|l| &l.backing) && let Some(gpu) = self.gpu.clone() {
@@ -101,11 +105,13 @@ impl<T: 'static> Overlay<T> {
     /// warms what it has (parked, only the view); one that makes its surface for each show
     /// draws its own first frame instead.
     pub(super) fn ready(&mut self, showing: bool) {
+        if self.gpu_failed() { return; }
         self.set_availability(Availability::Available);
         if !self.animate_reveal { self.rt.settle_all(); }
         self.dirty = true;
         self.idle = true;
         if self.options.prewarm && !(showing && self.defers_gpu()) { self.warm(); }
+        if self.gpu_failed() { return; }
         if !self.surface.announced() && let Some(created) = &mut self.on_created {
             self.surface.announce();
             let (window_number, capabilities) = *self.shared.native.lock().unwrap();
@@ -366,6 +372,7 @@ impl<T: 'static> Overlay<T> {
     /// screen-sized panels that join every Space empty Mission Control's Space thumbnails.
     /// There the window goes too, and the next show makes a new one.
     pub(super) fn park(&mut self) {
+        if self.gpu_failed() { return; }
         if !matches!(self.surface.live().map(|l| &l.backing), Some(Backing::Window(_))) { return; }
         #[cfg(any(target_os = "windows", target_os = "macos"))]
         self.release();

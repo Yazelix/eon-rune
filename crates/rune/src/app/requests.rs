@@ -81,6 +81,7 @@ impl<S> Default for Requests<S> {
 }
 
 pub(crate) struct Shared<S> {
+    pub(crate) gpu_failure: std::sync::OnceLock<Arc<crate::render::failure::Failure>>,
     pub(crate) menus: crate::native_menu::Hub<S>,
     pub(crate) shortcuts: crate::shortcuts::Hub<S>,
     pub(super) requests: Mutex<Requests<S>>,
@@ -95,6 +96,7 @@ pub(crate) struct Shared<S> {
 impl<S> Default for Shared<S> {
     fn default() -> Self {
         Shared {
+            gpu_failure: Default::default(),
             menus: crate::native_menu::Hub::default(),
             shortcuts: crate::shortcuts::Hub::default(),
             requests: Mutex::default(),

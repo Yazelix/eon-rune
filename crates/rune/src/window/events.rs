@@ -24,6 +24,7 @@ impl<S: 'static> Host<S> {
     /// modifier keys held when it hid, rather than when it next shows. A shown window's
     /// redraw delivers it, as does a hidden launcher's.
     pub(super) fn hidden_input(&mut self, event_loop: &ActiveEventLoop) {
+        if self.gpu_failed() { return; }
         if !self.started || self.life.finished() || self.win.as_ref().is_some_and(|_| self.life.shown() || self.launcher()) { return; }
         if !self.rt.keys_queued() { return; }
         self.rt.hidden_timer_frame();
@@ -33,6 +34,7 @@ impl<S: 'static> Host<S> {
 
     #[cfg(target_os = "macos")]
     pub(super) fn fn_key(&mut self) {
+        if self.gpu_failed() { return; }
         let Some(l) = &self.win else { return };
         let Some(changes) = l.native.fn_key.as_ref().map(|f| f.take()) else { return };
         let mut redraw = false;

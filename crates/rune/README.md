@@ -1909,6 +1909,22 @@ close callbacks and optional GPU release for that window. Retained hosts can reo
 through their AppHandle or WindowHandle. `Tx::quit` / `AppHandle::quit` exit the
 whole event loop. Both entry points use the same lifetime host and render path.
 
+`App::terminal_gpu_loss()` makes GPU loss, uncaptured GPU errors and surface validation
+terminal for that app’s window and owned overlays. Rune hides them, releases their GPU resources and records the first reason
+in `AppHandle::window_error()`; open, ready and draw cannot clear the failure. Initialization
+failures also stop further creation attempts. A healthy-device surface replacement keeps the
+device and renderer; a failed replacement gives up. Default apps retain automatic recovery.
+Owned overlays report the same terminal reason through `OverlayHandle::failure()` and remain unavailable.
+Use `AppHandle::warm_gpu_with(features, prepare)` to attribute background preparation to the app;
+a failure during preparation or observed when taking its waiting device latches the same reason,
+and a failed app starts no further warm work.
+Pass an empty callback to warm only. This method warms on Windows and Linux; elsewhere it does nothing.
+Process-global `warm_gpu`, `warm_gpu_with` and macOS `prewarm_gpu` remain unowned
+until a surface takes their result.
+Typed failures and a surface-reconfiguration notification are not provided by this policy.
+Loss notification uses wgpu's callbacks; Rune's custom Metal backend does not implement
+those callbacks. Select `GpuBackend::Wgpu` when relying on device-loss notification.
+
 Windows can have different state types. `App::window` adds an ordinary titled window with
 its own state to a running app, beside its main window and overlays:
 

@@ -80,6 +80,7 @@ mod handle;
 pub use handle::WindowHandle;
 use handle::native_window_number;
 mod hooks;
+pub(crate) mod gpu_failure;
 mod life;
 pub(crate) use life::Life;
 mod sight;
@@ -335,6 +336,7 @@ pub(crate) fn start<S: 'static>(mut spec: WindowSpec<S>, handle: Option<WindowHa
         return None;
     }
     crate::video::enable_playback();
+    for overlay in &mut spec.app.overlays { overlay.gpu_failure(spec.app.shared.gpu_failure.get().cloned()); }
     cx.overlays.append(&mut spec.app.overlays);
     let handle = handle.unwrap_or_else(|| WindowHandle::new(&spec.key));
     let open_urls = crate::open_url::incoming::listen(&spec.app);
@@ -783,6 +785,8 @@ pub(crate) fn surface_config(surface: &wgpu::Surface, adapter: &wgpu::Adapter, (
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(crate) fn reblend<S: 'static>(surface: &wgpu::Surface, gpu: &Gpu, config: &mut wgpu::SurfaceConfiguration,
     renderer: &mut Renderer, alpha: &mut Option<crate::render::surface_alpha::AlphaSurface>, rt: &mut Runtime<S>) -> bool {
+    #[cfg(all(test, target_os = "linux"))]
+    gpu_failure::REBLENDS.with(|n| n.set(n.get() + 1));
     let srgb = rt.srgb_blend();
     let Some((next, _)) = surface_config(surface, &gpu.adapter, (config.width, config.height), srgb) else { return false };
     if (config.format, &config.view_formats) != (next.format, &next.view_formats) {

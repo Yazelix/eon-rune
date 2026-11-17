@@ -149,6 +149,7 @@ impl Surface {
 impl<T: 'static> Overlay<T> {
     /// Creates the wgpu surface (and the GPU device, if this is the first surface).
     pub(super) fn attach(&mut self, backing: Backing, scale: f32) -> Option<Live> {
+        if self.gpu_failed() { return None; }
         // First, before the surface binds the view (macOS may observe it).
         let a11y = self.shared.wake.lock().unwrap().clone().and_then(|wake| match &backing {
             Backing::Window(window) => crate::a11y::Adapter::new(window, wake),
@@ -203,6 +204,7 @@ impl<T: 'static> Overlay<T> {
             }
         };
         let features = self.compositor.as_ref().map_or(wgpu::Features::empty(), |c| c.features());
+        if self.gpu_failed() { return None; }
         // A device that died while the overlay was hidden (a driver reset, a resume from
         // Modern Standby) can configure nothing: the next surface gets a new one.
         if self.gpu.as_ref().is_some_and(|gpu| gpu.is_lost()) {
@@ -212,14 +214,14 @@ impl<T: 'static> Overlay<T> {
         // The overlay's own device was already the best for its surface, translucent or not; a
         // device shared from another overlay must composite this one's translucent pixels.
         let pooled = self.gpu.clone().map(|gpu| (gpu, false)).or_else(|| self.gpu_pool.borrow().upgrade().filter(|gpu| {
-            !gpu.is_lost() && gpu.device.features().contains(features & gpu.adapter.features())
+            !gpu.is_lost() && !self.gpu_failure.failed_on(gpu) && gpu.device.features().contains(features & gpu.adapter.features())
         }).map(|gpu| (gpu, true)));
         let reused = pooled.and_then(|(gpu, translucent)| make(&gpu.instance).filter(|s| crate::render::translucency::serves(&gpu, s, features, translucent)).map(|s| (gpu, s)));
         let mut prewarmed = None;
         let surface = match reused {
             Some((gpu, surface)) => { self.gpu = Some(gpu); surface }
             None => {
-                let made = Gpu::for_surface(features, true, |instance| make(instance).ok_or_else(|| "could not create its GPU surface".to_owned()));
+                let made = Gpu::for_owned_surface(&self.gpu_failure, features, true, |instance| make(instance).ok_or_else(|| "could not create its GPU surface".to_owned()));
                 let (gpu, surface, renderer) = match made {
                     Ok(made) => made,
                     Err(error) => {
@@ -238,6 +240,8 @@ impl<T: 'static> Overlay<T> {
             }
         };
         let gpu = self.gpu.clone()?;
+        if matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Terminal(_)) && let Some(wake) = self.shared.wake.lock().unwrap().clone() { let _ = gpu.failure.watch(wake); }
+        if self.gpu_failed() { return None; }
         let (w, h) = ((self.at.size.0 * scale).round() as u32, (self.at.size.1 * scale).round() as u32);
         let (mut config, translucent) = crate::window::surface_config(&surface, &gpu.adapter, (w, h), self.rt.srgb_blend())?;
         match translucent {
@@ -256,7 +260,9 @@ impl<T: 'static> Overlay<T> {
         // A surface the driver refuses costs this overlay alone, never the app's other windows
         // (hex#979). The surface drops before its backing.
         if let Err(error) = crate::window::configure(&surface, &gpu, &config) {
-            self.fail(format!("could not configure its GPU surface on {:?} {}: {error}", info.backend, info.name));
+            let reason = format!("could not configure its GPU surface on {:?} {}: {error}", info.backend, info.name);
+            if matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Recover) { self.fail(reason); }
+            else { self.fail_gpu(reason); }
             return None;
         }
         #[cfg(target_os = "macos")]
@@ -304,6 +310,7 @@ impl<T: 'static> Overlay<T> {
     }
 
     pub(super) fn rescale(&mut self, gpu: &Gpu, scale: f32) {
+        if self.gpu_failed() { return; }
         let Some(live) = self.surface.live_mut() else { return };
         if (live.scale - scale).abs() < f32::EPSILON {
             return;
@@ -340,6 +347,7 @@ impl<T: 'static> Overlay<T> {
     /// Its surface refused a new configuration: the overlay hides and drops it, so wgpu never
     /// panics on its next drawable. The next show tries a new one.
     pub(super) fn surface_refused(&mut self, reason: String) {
+        if !matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Recover) { self.fail_gpu(reason); return; }
         self.hide();
         self.release();
         self.fail(reason);

@@ -213,6 +213,7 @@ impl<T: 'static> Overlay<T> {
     /// An overlay that draws nothing delivers queued input without drawing, such as the
     /// releases of the modifier keys held when it hid, rather than when it next shows.
     pub(super) fn hidden_input(&mut self) {
+        if self.gpu_failed() { return; }
         if !self.presence.drawing() && self.rt.keys_queued() { self.advance(); }
     }
 
@@ -220,6 +221,7 @@ impl<T: 'static> Overlay<T> {
     /// hide released Fn, and it takes no keys.
     #[cfg(target_os = "macos")]
     pub(super) fn fn_key(&mut self) {
+        if self.gpu_failed() { return; }
         let Some(changes) = self.surface.live().and_then(|l| l.fn_key.as_ref()).map(|f| f.take()) else { return };
         if !self.presence.shown() || self.options.keys != KeyPolicy::OnDemand { return; }
         for pressed in changes {
@@ -264,6 +266,7 @@ impl<T: 'static> Overlay<T> {
     }
 
     pub(super) fn advance_at(&mut self, now: Instant) {
+        if self.gpu_failed() { self.rt.poll_hidden(); self.rt.schedule_pending_wakes(); self.clipboard.flush(&mut self.rt); return; }
         // Covered or asleep, a shown overlay only polls. What it would commit waits for the
         // first uncovered frame, which resumes running motion and starts new motion fresh
         // (`step`). Hidden, an overlay only polls too, and its view waits for the frame that
@@ -287,6 +290,7 @@ impl<T: 'static> Overlay<T> {
 
     /// Runs a frame without drawing: handlers, poll, the view and layout.
     pub(super) fn commit_at(&mut self, now: Instant) {
+        if self.gpu_failed() { return; }
         let commits = self.rt.stats.commits;
         if self.retained() {
             self.rt.frame_split(now.saturating_duration_since(self.clock.last()).as_secs_f64(), 0.0);
@@ -406,6 +410,7 @@ impl<T: 'static> Overlay<T> {
         if let Some(placement) = requests.placement { self.options.placement = placement; }
         if let Some(display) = requests.display { self.options.display = display; }
         self.apply_wake(requests.woken, requests.updates);
+        if self.gpu_failed() { return; }
         let mut at = self.at;
         at.edge = requests.edge.unwrap_or(at.edge);
         at.margin = requests.margin.unwrap_or(at.margin);

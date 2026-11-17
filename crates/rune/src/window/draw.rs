@@ -17,6 +17,7 @@ impl<S: 'static> Host<S> {
     /// (`Backoff`), with its display link stopped so no tick redraws sooner. `stepped` when this
     /// frame already ran the runtime.
     pub(super) fn missed_frame(&mut self, missed: Missed, stepped: bool) {
+        if self.gpu_failed() { return; }
         let Some(l) = self.win.as_mut() else { return };
         l.timer_frame.drawn();
         l.presented = None;
@@ -47,6 +48,7 @@ impl<S: 'static> Host<S> {
     /// would have run runs without drawing (`covered_step`). It isn't live: a minimize X11
     /// reports with no event lands here first, and the frame that next draws settles.
     pub(super) fn covered_frame(&mut self) {
+        if self.gpu_failed() { return; }
         let Some(l) = self.win.as_mut() else { return };
         l.timer_frame.drawn();
         l.presented = None;
@@ -70,11 +72,13 @@ impl<S: 'static> Host<S> {
     /// Draws a frame. `resizing` draws one for a size the user just dragged the window to, at
     /// once: AppKit shows the new size when the event returns, with or without it.
     pub(super) fn draw(&mut self, resizing: bool) {
+        if self.gpu_failed() { return; }
         // Windows: a window still on the CPU renderer draws there (`cpu_frame`).
         #[cfg(target_os = "windows")]
         {
             self.look();
             self.hand_over_if_done();
+            if self.gpu_failed() { return; }
             if self.win.as_ref().is_some_and(|w| w.native.mode.cpu_draws()) { return self.draw_cpu(resizing); }
         }
         let launcher = self.launcher();
@@ -248,6 +252,7 @@ impl<S: 'static> Host<S> {
         };
         #[cfg(feature = "frame-profile")]
         let fp_acquired = fp_start.map(|_| crate::frame::live_log::Stamp::now());
+        if self.hooks.gpu_failure.failed_on(gpu) { self.discard_failed_frame(frame); return; }
         // A covered window's owed frame (`CoveredDraw`) draws settled and stays covered: live, its
         // loops would ask for frames no one sees.
         if !hidden && !self.life.covered() && !self.rt.live_visible() && { let size = l.window.inner_size(); size.width > 0 && size.height > 0 } {
@@ -290,12 +295,14 @@ impl<S: 'static> Host<S> {
         } else {
             self.clock.advance(rt, frame_time, composing(self.comp.as_deref()))
         };
+        if self.hooks.gpu_failure.failed_on(gpu) { self.discard_failed_frame(frame); return; }
         #[cfg(target_os = "macos")]
         let frame = if l.surface.as_ref().is_some_and(|surface| l.native.materials.update(rt.transparent, !rt.materials.is_empty(), &l.window, surface)) {
             // This drawable presents without the views: build again natively into a new one.
             drop(frame);
             rt.native_materials = true;
             animating |= rt.frame(0.0);
+            if self.hooks.gpu_failure.failed_on(gpu) { self.gpu_failed(); return; }
             let Some(surface) = l.surface.as_ref() else { return };
             let frame = match acquire(surface, gpu, &l.config, l.surface_ok, 1, &mut self.meter) {
                 Ok(frame) => frame,
@@ -340,6 +347,7 @@ impl<S: 'static> Host<S> {
         let fp_built = fp_start.map(|_| crate::frame::live_log::Stamp::now());
         sync_platform(l, rt, &mut self.secure_input, &mut self.ime_allowed, &self.clipboard);
         let target_format = if rt.srgb_blend() { l.config.format.remove_srgb_suffix() } else { l.config.format };
+        if self.hooks.gpu_failure.failed_on(gpu) { self.discard_failed_frame(frame); return; }
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor {
             format: (target_format != l.config.format).then_some(target_format),
             ..Default::default()
@@ -362,6 +370,7 @@ impl<S: 'static> Host<S> {
         renderer.prepare_surfaces(&gpu.device, &gpu.queue, &rt.surfaces, (l.config.width, l.config.height));
         #[cfg(feature = "frame-profile")]
         let fp_uploaded = fp_start.map(|_| crate::frame::live_log::Stamp::now());
+        if self.hooks.gpu_failure.failed_on(gpu) { self.discard_failed_frame(frame); return; }
         let mut enc = gpu.device.create_command_encoder(&Default::default());
         #[cfg(target_os = "windows")]
         let mut present_rect = None;
@@ -405,6 +414,7 @@ impl<S: 'static> Host<S> {
             renderer.prepare_ui(&gpu.device, &gpu.queue, &mut rt.text.atlas, &rt.instances, size);
             renderer.draw(&mut enc, target, rt.clear_color());
         }
+        if self.hooks.gpu_failure.failed_on(gpu) { self.discard_failed_frame(frame); return; }
         // Every frame, so a frame drawn whole leaves the renderer's kept frame behind.
         #[cfg(target_os = "windows")]
         match (renderer.damage_drawn(), part) {
@@ -417,11 +427,13 @@ impl<S: 'static> Host<S> {
         if let Some(alpha) = &l.alpha { alpha.draw(&mut enc, &view); }
         #[cfg(feature = "frame-profile")]
         let fp_encoded = fp_start.map(|_| crate::frame::live_log::Stamp::now());
-        renderer.submit(&gpu.queue, enc);
+        if self.hooks.gpu_failure.failed_on(gpu) { self.discard_failed_frame(frame); return; }
+        if renderer.submit_if(&gpu.queue, enc, || !self.hooks.gpu_failure.failed_on(gpu)).is_none() { self.discard_failed_frame(frame); return; }
         #[cfg(feature = "frame-profile")]
         let fp_submitted = fp_start.map(|_| crate::frame::live_log::Stamp::now());
         crate::marks::mark_once(&FIRST_ENCODED, "frame.first.encoded");
         let encoded = self.frame_reports.stamp();
+        if self.hooks.gpu_failure.failed_on(gpu) { self.discard_failed_frame(frame); return; }
         l.window.pre_present_notify();
         #[cfg(target_os = "macos")]
         l.native.materials.present(&rt.materials, rt.env.scale, || gpu.queue.present(frame));
@@ -434,12 +446,14 @@ impl<S: 'static> Host<S> {
         }
         #[cfg(not(target_os = "macos"))]
         gpu.queue.present(frame);
+        if self.hooks.gpu_failure.failed_on(gpu) { self.gpu_failed(); return; }
         #[cfg(target_os = "windows")]
         l.native.slot.presented();
         // A swap chain made again on a handed-over window's visual takes over now (`cpu_frame`).
         #[cfg(target_os = "windows")]
         if matches!(l.native.mode, super::cpu_frame::SurfaceMode::Rebinding { .. }) {
             let _ = gpu.device.poll(wgpu::PollType::wait_indefinitely());
+            if self.hooks.gpu_failure.failed_on(gpu) { self.gpu_failed(); return; }
             if let super::cpu_frame::SurfaceMode::Rebinding { handover } = std::mem::take(&mut l.native.mode) {
                 if let Err(error) = handover.commit() { eprintln!("rune: the window's new swap chain couldn't take over: {error}"); }
                 l.native.mode = super::cpu_frame::SurfaceMode::Handed { handover };

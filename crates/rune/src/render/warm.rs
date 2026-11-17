@@ -31,7 +31,7 @@ enum State {
     #[default]
     Idle,
     Making { until: Instant },
-    Ready { warmed: Warmed, until: Instant },
+    Ready { warmed: Warmed, until: Instant, owner: Option<Arc<super::failure::Failure>> },
 }
 
 struct Slot {
@@ -63,9 +63,14 @@ pub(super) fn live() -> Option<Arc<Gpu>> {
 /// waits `LINGER` from now. `prepare` runs on the warming thread with the new device, or the
 /// live one, so an app can make its own pipelines off the UI thread.
 pub(super) fn warm(features: wgpu::Features, prepare: Option<Box<dyn FnOnce(&wgpu::Device) + Send>>) {
+    warm_for(features, prepare, None);
+}
+
+pub(super) fn warm_for(features: wgpu::Features, prepare: Option<Box<dyn FnOnce(&wgpu::Device) + Send>>, owner: Option<Arc<super::failure::Failure>>) {
+    if !super::owned_warm::allowed(None, &owner) { return; }
     if let Some(gpu) = live() {
         if let Some(prepare) = prepare {
-            let _ = std::thread::Builder::new().name("rune-gpu-warm".into()).spawn(move || prepare(&gpu.device));
+            let _ = std::thread::Builder::new().name("rune-gpu-warm".into()).spawn(move || { super::owned_warm::prepare(&gpu, Some(prepare), &owner); });
         }
         return;
     }
@@ -77,18 +82,19 @@ pub(super) fn warm(features: wgpu::Features, prepare: Option<Box<dyn FnOnce(&wgp
     }
     drop(state);
     let spawned = std::thread::Builder::new().name("rune-gpu-warm".into()).spawn(move || {
-        let made = make(features);
+        let made = make(features, &owner);
         // Before the slot says ready, so a surface waiting for it gets the app's pipelines too;
         // outside the lock, so `warm` never waits on them.
-        if let (Some(warmed), Some(prepare)) = (&made, prepare) { prepare(&warmed.0.device); }
+        let made = made.filter(|warmed| super::owned_warm::prepare(&warmed.0, prepare, &owner));
         let mut state = lock(&SLOT.state);
         let (Some(warmed), State::Making { until }) = (made, &*state) else {
             *state = State::Idle;
             SLOT.changed.notify_all();
             return;
         };
+        if !super::owned_warm::allowed(None, &owner) { *state = State::Idle; SLOT.changed.notify_all(); return; }
         let until = *until;
-        *state = State::Ready { warmed, until };
+        *state = State::Ready { warmed, until, owner };
         SLOT.changed.notify_all();
         wait_for_surface(state);
     });
@@ -120,7 +126,7 @@ pub(crate) fn park(gpu: Gpu, renderer: Renderer, linger: Duration) {
     if renderer.surfaces.is_some() { return; }
     let mut state = lock(&SLOT.state);
     if !matches!(*state, State::Idle) { return; }
-    *state = State::Ready { warmed: Warmed(gpu, renderer), until: Instant::now() + linger };
+    *state = State::Ready { warmed: Warmed(gpu, renderer), until: Instant::now() + linger, owner: None };
     SLOT.changed.notify_all();
     drop(state);
     let spawned = std::thread::Builder::new().name("rune-gpu-parked".into()).spawn(|| wait_for_surface(lock(&SLOT.state)));
@@ -129,10 +135,13 @@ pub(crate) fn park(gpu: Gpu, renderer: Renderer, linger: Duration) {
 
 /// A device for a future surface on a GPU that drives a display, with the renderer, and one
 /// pass run offscreen, so the device has drawn (`GpuEvent::Drew`).
-fn make(features: wgpu::Features) -> Option<Warmed> {
+fn make(features: wgpu::Features, owner: &Option<Arc<super::failure::Failure>>) -> Option<Warmed> {
+    if !super::owned_warm::allowed(None, owner) { return None; }
     super::gpu_events::starting();
     let gpu = Gpu::try_for_display(Gpu::instance_for(features), features).ok()?;
+    if !super::owned_warm::allowed(Some(&gpu), owner) { return None; }
     let renderer = Renderer::new(&gpu.device, FORMAT);
+    if !super::owned_warm::allowed(Some(&gpu), owner) { return None; }
     assert!(renderer.surfaces.is_none(), "a new renderer has no native surface renderer");
     let target = super::Offscreen::with_format(&gpu.device, 8, 8, FORMAT);
     let mut encoder = gpu.device.create_command_encoder(&Default::default());
@@ -144,27 +153,38 @@ fn make(features: wgpu::Features) -> Option<Warmed> {
         })],
         ..Default::default()
     }));
-    gpu.queue.submit([encoder.finish()]);
+    let commands = encoder.finish();
+    if !super::owned_warm::allowed(Some(&gpu), owner) { return None; }
+    gpu.queue.submit([commands]);
     let _ = gpu.device.poll(wgpu::PollType::wait_indefinitely());
     super::gpu_events::presented();
-    Some(Warmed(gpu, renderer))
+    super::owned_warm::allowed(Some(&gpu), owner).then_some(Warmed(gpu, renderer))
 }
 
 /// What `warm` made, waiting for it if it's still making it. A device that died while it waited
-/// is dropped: its surface's owner makes a new one.
+/// is dropped after reporting to its warm-up owner, if any.
 pub(super) fn take() -> Option<(Gpu, Renderer)> {
     let mut state = lock(&SLOT.state);
     while matches!(*state, State::Making { .. }) {
         state = SLOT.changed.wait(state).unwrap_or_else(|e| e.into_inner());
     }
-    let State::Ready { warmed: Warmed(gpu, renderer), .. } = std::mem::take(&mut *state) else { return None };
+    let State::Ready { warmed: Warmed(gpu, renderer), owner, .. } = std::mem::take(&mut *state) else { return None };
     SLOT.changed.notify_all();
+    drop(state);
+    if !super::owned_warm::allowed(Some(&gpu), &owner) { return None; }
     if gpu.is_lost() { return None; }
     Some((gpu, renderer))
 }
 
 /// `prewarm_gpu` is macOS's; elsewhere the surface decides the adapter.
 pub(super) fn start() {}
+
+#[cfg(test)]
+impl Gpu {
+    pub(crate) fn warm_ready_for_test() -> bool {
+        matches!(*lock(&SLOT.state), State::Ready { .. })
+    }
+}
 
 /// What's warmed goes; a thread still making it lets it go when it's done.
 #[cfg_attr(test, allow(dead_code))]
