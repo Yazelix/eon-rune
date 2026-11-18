@@ -19,13 +19,21 @@ pub(crate) use commits::CommitMeter;
 
 /// A window's commit watch: what the commit underway is for (`RUNE_COMMIT_BUDGET_MS` prints
 /// it), and the commit warnings' meters.
-#[derive(Default)]
 pub(crate) struct Watch {
     /// `CommitWhy` bits for the commit underway; 0 for one outside a frame's checks.
     pub cause: u16,
     pub meter: CommitMeter,
     /// Interaction timing (`tooling::interaction`), when it's on.
     pub interaction: crate::tooling::interaction::Tracker,
+}
+
+impl Default for Watch {
+    fn default() -> Self {
+        #[cfg(debug_assertions)]
+        enabled();
+        runq::prepare();
+        Self { cause: 0, meter: Default::default(), interaction: Default::default() }
+    }
 }
 
 #[cfg(debug_assertions)]
@@ -98,7 +106,7 @@ pub(crate) fn memo_key_replaced(id: &str, existing: &str, site: &std::panic::Loc
 /// time blocked rather than computing.
 pub(crate) struct Stall {
     #[cfg(debug_assertions)]
-    start: Option<(Instant, f64, Option<f64>)>,
+    start: Option<(Instant, f64, Option<runq::Switches>)>,
 }
 
 impl Stall {
@@ -106,7 +114,10 @@ impl Stall {
     pub(crate) fn start() -> Self {
         Stall {
             #[cfg(debug_assertions)]
-            start: if enabled() { crate::frame::profile::cpu_ms().map(|cpu| (Instant::now(), cpu, runq::wait_ms())) } else { None },
+            start: if enabled() {
+                let switches = runq::snapshot();
+                crate::frame::profile::cpu_ms().map(|cpu| (Instant::now(), cpu, switches))
+            } else { None },
         }
     }
 
@@ -120,13 +131,12 @@ impl Stall {
             let wall = wall.elapsed().as_secs_f64() * 1000.0;
             if wall <= STALL_MS { return }
             let cpu = crate::frame::profile::cpu_ms().map_or(0.0, |now| now - cpu);
-            let waited = wait.and_then(|start| runq::wait_ms().map(|now| now - start));
+            let waited = runq::wait_ms(wait, runq::snapshot());
             let Some(blocked) = runq::blocked_ms(wall, cpu, waited, waited.is_none() && runq::overloaded()) else { return };
             let (site, name) = what();
             warn_once(format!("stall {site}"), || {
-                let queued = waited.filter(|w| *w >= 1.0).map_or_else(String::new, |w| format!(", waited {w:.0} ms for a core"));
                 format!(
-                    "{name} blocked {blocked:.0} ms (CPU {cpu:.0} ms{queued}) on the main thread: move IO off it \
+                    "{name} blocked {blocked:.0} ms (CPU {cpu:.0} ms) on the main thread: move IO off it \
                      with `rune::Latest` or a thread"
                 )
             });
@@ -159,4 +169,9 @@ mod commits_tests;
 test_group! { native =>
 #[cfg(all(test, debug_assertions))]
 mod tests;
+}
+#[cfg(test)]
+test_group! { native =>
+#[cfg(all(test, debug_assertions, any(target_os = "linux", target_os = "android")))]
+mod alloc_tests;
 }

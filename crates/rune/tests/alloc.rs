@@ -48,6 +48,28 @@ fn disabled_trace_hooks_neither_format_nor_allocate() {
     assert_eq!(allocs() - before, 0);
 }
 
+#[cfg(all(target_os = "linux", debug_assertions))]
+#[test]
+fn cold_first_callback_with_explicit_warnings_allocates_nothing() {
+    const CHILD: &str = "RUNE_COLD_CALLBACK_ALLOC_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "cold_first_callback_with_explicit_warnings_allocates_nothing", "--nocapture"])
+            .env(CHILD, "1")
+            .env("RUNE_PERF_WARN", "1")
+            .status()
+            .unwrap();
+        assert!(status.success(), "cold callback allocation child failed: {status}");
+        return;
+    }
+    assert_eq!(std::env::var("RUNE_PERF_WARN").as_deref(), Ok("1"));
+    fn view(_: &(), _: &mut Cx<()>) -> El { rune::el() }
+    let mut rt = Runtime::new((), view, (100.0, 100.0), Env::new(true, 1.0));
+    let before = allocs();
+    rt.update(|_, tx| assert!(!tx.tracing()));
+    assert_eq!(allocs() - before, 0, "cold first callback allocations");
+}
+
 #[test]
 fn static_faded_container_planning_allocates_nothing() {
     use rune::{Color, Live, el};

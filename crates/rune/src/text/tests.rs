@@ -384,8 +384,26 @@ fn routes_merge_math_and_emoji_presentation() {
     assert_eq!(fallback::routes(&format!("a{heart}❤{flag}")), vec![(1..1 + heart.len(), Route::Emoji), (flag_at..flag_at + flag.len(), Route::Emoji)]);
 }
 
-/// `U+FE0F` asks for the colour emoji even when a text font has the base character; without
-/// it the text form stays.
+#[test]
+fn emoji_default_presentation_routes() {
+    assert_eq!(fallback::routes("😀😀 @kit 🎉 docs"), vec![(0..8, Route::Emoji), (14..18, Route::Emoji)]);
+    for text in ["😀", "🎉", "✅", "⚡", "😀\u{FE0F}", "❤\u{FE0F}", "👩🏽\u{200D}💻", "🏳\u{FE0F}\u{200D}🌈", "🇫🇷"] {
+        assert_eq!(fallback::routes(text), vec![(0..text.len(), Route::Emoji)], "{text:?}");
+    }
+    for text in ["❤ ☀ ✔ ☺ ©", "😀\u{FE0E}", "✅\u{FE0E}", "⚡\u{FE0E}", "plain ascii"] {
+        assert!(fallback::routes(text).is_empty(), "{text:?} keeps text presentation");
+    }
+    assert_eq!(fallback::routes("😀\u{FE0E}😀"), vec![(7..11, Route::Emoji)]);
+}
+
+pub(super) fn colour(ts: &mut TextSystem, text: &str, spans: &[Span], style: TextStyle) -> usize {
+    let layout = ts.layout_rich(text, spans, style, 2.0, None);
+    let mut quads = Vec::new();
+    ts.glyphs_for_layout(&layout, 2.0, [0.0, 0.0], false, &mut quads);
+    quads.iter().filter(|q| q.color != 0).count()
+}
+
+/// Default emoji and `U+FE0F` use the colour face; text-default symbols and `U+FE0E` keep text priority.
 #[test]
 fn emoji_presentation_selector_draws_in_colour() {
     let mut ts = TextSystem::default();
@@ -394,15 +412,28 @@ fn emoji_presentation_selector_draws_in_colour() {
         eprintln!("skipping: no colour emoji font installed");
         return;
     }
-    let colour = |ts: &mut TextSystem, text: &str| {
-        let layout = ts.layout_rich(text, &[], TextStyle::new(13.0, 400.0), 2.0, None);
-        let mut quads = Vec::new();
-        ts.glyphs_for_layout(&layout, 2.0, [0.0, 0.0], false, &mut quads);
-        quads.iter().filter(|q| q.color != 0).count()
-    };
-    assert_eq!(colour(&mut ts, "a❤\u{FE0F}b ☀\u{FE0F} ✔\u{FE0F}"), 3);
-    assert_eq!(colour(&mut ts, "a❤b ☺\u{FE0E}"), 0);
-    assert_eq!(colour(&mut ts, "🏳\u{FE0F}\u{200D}🌈 👩🏽\u{200D}💻"), 2, "ZWJ sequences stay one image each");
+    eprintln!("EMOJI COLOUR FAMILY: {}", ts.emoji.unwrap());
+    let style = TextStyle::new(13.0, 400.0);
+    assert_eq!(colour(&mut ts, "a❤\u{FE0F}b ☀\u{FE0F} ✔\u{FE0F}", &[], style), 3);
+    assert_eq!(colour(&mut ts, "a❤b ☺\u{FE0E}", &[], style), 0);
+    assert_eq!(colour(&mut ts, "🏳\u{FE0F}\u{200D}🌈 👩🏽\u{200D}💻", &[], style), 2, "ZWJ sequences stay one image each");
+    let emoji = ts.emoji.unwrap();
+    for (style, spans) in [
+        (style, vec![]),
+        (style.mono(), vec![]),
+        (style, vec![Span::new(0, "😀😀 @kit 🎉 docs".len()).mono()]),
+    ] {
+        let mut cold = TextSystem::default();
+        assert!(cold.emoji.is_none());
+        assert_eq!(colour(&mut cold, "😀😀 @kit 🎉 docs", &spans, style), 3);
+        assert_eq!(cold.emoji, Some(emoji));
+        let glyphs = faces(&mut cold, "😀", &spans, style);
+        assert_eq!(glyphs.len(), 1);
+        assert!(glyphs.iter().all(|(family, id)| family == emoji && *id != 0));
+        assert_eq!(colour(&mut cold, "✅ ⚡", &[], style), 2);
+        assert_eq!(colour(&mut cold, "🇫🇷", &[], style), 1, "regional flags stay one image");
+    }
+    println!("EMOJI COLOUR PASS: cold, mono, rich, selectors, ZWJ and flag");
 }
 
 /// Each glyph's ink top and bottom in px above the baseline, with its run's weight axis.

@@ -554,3 +554,10 @@ fn font_file_name(path: &std::path::Path) -> Option<String> {
     let name = path.file_name()?.to_string_lossy().to_lowercase();
     [".ttf", ".otf", ".ttc", ".otc"].iter().any(|ext| name.ends_with(ext)).then(|| name.replace([' ', '.'], ""))
 }
+
+#[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
+#[path = "system_fonts/tests.rs"]
+mod tests;
+}

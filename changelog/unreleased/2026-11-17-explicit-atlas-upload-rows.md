@@ -1,0 +1,1 @@
+- Glyph atlas texture growth and invalidation retain explicit pending upload rows, so frozen atlas pages render without overrunning the first GPU texture. Empty and small managed atlases keep their lazy initial texture height.

@@ -1,5 +1,14 @@
 use super::*;
 
+fn waker_calls(player: &Player) -> Arc<std::sync::atomic::AtomicUsize> {
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let seen = calls.clone();
+    player.set_waker(Arc::new(move || {
+        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }));
+    calls
+}
+
 fn meta() -> Meta {
     Meta { duration: 1.0, size: Some((64, 36)), frame: 0.25, sound: false }
 }
@@ -89,18 +98,17 @@ fn quiet_audio() -> Player {
 #[test]
 fn the_waker_hears_each_state_change_once() {
     let a = quiet_audio();
-    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let seen = calls.clone();
-    a.set_waker(Arc::new(move || {
-        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    }));
+    assert_eq!(a.shared.snapshot().state, PlayerState::Loading);
+    let calls = waker_calls(&a);
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0, "nothing changed yet");
     a.shared.ctl.lock().unwrap().open(Ok(Meta { duration: 2.0, size: None, frame: 1.0 / 30.0, sound: false }));
+    assert_eq!(a.shared.snapshot().state, PlayerState::Ready);
     a.shared.settle(false);
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
     a.shared.ctl.lock().unwrap().fail("gone".into());
+    assert_eq!(a.shared.snapshot().state, PlayerState::Failed("gone".into()));
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 2);
 }
@@ -112,11 +120,7 @@ fn the_waker_hears_each_state_change_once() {
 fn a_waker_set_after_a_failure_hears_it_once() {
     let a = Player::url("tap.ogv");
     assert!(matches!(a.shared.snapshot().state, PlayerState::Failed(_)));
-    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let seen = calls.clone();
-    a.set_waker(Arc::new(move || {
-        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    }));
+    let calls = waker_calls(&a);
     a.shared.settle(true);
     a.play();
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);

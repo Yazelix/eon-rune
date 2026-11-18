@@ -9,19 +9,19 @@ use rune_ref::{
 };
 use std::{cell::RefCell, path::PathBuf};
 
-// A provisional 2-LSB cap per primitive; measured maxima and backend in research/24.
-// Composite has its own 2-LSB cap, never multiplied by primitive count.
+// Raw 2-LSB fallback budgets for isolated primitives and composites.
+// Measured Vulkan qualification checks each step instead; see research/24.
+mod framebuffer_precision;
+
+#[path = "differential/gradient_band.rs"]
+mod gradient_band;
+
 const BUDGET: [u8; 5] = [2, 2, 2, 2, 2];
 fn check(gpu: &mut GpuRenderer, scene: &Scene, tolerance: u8) -> Result<u8, String> {
     let mut cpu = Frame::new(scene.width, scene.height, true);
     cpu.render(scene);
     let actual = gpu.render(scene);
-    let diff = compare(scene, &cpu, &actual, tolerance);
-    if diff.outlier_pixels > 0 {
-        Err(serde_json::to_string(&diff).unwrap())
-    } else {
-        Ok(diff.max_channel)
-    }
+    gpu.qualify(scene, &cpu, &actual, tolerance)
 }
 fn save(name: &str, scene: &Scene) {
     let dir = std::env::var_os("RUNE_REF_FAILURES")
@@ -107,6 +107,31 @@ fn saved_regressions() {
         scene.validate().unwrap();
         assert!(check(&mut gpu, &scene, 2).is_ok(), "{}", path.display());
     }
+}
+
+#[test]
+fn atlas_mask_abi_regressions() {
+    let mut gpu = GpuRenderer::default();
+    let mut seed1 = generate::seeded(1, 8);
+    seed1.primitives.retain(|p| p.params[1] == 2.0);
+    assert_eq!(seed1.primitives.len(), 1);
+    assert_eq!(seed1.primitives[0].node, 8);
+    assert_eq!(seed1.primitives[0].source, "generated/7");
+    check(&mut gpu, &seed1, 2).expect("seed1 atlas mask");
+
+    // Minimized records retain the legacy .125 outline flag without requesting an outline.
+    let records = [
+        [32, 0, 0, 8, 8, 0, 0, 0, 61, 35, 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        [2, 0, 0, 6, 6, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3, 0, 0],
+    ];
+    for record in records {
+        let scene = generate::scene(&[record]);
+        assert_eq!(scene.primitives[0].params[1], 2.0);
+        assert_eq!(scene.primitives[0].radii[3], 0.125);
+        check(&mut gpu, &scene, 2).expect("minimized atlas mask");
+    }
+    let saved: Scene = serde_json::from_str(include_str!("../regressions/glyph-texel-boundary.json")).unwrap();
+    check(&mut gpu, &saved, 2).expect("saved atlas texel boundary");
 }
 
 // Quarter turns about a centre on the pixel grid keep every turned edge half a pixel from the
@@ -234,20 +259,24 @@ fn cpu_gpu_dashed() {
     eprintln!("METRIC channel_max_dashed={max}");
 }
 
+fn effect_slots(mut scene: Scene) -> Scene {
+    let mut slots = scene.primitives.clone();
+    for slot in &mut slots {
+        slot.fill = [0.0, 0.0, 0.0, 1.0];
+        slot.border = [0.0; 4];
+        slot.params = [0.0, 12.0, 6.0, 1.0];
+        slot.uv = [0.0; 4];
+    }
+    scene.primitives.extend(slots);
+    scene.primitives.rotate_right(4);
+    scene
+}
+
 #[test]
 fn cpu_gpu_effect_slots() {
     let mut gpu = GpuRenderer::default();
     for seed in 0..16 {
-        let mut scene = generate::seeded(seed, 8);
-        let mut slots = scene.primitives.clone();
-        for slot in &mut slots {
-            slot.fill = [0.0, 0.0, 0.0, 1.0];
-            slot.border = [0.0; 4];
-            slot.params = [0.0, 12.0, 6.0, 1.0];
-            slot.uv = [0.0; 4];
-        }
-        scene.primitives.extend(slots);
-        scene.primitives.rotate_right(4);
+        let scene = effect_slots(generate::seeded(seed, 8));
         if let Err(e) = check(&mut gpu, &scene, 2) {
             save(&format!("effect-{seed}"), &scene);
             panic!("{e}");

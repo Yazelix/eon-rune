@@ -10,6 +10,8 @@ use rune::{
     NativeSurface, Pixels, Runtime, SurfaceFit, el,
 };
 
+mod support;
+
 fn render_rt<S: 'static>(gpu: &Gpu, rt: &mut Runtime<S>, size: (u32, u32)) -> Vec<u8> {
     let format = if rt.srgb_blend() {
         OFFSCREEN_FORMAT.remove_srgb_suffix()
@@ -76,6 +78,7 @@ fn radial_gradient_centre_edge_and_monotonic_falloff() {
     assert_eq!(inst.uv, [60.0, 60.0, 50.0, 50.0]);
 
     let gpu = Gpu::headless();
+    support::ColorAdapter::default().observe(&gpu.device);
     let out = render_rt(&gpu, &mut rt, (120, 120));
 
     let center = pixel(&out, 120, 60, 60);
@@ -135,6 +138,7 @@ fn radial_gradient_multi_stop_elliptical_quad_shrinking_and_validation() {
     assert_eq!(radial_insts[1].rect, [10.0, 10.0, 120.0, 80.0]);
 
     let gpu = Gpu::headless();
+    support::ColorAdapter::default().observe(&gpu.device);
     let out = render_rt(&gpu, &mut rt, (140, 100));
 
     // Rounded corner outside the 20pt radius at (11, 11) is clipped transparent.
@@ -216,6 +220,7 @@ fn radial_gradient_multi_stop_elliptical_quad_shrinking_and_validation() {
 
 #[test]
 fn srgb_blend_matches_css_and_core_animation_glow_reference() {
+    let adapter = support::ColorAdapter::default();
     let bg = hex("#100e11").unwrap();
     let glow = hex("#40bf80").unwrap().alpha(0.16);
 
@@ -236,12 +241,12 @@ fn srgb_blend_matches_css_and_core_animation_glow_reference() {
     }
 
     let (_, _, px_linear) = snap_app(
-        App::new(AppSpec::new("glow-lin", (240.0, 240.0), || (), shadow_glow_view)).srgb_blend(false),
+        App::new(AppSpec::new("glow-lin", (240.0, 240.0), || (), shadow_glow_view)).srgb_blend(false).compositor(adapter.clone()),
         "glow-lin",
         &[],
     );
     let (_, _, px_srgb) = snap_app(
-        App::new(AppSpec::new("glow-srgb", (240.0, 240.0), || (), shadow_glow_view)).srgb_blend(true),
+        App::new(AppSpec::new("glow-srgb", (240.0, 240.0), || (), shadow_glow_view)).srgb_blend(true).compositor(adapter.clone()),
         "glow-srgb",
         &[],
     );
@@ -256,8 +261,17 @@ fn srgb_blend_matches_css_and_core_animation_glow_reference() {
     let srgb_center = pixel(&px_srgb, 240, 120, 120);
 
     // Default linear mode stays unchanged (green channel is 83 vs 42 in sRGB reference).
-    assert_eq!(linear_center, [29, 83, 56, 255]);
-    assert_eq!(&srgb_center[..3], &expected_center, "0 LSB centre error in srgb_blend");
+    // Mesa 26.1.6 lavapipe's linear red differs by 1 LSB; green/blue stay exact,
+    // as does Intel's whole linear center.
+    // Both adapters quantize the gamma source to RGBA8, predicting [23,43,34]
+    // vs the float reference [24,42,35].
+    for (got, want, tolerance) in [
+        (linear_center, [29, 83, 56], adapter.linear_tolerances()),
+        (srgb_center, expected_center, [adapter.tolerance(); 3]),
+    ] {
+        assert!(support::rgb_within(got, want, tolerance), "centre: {got:?}, expected {want:?}, tolerance {tolerance:?}");
+        assert_eq!(got[3], 255, "opaque background stays opaque");
+    }
 
     // Check the Gaussian falloff across the left edge (x = 15..120 at y = 120, where sigma = 15 px).
     let erf = |x: f32| -> f32 {
@@ -317,6 +331,7 @@ fn srgb_blend_matches_css_and_core_animation_glow_reference() {
 
 #[test]
 fn srgb_blend_images_surfaces_keycaps_and_compositor() {
+    let adapter = support::ColorAdapter::default();
     #[derive(Clone)]
     struct MediaState {
         premul_img: Image,
@@ -386,7 +401,7 @@ fn srgb_blend_images_surfaces_keycaps_and_compositor() {
     }
 
     let (_, _, px_srgb) = snap_app(
-        App::new(AppSpec::new("media-srgb", (120.0, 40.0), init_media, media_view)).srgb_blend(true),
+        App::new(AppSpec::new("media-srgb", (120.0, 40.0), init_media, media_view)).srgb_blend(true).compositor(adapter.clone()),
         "media-srgb",
         &[],
     );
@@ -433,7 +448,7 @@ fn srgb_blend_images_surfaces_keycaps_and_compositor() {
     .unwrap();
     let (_, _, px_keys_srgb) = snap_app(
         App::new(AppSpec::new("keys-srgb", (160.0, 80.0), || (), |_, _| el().size(160.0, 80.0).fill(hex("#808080").unwrap())))
-            .srgb_blend(true),
+            .srgb_blend(true).compositor(adapter.clone()),
         "keys-srgb",
         &[
             "--script",
@@ -458,16 +473,17 @@ fn srgb_blend_images_surfaces_keycaps_and_compositor() {
 
     // 5. A Compositor sees the blend mode and the matching non-sRGB target format.
     static COMP_STATE: std::sync::OnceLock<(bool, wgpu::TextureFormat)> = std::sync::OnceLock::new();
-    struct CheckComp;
+    struct CheckComp(support::ColorAdapter);
     impl Compositor<()> for CheckComp {
         fn render(&mut self, f: &mut Frame<'_, ()>) {
+            self.0.observe(f.device);
             let _ = COMP_STATE.set((f.srgb_blend(), f.format));
             f.draw_ui();
         }
     }
     let _ = snap_app(
         App::new(AppSpec::new("comp-srgb", (64.0, 64.0), || (), |_, _| el().size(64.0, 64.0).fill(hex("#808080").unwrap())))
-            .compositor(CheckComp)
+            .compositor(CheckComp(adapter))
             .srgb_blend(true),
         "comp-srgb",
         &[],

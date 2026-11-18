@@ -1,4 +1,6 @@
 //! Adapter to the production renderer. No copied WGSL or substitute GPU pipeline.
+mod qualification;
+
 use crate::{Primitive, Scene};
 use rune::{
     render::{Gpu, Instance, OFFSCREEN_FORMAT, Offscreen, Renderer},
@@ -7,7 +9,16 @@ use rune::{
 
 impl Primitive {
     /// Capture an application's emitted primitive with its inspector metadata.
+    ///
+    /// # Panics
+    /// Glyphs must be grayscale atlas masks on page zero, with zero radii and a positive
+    /// coverage exponent. Outline, LCD and paged glyphs cannot be represented by this oracle.
+    /// The resulting scene still needs [`Scene::validate`].
     pub fn from_instance(p: &Instance, node: u32, source: String) -> Self {
+        assert!(
+            p.params[1] != 2.0 || (p.radii == [0.0; 4] && p.params[2] == 0.0 && p.params[3] > 0.0),
+            "unsupported glyph capture {node} ({source}): expected a grayscale atlas mask on page zero"
+        );
         let (fade, offset) = rune::render::unpack_fade(p.fade);
         Self {
             node,
@@ -45,7 +56,11 @@ impl From<&Primitive> for Instance {
             clip: p.clip,
             fade: rune::render::pack_fade(p.fade, p.fade_origin.unwrap_or(p.clip), p.clip),
         };
-        if p.params[1] == 8.0 {
+        if p.params[1] == 2.0 {
+            // Scene glyphs are masks; legacy payload must not select production text modes/pages.
+            instance.radii = [0.0; 4];
+            instance.params[2] = 0.0;
+        } else if p.params[1] == 8.0 {
             instance.fade[3] = rune::render::pack_clip_radii(p.clip, p.border);
         }
         instance
@@ -62,6 +77,7 @@ impl Default for GpuRenderer {
         let gpu = Gpu::new(Gpu::instance(), None);
         eprintln!("reference adapter: {:?}", gpu.adapter.get_info());
         let renderer = Renderer::new(&gpu.device, OFFSCREEN_FORMAT);
+        eprintln!("reference shader: {}", renderer.uber_shader());
         Self {
             gpu,
             renderer,

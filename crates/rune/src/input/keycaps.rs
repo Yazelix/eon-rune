@@ -336,11 +336,13 @@ mod tests {
         let all = KeyEvent { key: Key::Text(" ".into()), mods: Mods { ctrl: true, alt: true, shift: true, cmd: true, logo: true } };
         k.key(0.7, &all);
         assert_eq!(labels(&mut k, 0.7), ["↓ ×3", "⇧⇥", "⌃⌥⇧⌘␣"]);
-        k.chord(0.8, &"cmd+space".parse().unwrap());
+        k.chord(0.8, &"mod+space".parse().unwrap());
         k.key(0.9, &KeyEvent { key: Key::Escape, mods: Mods::default() });
         k.key(1.0, &KeyEvent { key: Key::Enter, mods: Mods::default() });
         let cmd = if cfg!(target_os = "macos") { "⌘" } else { "⌃" };
         assert_eq!(labels(&mut k, 1.0), [format!("{cmd}␣"), "⎋".into(), "↩".into()]);
+        k.chord(1.1, &"cmd+space".parse().unwrap());
+        assert_eq!(labels(&mut k, 1.1), ["⎋", "↩", "⌘␣"], "literal cmd is Command on every platform");
     }
 
     #[test]

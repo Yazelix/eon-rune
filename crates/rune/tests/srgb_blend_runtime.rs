@@ -6,6 +6,8 @@ use rune::render::{Gpu, OFFSCREEN_FORMAT, Offscreen, Renderer};
 use rune::text::TextSystem;
 use rune::{Color, Cx, El, Env, Runtime, el};
 
+mod support;
+
 const RED: Color = Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
 
 fn view(_: &(), _: &mut Cx<()>) -> El {
@@ -29,6 +31,7 @@ fn tinted(rt: &Runtime<()>) -> [f32; 4] {
 }
 
 fn pixel(gpu: &Gpu, rt: &mut Runtime<()>) -> [u8; 4] {
+    support::ColorAdapter::default().observe(&gpu.device);
     let format = if rt.srgb_blend() { OFFSCREEN_FORMAT.remove_srgb_suffix() } else { OFFSCREEN_FORMAT };
     let mut renderer = Renderer::new(&gpu.device, format);
     renderer.set_srgb_blend(rt.srgb_blend());
@@ -97,9 +100,11 @@ fn a_headless_run_follows_a_live_switch() {
     use std::sync::Mutex;
 
     static SEEN: Mutex<Vec<(bool, wgpu::TextureFormat)>> = Mutex::new(Vec::new());
-    struct Watch;
+    let adapter = support::ColorAdapter::default();
+    struct Watch(support::ColorAdapter);
     impl Compositor<()> for Watch {
         fn render(&mut self, f: &mut Frame<'_, ()>) {
+            self.0.observe(f.device);
             SEEN.lock().unwrap().push((f.srgb_blend(), f.format));
             f.draw_ui();
         }
@@ -113,7 +118,7 @@ fn a_headless_run_follows_a_live_switch() {
             .child(el().size(40.0, 40.0).fill(Color::WHITE.alpha(0.5)))
             .on_press_tx(|_: &mut (), tx| tx.set_srgb_blend(true))
     };
-    App::new(AppSpec::new("srgb-live", (40.0, 40.0), || (), view)).srgb_blend(false).compositor(Watch)
+    App::new(AppSpec::new("srgb-live", (40.0, 40.0), || (), view)).srgb_blend(false).compositor(Watch(adapter.clone()))
         .args(["--snap", png.to_str().unwrap(), "--scale", "1", "--script", script.to_str().unwrap(), "--at", "0.5"].map(String::from))
         .run();
     let decoder = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(&png).unwrap()));
@@ -124,7 +129,9 @@ fn a_headless_run_follows_a_live_switch() {
     let at = (20 * 40 + 20) * 4;
     let px = &buf[at..at + 4];
     // Half white over red reads 128 blended in sRGB, 188 in linear light.
-    assert!(px[1].abs_diff(128) <= 1 && px[0] == 255, "gamma-blended after the switch, got {px:?}");
+    // Intel/lavapipe Mesa 26.1.6 quantize encoded half-white to RGB127, alpha128
+    // before source-over, yielding [254,127,127,255]; allow only its measured 1 LSB.
+    assert!(px[1].abs_diff(128) <= 1 && px[0].abs_diff(255) <= adapter.tolerance(), "gamma-blended after the switch, got {px:?}");
     let seen = SEEN.lock().unwrap();
     assert_eq!(seen.first(), Some(&(false, OFFSCREEN_FORMAT)), "starts linear");
     assert_eq!(seen.last(), Some(&(true, OFFSCREEN_FORMAT.remove_srgb_suffix())), "ends gamma-space");
@@ -133,6 +140,7 @@ fn a_headless_run_follows_a_live_switch() {
 #[test]
 fn switching_format_keeps_the_glyph_atlas_and_extra_pipelines() {
     let gpu = Gpu::headless();
+    support::ColorAdapter::default().observe(&gpu.device);
     let text = TextSystem::new(&[], ("Inter", "Inter"));
     let view = |_: &(), _: &mut Cx<()>| {
         el().size(80.0, 40.0).fill(RED)

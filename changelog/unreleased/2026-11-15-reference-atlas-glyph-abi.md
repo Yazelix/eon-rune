@@ -1,0 +1,1 @@
+- Rune Ref treats replay glyphs as grayscale atlas masks on page zero, preserving legacy scene bytes while preventing unused fields from selecting outline or LCD rendering. `Primitive::from_instance` panics on unsupported outline, LCD or paged glyph captures instead of silently comparing them as masks.

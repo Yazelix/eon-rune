@@ -24,6 +24,27 @@ fn pixel(pixels: &[u8], x: u32, y: u32) -> [u8; 4] {
 }
 
 #[test]
+fn a_small_managed_atlas_keeps_the_initial_texture_height() {
+    let gpu = Gpu::headless();
+    eprintln!("atlas sizing adapter: {:?}", gpu.adapter.get_info());
+    let mut renderer = Renderer::new(&gpu.device, OFFSCREEN_FORMAT);
+    let mut text = crate::text::TextSystem::default();
+    assert_eq!(renderer.atlas.height(), ATLAS_START_ROWS);
+    renderer.prepare(&gpu.device, &gpu.queue, &mut text.atlas, &[], SIZE);
+    assert_eq!(renderer.atlas.height(), ATLAS_START_ROWS);
+    text.set_font_smoothing(crate::FontSmoothing::Off);
+    let mut quads = Vec::new();
+    text.glyphs("A", crate::TextStyle::new(12.0, 400.0), 1.0, [0.0; 2], &mut quads);
+    assert!(!quads.is_empty());
+    assert!(text.atlas.page_rows(0) > 0 && text.atlas.page_rows(0) < ATLAS_START_ROWS);
+    renderer.prepare(&gpu.device, &gpu.queue, &mut text.atlas, &[], SIZE);
+    assert_eq!(renderer.atlas.height(), ATLAS_START_ROWS);
+    let encoder = gpu.device.create_command_encoder(&Default::default());
+    renderer.submit(&gpu.queue, encoder);
+    gpu.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+}
+
+#[test]
 fn a_steady_animating_frame_creates_no_buffers_and_skips_unchanged_globals() {
     let gpu = Gpu::headless();
     let (device, queue) = (&gpu.device, &gpu.queue);

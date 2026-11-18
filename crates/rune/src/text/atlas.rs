@@ -92,6 +92,13 @@ impl Shelf {
         self.non_empty().then(|| (0, (self.y + self.h + 1).min(ATLAS_SIZE)))
     }
 
+    fn upload_rows(&self, dirty: Option<(u32, u32)>) -> Option<(u32, u32)> {
+        match (self.used_rows(), dirty) {
+            (Some((y0, y1)), Some((d0, d1))) => Some((y0.min(d0), y1.max(d1))),
+            (used, dirty) => used.or(dirty),
+        }
+    }
+
     fn alloc(&mut self, w: u32, h: u32) -> Option<(u32, u32)> {
         if self.x + w + 1 > ATLAS_SIZE {
             self.y += self.h + 1;
@@ -233,21 +240,19 @@ impl Atlas {
         self.outlines.invalidate();
     }
 
-    /// Marks the rows the shelves have placed glyphs in for upload, to a texture that's new or
-    /// lost its writes. Rows below them hold nothing a glyph samples and a new texture starts
-    /// zeroed, so the never-touched rest of each 4 MiB page is neither read (a page fault per
-    /// 4 KiB) nor copied.
+    /// Re-sends shelf rows to a new texture without discarding pending explicit uploads.
+    /// Managed pages still omit the untouched rest of each 4 MiB CPU copy.
     pub(crate) fn resend_rows(&mut self) {
-        self.dirty = self.shelf.used_rows();
+        self.dirty = self.shelf.upload_rows(self.dirty);
         for page in &mut self.pages {
-            page.dirty = page.shelf.used_rows();
+            page.dirty = page.shelf.upload_rows(page.dirty);
         }
     }
 
-    /// Rows of `page` its shelves have placed masks in, with the gutter below: what a texture of
-    /// that page must hold.
+    /// Rows the texture must hold for shelf placements and any pending explicit upload.
     pub(crate) fn page_rows(&self, page: usize) -> u32 {
-        self.shelf(page).used_rows().map_or(0, |(_, y1)| y1)
+        let dirty = if page == 0 { self.dirty } else { self.pages[page - 1].dirty };
+        self.shelf(page).upload_rows(dirty).map_or(0, |(_, y1)| y1)
     }
 
     /// Number of allocated 2048×2048 shelf pages (at least 1).
@@ -462,4 +467,10 @@ impl Atlas {
         self.touch(page as u16, w * h);
         Some(AtlasGlyph { page: page as u16, x: ax, y: ay, w, h, left, top, lcd: false })
     }
+}
+
+#[cfg(test)]
+test_group! { core =>
+#[path = "atlas_tests.rs"]
+mod tests;
 }
