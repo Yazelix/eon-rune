@@ -1,0 +1,191 @@
+{
+  "url": "https://github.com/Yazelix/eon.git",
+  "revision": "dd51103c8fea9f20e843caffa5131ff1eba03c52",
+  "license": "Apache-2.0",
+  "retained_sources": [
+    {
+      "paths": ["fixtures/venus/examples/**", "fixtures/*/Cargo.toml", "fixtures/Cargo.toml", "fixtures/hosted.patch"],
+      "origin": "Yazelix-owned fork qualification spikes and fixture adaptations; no external source revision",
+      "revision": "First versioned by the fork tooling commit containing this inventory; subsequent changes tracked by Git",
+      "license": "Apache-2.0"
+    },
+    {
+      "paths": ["native/*.py", "native/inject.c", "native/eon-transitions.json"],
+      "origin": "Yazelix-owned native qualification drivers retained from fork evaluation spikes; no external source revision",
+      "revision": "First versioned by the fork tooling commit containing this inventory; subsequent changes tracked by Git",
+      "license": "Apache-2.0"
+    },
+    {
+      "paths": ["native/virtual-keyboard-client.h", "native/virtual-keyboard-protocol.c"],
+      "origin": "https://crates.io/crates/wayland-protocols-misc/0.3.12",
+      "repository": "https://github.com/Smithay/wayland-rs",
+      "revision": "a3d7927d87799b2955bf491b51c7c2a3a82da661",
+      "xml": "wayland-protocols-misc/protocols/virtual-keyboard-unstable-v1.xml",
+      "xml_sha256": "7ad7870003ecd592cae47dc19d277a609b7f18fd7b7be012623cf3225a7294f5",
+      "generator": "wayland-scanner 1.23.1 client-header/private-code; trailing blank line trimmed",
+      "license": "MIT; original XML copyright and permission notices retained in generated files"
+    },
+    {
+      "paths": ["native/virtual-pointer-client.h", "native/virtual-pointer-protocol.c"],
+      "origin": "https://crates.io/crates/wayland-protocols-wlr/0.3.12",
+      "repository": "https://github.com/Smithay/wayland-rs",
+      "revision": "a3d7927d87799b2955bf491b51c7c2a3a82da661",
+      "xml": "wayland-protocols-wlr/wlr-protocols/unstable/wlr-virtual-pointer-unstable-v1.xml",
+      "xml_sha256": "3ff6d540be0bc5228195bf072bde42117ea17945a5c2061add5d3cf97d6bb524",
+      "generator": "wayland-scanner 1.23.1 client-header/private-code; trailing blank line trimmed",
+      "license": "MIT; original XML copyright and permission notices retained in generated files"
+    }
+  ],
+  "entries": [
+    {
+      "source": "venus/src/accessibility.rs",
+      "destination": "venus/src/accessibility.rs",
+      "sha256": "ee0cc1d48633fa99a37194508b3fd0e2649825ee998c33a796efd02cf31ace9d",
+      "result_sha256": "ee0cc1d48633fa99a37194508b3fd0e2649825ee998c33a796efd02cf31ace9d"
+    },
+    {
+      "source": "venus/src/input.rs",
+      "destination": "venus/src/input.rs",
+      "sha256": "2f20da0f519ddf014d50b9c2bccf30b9561e7c9fcf30723c645dde971f3a2a8f",
+      "result_sha256": "2f20da0f519ddf014d50b9c2bccf30b9561e7c9fcf30723c645dde971f3a2a8f"
+    },
+    {
+      "source": "venus/src/lib.rs",
+      "destination": "venus/src/lib.rs",
+      "sha256": "291de6b0d8f322e6f209705868af6c3e41a7cc24911a2c90ea7538ce7122578c",
+      "result_sha256": "291de6b0d8f322e6f209705868af6c3e41a7cc24911a2c90ea7538ce7122578c"
+    },
+    {
+      "source": "venus/src/model.rs",
+      "destination": "venus/src/model.rs",
+      "sha256": "08a27de240ac52dd5c00baddbdcb4ec19f348f83bb6bccab0f1f9d43af9b7171",
+      "result_sha256": "08a27de240ac52dd5c00baddbdcb4ec19f348f83bb6bccab0f1f9d43af9b7171"
+    },
+    {
+      "source": "venus/src/render/cells.rs",
+      "destination": "venus/src/render/cells.rs",
+      "sha256": "c8b20c2ba66d20dedfa6b54087ea48a00e2c432e798e720507df1b18c88d39ba",
+      "result_sha256": "c8b20c2ba66d20dedfa6b54087ea48a00e2c432e798e720507df1b18c88d39ba"
+    },
+    {
+      "source": "venus/src/render/chrome.rs",
+      "destination": "venus/src/render/chrome.rs",
+      "sha256": "2e748213a8d658446ac7b32528d15f4ac7f88a7c55be1318eb2e7742e9465b6c",
+      "result_sha256": "2e748213a8d658446ac7b32528d15f4ac7f88a7c55be1318eb2e7742e9465b6c"
+    },
+    {
+      "source": "venus/src/render/cursor_trail.rs",
+      "destination": "venus/src/render/cursor_trail.rs",
+      "sha256": "8ea741b969636d25f0ed3502f5fe3f576697f9c5f48b0945555ed6fa560c1057",
+      "result_sha256": "8ea741b969636d25f0ed3502f5fe3f576697f9c5f48b0945555ed6fa560c1057"
+    },
+    {
+      "source": "venus/src/render/fonts.rs",
+      "destination": "venus/src/render/fonts.rs",
+      "sha256": "dbd97286eafcc4f1a5362196bbdc0bce6e165bf11e79f1214689db4508966bce",
+      "result_sha256": "dbd97286eafcc4f1a5362196bbdc0bce6e165bf11e79f1214689db4508966bce"
+    },
+    {
+      "source": "venus/src/render/images.rs",
+      "destination": "venus/src/render/images.rs",
+      "sha256": "bb04c8660b36a0e9a84aba7a4ddffcc895abda591e9bc780762d3bbc5ea2dfc8",
+      "result_sha256": "bb04c8660b36a0e9a84aba7a4ddffcc895abda591e9bc780762d3bbc5ea2dfc8"
+    },
+    {
+      "source": "venus/src/render/palette.rs",
+      "destination": "venus/src/render/palette.rs",
+      "sha256": "54690f81c097c350a7b3289e90577d29f1cfa6ab941a556cef8bf9c9dc6a6b18",
+      "result_sha256": "54690f81c097c350a7b3289e90577d29f1cfa6ab941a556cef8bf9c9dc6a6b18"
+    },
+    {
+      "source": "venus/src/render.rs",
+      "destination": "venus/src/render.rs",
+      "sha256": "c31c8ecdf7d7a099dea7b2b2d8ac59986dd79ea3228e985a3a924f9a315e8e92",
+      "result_sha256": "6f241f1e76177e761188ff2fd1136238062b47f6a7d96be8a5ad85ec772cfbb7"
+    },
+    {
+      "source": "venus/src/scene.rs",
+      "destination": "venus/src/scene.rs",
+      "sha256": "30620ee2c60cc9473e4c55c70491fd27b358bc37983feb403ea4071e060481a7",
+      "result_sha256": "30620ee2c60cc9473e4c55c70491fd27b358bc37983feb403ea4071e060481a7"
+    },
+    {
+      "source": "venus/src/system.rs",
+      "destination": "venus/src/system.rs",
+      "sha256": "94e26f4ef46e23d3600e3109daadc25876beb46374ea0ff9a5589926977f5991",
+      "result_sha256": "94e26f4ef46e23d3600e3109daadc25876beb46374ea0ff9a5589926977f5991"
+    },
+    {
+      "source": "venus/src/transport.rs",
+      "destination": "venus/src/transport.rs",
+      "sha256": "447dc2b0e24782db160f7f622d35985dfb6330c1aaef44704d41cedf08b36e4f",
+      "result_sha256": "447dc2b0e24782db160f7f622d35985dfb6330c1aaef44704d41cedf08b36e4f"
+    },
+    {
+      "source": "runtime/crates/eon-workspace-protocol/src/lib.rs",
+      "destination": "eon-workspace-protocol/src/lib.rs",
+      "sha256": "c3e1fee9b24567d2080d32262ce66b0c479ee748b50352b3354ebabc25db4d24",
+      "result_sha256": "c3e1fee9b24567d2080d32262ce66b0c479ee748b50352b3354ebabc25db4d24"
+    },
+    {
+      "source": "runtime/crates/eon-workspace-protocol/src/stop.rs",
+      "destination": "eon-workspace-protocol/src/stop.rs",
+      "sha256": "7d3d0164608780d2e2212acdf87e81fa179692ef1d089139d0f6ab9727e51ecc",
+      "result_sha256": "7d3d0164608780d2e2212acdf87e81fa179692ef1d089139d0f6ab9727e51ecc"
+    },
+    {
+      "source": "runtime/crates/eon-workspace-protocol/src/v39/subscription.rs",
+      "destination": "eon-workspace-protocol/src/v39/subscription.rs",
+      "sha256": "a7b5d33bc19e5746a1bf24701cbbc81fa5bbfea81e59b196f234125069a6a140",
+      "result_sha256": "a7b5d33bc19e5746a1bf24701cbbc81fa5bbfea81e59b196f234125069a6a140"
+    },
+    {
+      "source": "runtime/crates/eon-workspace-protocol/src/v39.rs",
+      "destination": "eon-workspace-protocol/src/v39.rs",
+      "sha256": "31b4f3bfd10d967032035638e6beab0e94f622063011ea11a9f5192ec1722fd8",
+      "result_sha256": "31b4f3bfd10d967032035638e6beab0e94f622063011ea11a9f5192ec1722fd8"
+    },
+    {
+      "source": "orbit/crates/protocol/src/lib.rs",
+      "destination": "orbit-protocol/src/lib.rs",
+      "sha256": "8130c17a39231eed9d760595f0ead6879ab60b9aa9f8ed4c32c41f31ed432368",
+      "result_sha256": "8130c17a39231eed9d760595f0ead6879ab60b9aa9f8ed4c32c41f31ed432368"
+    },
+    {
+      "source": "orbit/crates/protocol/src/management.rs",
+      "destination": "orbit-protocol/src/management.rs",
+      "sha256": "7e182d2ba7cbd89e923e6c8dd49ec9467b1db0ee12091c7632581d544bd0614e",
+      "result_sha256": "7e182d2ba7cbd89e923e6c8dd49ec9467b1db0ee12091c7632581d544bd0614e"
+    },
+    {
+      "source": "orbit/crates/protocol/src/session/codec.rs",
+      "destination": "orbit-protocol/src/session/codec.rs",
+      "sha256": "3ca8d1d1c2f29fbd0a09595af51059626be9e41da6e2aacbf96e2857338bafdf",
+      "result_sha256": "3ca8d1d1c2f29fbd0a09595af51059626be9e41da6e2aacbf96e2857338bafdf"
+    },
+    {
+      "source": "orbit/crates/protocol/src/session/mod.rs",
+      "destination": "orbit-protocol/src/session/mod.rs",
+      "sha256": "8f438768c5c537d2d1afeef853a95a64386a4631b9fc720c898bd8db4eaf75ab",
+      "result_sha256": "8f438768c5c537d2d1afeef853a95a64386a4631b9fc720c898bd8db4eaf75ab"
+    },
+    {
+      "source": "orbit/crates/protocol/src/session/tests.rs",
+      "destination": "orbit-protocol/src/session/tests.rs",
+      "sha256": "53663d4bd97935061aed71af1d3e401ba756767da08182eff477f305e6dc8b74",
+      "result_sha256": "53663d4bd97935061aed71af1d3e401ba756767da08182eff477f305e6dc8b74"
+    },
+    {
+      "source": "venus/assets/claude-splat-104.alpha",
+      "destination": "venus/assets/claude-splat-104.alpha",
+      "sha256": "74e02f5b35b30449941a759acb6d0872aa3d3bda0bdb78760ee0eb8893479e7f",
+      "result_sha256": "74e02f5b35b30449941a759acb6d0872aa3d3bda0bdb78760ee0eb8893479e7f"
+    },
+    {
+      "source": "venus/assets/openai-blossom-104.alpha",
+      "destination": "venus/assets/openai-blossom-104.alpha",
+      "sha256": "7bf5bf047a493ef0d76177d74a3de81783b5d1038dd13fcc6cd9b1db20edec91",
+      "result_sha256": "7bf5bf047a493ef0d76177d74a3de81783b5d1038dd13fcc6cd9b1db20edec91"
+    }
+  ]
+}

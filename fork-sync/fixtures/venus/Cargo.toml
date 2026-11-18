@@ -1,0 +1,43 @@
+[package]
+name = "yazelix-venus"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+accesskit = "0.25.2"
+accesskit_winit = { version = "0.34.2", default-features = false, features = ["rwh_06"] }
+eon-workspace-protocol = { path = "../eon-workspace-protocol" }
+glyphon = "0.12.0"
+jiff = { version = "0.2.38", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo"] }
+orbit-protocol = { path = "../orbit-protocol" }
+pollster = { version = "1.0.1", default-features = false }
+serde_json = "1.0.151"
+unicode-script = "0.5.8"
+# `noop` serves the headless glyphon test; wgpu never uses it unless enabled. Here
+# rather than in dev-dependencies, so tests reuse the release build's wgpu.
+wgpu = { version = "~30.0.1", default-features = false, features = ["noop", "std", "wgsl"] }
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+rustix = { version = "1.1.4", default-features = false, features = ["event", "fs", "std", "time"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+accesskit_winit = { version = "0.34.2", default-features = false, features = ["accesskit_unix", "async-io"] }
+wgpu = { version = "~30.0.1", default-features = false, features = ["vulkan"] }
+winit = { version = "0.30.13", default-features = false, features = ["wayland", "wayland-dlopen"] }
+wl-clipboard-rs = { version = "0.9.3", default-features = false }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+arboard = { version = "3.6.1", default-features = false }
+libc = "0.2.189"
+objc2 = "0.6.4"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSMenu", "NSMenuItem", "NSResponder"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSString"] }
+wgpu = { version = "~30.0.1", default-features = false, features = ["metal"] }
+
+[dev-dependencies]
+rune = { path = "@RUNE@/crates/rune", default-features = false, features = ["accessibility", "dbus", "embedded-fonts", "svg"] }
+libc = "0.2"
+vt100 = "0.18"
+accesskit_consumer = "0.39.2"

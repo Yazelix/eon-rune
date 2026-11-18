@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = ["eon-workspace-protocol", "orbit-protocol", "venus"]
+
+[patch.crates-io]
+wgpu-hal = { path = "@RUNE@/vendor/wgpu-hal" }
+parley_engine = { path = "@RUNE@/vendor/parley_engine" }
+accesskit_windows = { path = "@RUNE@/vendor/accesskit_windows" }
+accesskit_macos = { path = "@RUNE@/vendor/accesskit_macos" }
+winit = { git = "https://github.com/Yazelix/winit-0.30.git", rev = "78b8f28c9d4b4270607d1228a9303ba7b1ca9d1f" }
+
+[profile.dev]
+debug = "line-tables-only"
+[profile.dev.package."*"]
+debug = false
+[profile.release]
+codegen-units = 16
+incremental = true
+[profile.perf]
+inherits = "release"
+opt-level = 3
+codegen-units = 16
+lto = false
+debug = false
+incremental = false

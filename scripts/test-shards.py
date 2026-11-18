@@ -13,10 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'crates/rune/src'
 GROUPS = ('core', 'layout', 'motion', 'input', 'paint', 'selection', 'app', 'native')
 SUPPORT = {('runtime.rs', 'tests'), ('tooling/interaction.rs', 'tests'),
-           ('window/gpu_failure.rs', 'tests'), ('tooling.rs', 'test_alloc'),
+           ('tooling.rs', 'test_alloc'),
            ('runtime/scroll/mode.rs', 'writes')}
-SUPPORT_FILES = {'runtime/tests/mod.rs', 'tooling/interaction/tests.rs', 'window/gpu_failure_tests.rs',
-                 'window/gpu_failure_regression_tests.rs', 'tooling/test_alloc.rs'}
+SUPPORT_FILES = {'runtime/tests/mod.rs', 'tooling/interaction/tests.rs', 'tooling/test_alloc.rs'}
 GATE = re.compile(r'(?m)^(?P<indent>[ \t]*)#\[cfg\(test\)\]\r?\n[ \t]*test_group!\s*\{\s*(?P<group>\w+)\s*=>\r?\n')
 MODULE = re.compile(r'(?:pub(?:\([^\n]+?\))?\s+)?mod\s+(\w+)\s*([;{])')
 RAW = re.compile(r'(?:br|cr|r)(#+)?"')
@@ -279,8 +278,6 @@ def check(root=SOURCE, *, targets=True):
                 errors.append(name + ': unowned include ' + item['name'])
         if name in SUPPORT_FILES:
             for match in re.finditer(r'(?m)^[ \t]*(?:pub(?:\([^\n]+?\))?\s+)?mod\s+(\w+)\s*[;{]', mask(source)):
-                if (name, match[1]) == ('window/gpu_failure_tests.rs', 'regressions'):
-                    continue
                 if not covered({'start':match.start(), 'end':match.end()}):
                     errors.append(name + ': unowned child ' + match[1])
         if name in SUPPORT_FILES or not (test_file(path) or path.resolve() in pure):
@@ -368,6 +365,22 @@ def self_check():
             raise AssertionError('accepted an unowned shared test')
         shared.write_text(wrap(direct, functions(direct)[0], 'input'), encoding='utf-8')
         assert check(root, targets=False) == 2
+        gpu_owner = root / 'window/gpu_failure.rs'
+        gpu_owner.parent.mkdir(parents=True)
+        gpu_tests = gpu_owner.with_name('gpu_failure_tests.rs')
+        gpu_tests.write_text(direct, encoding='utf-8')
+        registration = '#[cfg(test)]\n#[path = "gpu_failure_tests.rs"]\nmod tests;\n'
+        item, = modules(registration)
+        gpu_owner.write_text(wrap(registration, item, 'native'), encoding='utf-8')
+        assert check(root, targets=False) == 3
+        gpu_owner.write_text(registration, encoding='utf-8')
+        try:
+            check(root, targets=False)
+        except AssertionError as error:
+            assert 'window/gpu_failure.rs: unowned module tests' in str(error)
+        else:
+            raise AssertionError('accepted a GPU test owner without its shard gate')
+        gpu_owner.write_text(wrap(registration, item, 'native'), encoding='utf-8')
         base = 'fn production() -> u32 { 1 }\n' + sample
         wrapped = wrap(base, modules(base)[0], 'core')
         cleaned, registrations = strip(wrapped)
