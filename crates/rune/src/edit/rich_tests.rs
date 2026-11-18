@@ -665,7 +665,9 @@ fn the_caret_steps_over_a_pill_in_one_move() {
     assert_eq!(e.range(), (10, 10));
     e.set_caret(2);
     e.key(&KeyEvent { key: Key::Right, mods: Mods { alt: true, ..Mods::default() } }, None);
-    assert_eq!(e.range(), (10, 10), "a word move that stops inside the label steps over it");
+    // anomalyco/rune#753: off macOS word-forward also crosses the trailing space.
+    let word_end = if cfg!(target_os = "macos") { 10 } else { 11 };
+    assert_eq!(e.range(), (word_end, word_end), "a word move steps over the whole label");
     e.set_caret(2);
     e.key(&KeyEvent { key: Key::Right, mods: Mods { shift: true, ..Mods::default() } }, None);
     assert_eq!((e.anchor, e.focus), (2, 10), "Shift+Right selects the whole pill");
@@ -977,7 +979,10 @@ fn pill_edge_cases_words_lines_bidi_and_direct_text_mutation() {
     e.key(&alt_right, None);
     assert_eq!(e.range(), (5, 5));
     e.key(&alt_right, None);
-    assert_eq!(e.range(), (10, 10));
+    let word_end = if cfg!(target_os = "macos") { 10 } else { 12 };
+    assert_eq!(e.range(), (word_end, word_end));
+    // Test pill deletion from its end on every platform.
+    e.set_caret(10);
     e.key(&alt_bs, None);
     assert_eq!((e.text.as_str(), pills_of(&e)), ("@maya, @Maya Lin", vec![(0..5, "u:1".to_owned()), (7..16, "u:3".to_owned())]));
 

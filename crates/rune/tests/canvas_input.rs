@@ -157,6 +157,12 @@ fn the_middle_button_drags_only_elements_that_take_it() {
     rt.frame(1.0 / 60.0);
     assert_eq!(rt.state.presses.len(), 1);
 
+    // Cancel the Windows/Linux autoscroll armed above (anomalyco/rune#874).
+    rt.key(KeyEvent {
+        key: Key::Escape,
+        mods: Mods::default(),
+    });
+
     // The primary button presses it as before, as the primary.
     rt.pointer_down(150.0, 150.0);
     rt.pointer_up(150.0, 150.0);
