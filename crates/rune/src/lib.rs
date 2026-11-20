@@ -17,6 +17,8 @@ include!(concat!(
 mod a11y;
 mod app;
 mod cold;
+#[cfg(any(all(test, unix), target_os = "linux"))]
+mod file_uri;
 mod flight;
 mod frame;
 mod gpu;

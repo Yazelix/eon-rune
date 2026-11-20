@@ -90,7 +90,7 @@ impl<T: 'static> Overlay<T> {
                 self.rescale(&gpu, self.rt.env.scale);
             }
         }
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(rune_x11)]
         if let Some(Live { backing: Backing::Xwayland(surface), .. }) = self.surface.live_mut() {
             let input = surface.dispatch();
             for input in input { self.surface_input(input); }
@@ -257,12 +257,12 @@ impl<T: 'static> Overlay<T> {
         if let Some(panel) = &self.panel { panel.set_regions(self.rt.hit_regions()); }
         #[cfg(target_os = "windows")]
         if let Some(native) = &self.native { native.set_regions(self.rt.hit_regions(), live.scale); }
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(rune_x11)]
         if self.options.input == OverlayInput::Regions && let Some(x11) = &mut self.x11 { x11.regions(self.rt.hit_regions(), live.scale); }
         #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
         if let Backing::Layer(layer) = &live.backing { layer.input_regions(self.rt.hit_regions(), self.interactive); }
         // An X11 input shape applies at once with no commit; `regions` skips an unchanged shape.
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(rune_x11)]
         if let Backing::Xwayland(surface) = &mut live.backing { surface.regions(self.rt.hit_regions()); }
         let target_format = if self.rt.srgb_blend() { live.config.format.remove_srgb_suffix() } else { live.config.format };
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor {

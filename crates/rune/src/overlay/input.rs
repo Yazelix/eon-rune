@@ -37,7 +37,7 @@ impl<T: 'static> Overlay<T> {
         if let Some(panel) = &self.panel { panel.set_cursor(active.then_some(want)); }
     }
 
-    #[cfg_attr(any(target_os = "ios", target_os = "android"), allow(dead_code))]
+    #[cfg_attr(not(any(target_os = "macos", target_os = "windows", rune_x11)), allow(dead_code))]
     pub(super) fn observe_pointer(&mut self, x: f32, y: f32) {
         if self.rt.pointer_captured() || (x >= 0.0 && y >= 0.0 && x < self.at.size.0 && y < self.at.size.1) {
             self.dirty |= self.rt.observe_pointer(x, y);
@@ -163,7 +163,7 @@ impl<T: 'static> Overlay<T> {
     /// True when a layer surface's input region changed and waits for a commit.
     pub(super) fn publish_regions(&mut self) -> bool {
         // An X11 window's input shape applies at once, with no commit to wait for.
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(rune_x11)]
         if let Some(Live { backing: Backing::Xwayland(surface), .. }) = self.surface.live_mut() {
             surface.regions(self.rt.hit_regions());
             return false;
@@ -173,7 +173,7 @@ impl<T: 'static> Overlay<T> {
         if let Some(panel) = &self.panel { panel.set_regions(self.rt.hit_regions()); }
         #[cfg(target_os = "windows")]
         if let Some(native) = &self.native { native.set_regions(self.rt.hit_regions(), live.scale); }
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(rune_x11)]
         if self.options.input.resolved(self.interactive) == OverlayInput::Regions && let Some(x11) = &mut self.x11 { x11.regions(self.rt.hit_regions(), live.scale); }
         #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
         if let Backing::Layer(layer) = &live.backing { return layer.input_regions(self.rt.hit_regions(), self.interactive); }
@@ -196,9 +196,11 @@ impl<T: 'static> Overlay<T> {
         if let Some(native) = &mut self.native { native.set_input(resolved); }
         #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
         {
+            #[cfg(rune_x11)]
             if let Some(x11) = &mut self.x11 { x11.set_input(resolved); }
             match self.surface.live_mut() {
                 Some(Live { backing: Backing::Layer(layer), .. }) => layer.set_input(resolved),
+                #[cfg(rune_x11)]
                 Some(Live { backing: Backing::Xwayland(surface), .. }) => surface.set_input(resolved),
                 _ => {}
             }
@@ -397,7 +399,7 @@ impl<T: 'static> Overlay<T> {
             if let Some(panel) = &self.panel { panel.set_follow_pointer(follow); }
             #[cfg(target_os = "windows")]
             if let Some(native) = &mut self.native { native.set_follow_pointer(follow); }
-            #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+            #[cfg(rune_x11)]
             if let Some(x11) = &self.x11 { x11.set_follow_pointer(follow); }
         }
         let options_changed = requests.placement.is_some() || requests.display.is_some();
@@ -437,7 +439,7 @@ impl<T: 'static> Overlay<T> {
                         layer.place(at);
                         layer.commit();
                     }
-                    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+                    #[cfg(rune_x11)]
                     Some(Backing::Xwayland(surface)) => surface.place(at, &self.options),
                     None => {}
                 }
@@ -468,7 +470,7 @@ impl<T: 'static> Overlay<T> {
             if let Some(panel) = &self.panel { self.shared.native.lock().unwrap().1.global_pointer = panel.global_pointer(); }
             #[cfg(target_os = "windows")]
             if let Some(native) = &self.native { self.shared.native.lock().unwrap().1.global_pointer = native.global_pointer(); }
-            #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+            #[cfg(rune_x11)]
             if let Some(x11) = &self.x11 { self.shared.native.lock().unwrap().1.global_pointer = x11.global_pointer(); }
         }
         #[cfg(target_os = "macos")]

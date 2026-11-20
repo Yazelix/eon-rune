@@ -22,7 +22,8 @@ impl<S: 'static> Host<S> {
         {
             if let Some(id) = crate::tooling::app_id() {
                 attrs = winit::platform::wayland::WindowAttributesExtWayland::with_name(attrs, id, id);
-                attrs = winit::platform::x11::WindowAttributesExtX11::with_name(attrs, id, id);
+                #[cfg(rune_x11)]
+                { attrs = winit::platform::x11::WindowAttributesExtX11::with_name(attrs, id, id); }
             }
             if self.float_on_open { attrs = float_on_open::fixed(attrs, &self.options, size); }
             if let Some(token) = token {

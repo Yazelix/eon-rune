@@ -16,6 +16,7 @@ const OUTLINE_BRANCH: &str = "        if i.radii.w > 0.0 {\n            cov = ou
 
 fn main() {
     println!("cargo::rerun-if-changed=build.rs");
+    x11_cfg();
     // Paths are from the package's folder, where cargo runs this.
     let read = |path: &str| {
         println!("cargo::rerun-if-changed={path}");
@@ -43,7 +44,7 @@ fn main() {
     stale("The precompiled Metal Windfoil shader (uber_windfoil.metallib)", recorded("src/render/uber/windfoil_hash.rs", "WINDFOIL_WGSL_BLAKE3"),
         &windfoil_hash, "scripts/precompile-metal-shaders.sh on a Mac");
 
-    let out = Path::new(&std::env::var_os("OUT_DIR").expect("cargo sets OUT_DIR")).to_owned();
+    let out = Path::new(&std::env::var_os("OUT_DIR").unwrap_or_else(|| panic!("cargo sets OUT_DIR"))).to_owned();
     let write = |name: &str, text: &str| std::fs::write(out.join(name), text).unwrap_or_else(|e| panic!("{name}: {e}"));
     write("uber_classic.wgsl", &classic);
     write("uber_windfoil.wgsl", &windfoil);
@@ -58,4 +59,17 @@ fn main() {
          /// BLAKE3 of [`WINDFOIL`], which Windows and macOS ship bytecode for.\n\
          #[cfg_attr(not(any(target_os = \"macos\", target_os = \"windows\")), allow(dead_code))]\n\
          pub(crate) const WINDFOIL_BLAKE3: &str = \"{windfoil_hash}\";\n"));
+}
+
+/// `rune_x11`: the `x11` feature on a target where X11 may run (Unix other than macOS, iOS and
+/// Android). The X11 code tests this one cfg instead of the feature and the target list. It reads
+/// the target from Cargo, never `cfg!`, which would describe the machine running this script.
+fn x11_cfg() {
+    println!("cargo::rustc-check-cfg=cfg(rune_x11)");
+    let var = |name: &str| std::env::var_os(name).map(|v| v.to_string_lossy().into_owned()).unwrap_or_default();
+    let os = var("CARGO_CFG_TARGET_OS");
+    let unix = var("CARGO_CFG_TARGET_FAMILY").split(',').any(|f| f == "unix");
+    if std::env::var_os("CARGO_FEATURE_X11").is_some() && unix && !matches!(os.as_str(), "macos" | "ios" | "android") {
+        println!("cargo::rustc-cfg=rune_x11");
+    }
 }

@@ -656,9 +656,10 @@ app.run();
 - `AppHandle::is_visible()` reports whether the window is on screen; `AppHandle::window_error()`
   says why it couldn't be created (no display, no GPU adapter or device). A failed creation is
   logged and leaves the app windowless; the next open tries again (`Gpu::try_new`).
-- `run` panics when the event loop can't start: no Wayland or X11 display, or a Mac no one is
-  logged in to (over ssh or in CI). `App::try_run`, `try_run_windows_with` and
-  `try_run_windows_with_args` return that error instead.
+- `run` prints the error and exits 1 when the event loop can't start: no Wayland or X11 display
+  (no Wayland display, for a Linux build without `x11`), or a Mac no one is logged in to (over
+  ssh or in CI). `App::try_run`, `try_run_windows_with` and `try_run_windows_with_args` return
+  that error instead.
 - `App::on_window(|w: &WindowHandle| ..)` runs on the UI thread after every native creation, for
   icons or native styles through `WindowHandle::with_raw_handle`.
 - `AppSpec::min_size` sets the smallest window (None keeps 420×400).
@@ -1498,6 +1499,7 @@ to hand a web view as is. RTF is passed through untouched.
 | macOS | text, `public.html`, `public.rtf` in one pasteboard change | HTML; else RTF converted to HTML (TextEdit, Notes, Pages); else text | `public.png` as is, else `public.tiff` converted to PNG |
 | Windows | text and CF_HTML (`HTML Format`); no RTF | CF_HTML fragment, else text | `PNG`, else `CF_DIBV5`, through arboard, encoded as PNG |
 | Linux (X11, Wayland data-control) | text and `text/html`; no RTF | `text/html`, else text | `image/png` through arboard, decoded and encoded again |
+| Linux without `x11` (Wayland data-control only) | text and `text/html`; no RTF | `text/html`, else text | `image/png` as is, capped at `MAX_IMAGE_BYTES` while read |
 | Web | `text/plain` and `text/html` through the async Clipboard API; no RTF | `text/html` from the paste event or `navigator.clipboard.read()`, else text | `image/png` from the paste event's files or `navigator.clipboard.read()` |
 
 On macOS the RTF conversion uses `NSAttributedString` on the worker; AppKit's RTF reader and
@@ -2637,7 +2639,15 @@ installed at build time, including in CI:
 - Fedora: `dnf install libxkbcommon-devel wayland-devel`
 - Arch: `pacman -S libxkbcommon wayland`
 
-Windowed runs need the XKB X11 library, and GPU runs without a physical GPU
+The default-on `x11` feature carries every X11 route: winit's X11 backend, the direct X11
+connections (input shapes, the pointer, Xwayland overlays, global shortcuts, file-drop
+positions) and arboard's X11 clipboard. A build without it (`default-features = false`) runs
+on Wayland alone: without `WAYLAND_DISPLAY` or `WAYLAND_SOCKET` the event loop refuses with
+`no Wayland display (WAYLAND_DISPLAY and WAYLAND_SOCKET are unset); this build of Rune has no
+X11 support`, the clipboard is Wayland data-control with no fallback, and the libraries below
+that name X11 aren't needed.
+
+With `x11`, windowed runs need the XKB X11 library, and GPU runs without a physical GPU
 need a software Vulkan driver. On stock Ubuntu 24.04 both are one install away:
 
 ```sh
