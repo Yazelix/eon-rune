@@ -217,7 +217,7 @@ fn native_geometry_hidden_creation_keeps_applied_viewport() {
             let scale = window.scale_factor() as f32;
             let applied = (size.width as f32 / scale, size.height as f32 / scale);
             assert_eq!(h.rt.window_viewport(), applied, "hidden creation synchronizes current native viewport");
-            h.show(el);
+            h.show(el, Instant::now());
             assert!(h.life.shown());
             assert_eq!(h.rt.window_viewport(), applied, "a later show retains applied geometry");
             println!("HIDDEN CREATION PASS viewport={applied:?}");
@@ -270,8 +270,8 @@ fn native_bound_focus_close_dispatch() {
         }
         fn user_event(&mut self, el: &ActiveEventLoop, event: WakeEvent) {
             let kind = match &event {
-                WakeEvent::Focus(_) => Some("focus-complete"),
-                WakeEvent::Window(_, WindowRequest::Close) => Some("close-complete"),
+                WakeEvent::Focus(..) => Some("focus-complete"),
+                WakeEvent::Window(_, WindowRequest::Close, _) => Some("close-complete"),
                 _ => None,
             };
             self.windows.user_event(el, event);

@@ -160,20 +160,29 @@ impl WindowHandle {
     /// Show/recreate, or hide while keeping state. A launcher takes keys and reveals cached
     /// pixels; an ordinary window shows without requesting focus.
     pub fn set_visible(&self, visible: bool) {
-        let request = if visible { WindowRequest::Show } else { WindowRequest::Hide };
-        self.send(move |slot| WakeEvent::Window(slot, request));
+        let (request, at) = (if visible { WindowRequest::Show } else { WindowRequest::Hide }, Instant::now());
+        self.send(move |slot| WakeEvent::Window(slot, request, at));
     }
     pub fn show(&self) { self.set_visible(true); }
     pub fn hide(&self) { self.set_visible(false); }
     /// Focus/activate an already-visible window, restoring it if minimized. Wayland requests attention.
-    pub fn focus(&self) { self.send(WakeEvent::Focus); }
+    pub fn focus(&self) {
+        let at = Instant::now();
+        self.send(move |slot| WakeEvent::Focus(slot, at));
+    }
     /// Show, restore and activate, creating the window if needed (see `AppHandle::open`).
     /// A default close destroys its host; use App::keep_running to reopen.
     /// Windows added with `App::window` always reopen. Requests made before the loop runs
     /// apply once the window's host starts.
-    pub fn open(&self) { self.send(|slot| WakeEvent::Window(slot, WindowRequest::Open(None))); }
+    pub fn open(&self) {
+        let at = Instant::now();
+        self.send(move |slot| WakeEvent::Window(slot, WindowRequest::Open(None), at));
+    }
     /// Close without native close-request consent; `App::on_close` runs.
-    pub fn close(&self) { self.send(|slot| WakeEvent::Window(slot, WindowRequest::Close)); }
+    pub fn close(&self) {
+        let at = Instant::now();
+        self.send(move |slot| WakeEvent::Window(slot, WindowRequest::Close, at));
+    }
     /// Borrow a raw native handle while alive. Platform thread restrictions still apply;
     /// do not retain an extracted pointer beyond the callback.
     pub fn with_raw_handle<R>(&self, f: impl for<'a> FnOnce(winit::raw_window_handle::WindowHandle<'a>) -> R) -> Result<R, String> {

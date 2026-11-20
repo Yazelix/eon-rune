@@ -160,7 +160,7 @@ impl<S: 'static> Host<S> {
 
     fn reopen_in_turn(&mut self, event_loop: &ActiveEventLoop) {
         if !self.started || self.life.finished() { return; }
-        self.open(event_loop, None);
+        self.open(event_loop, None, Instant::now());
         self.shell(event_loop);
         // winit's focus does nothing while the window is still deminiaturizing.
         #[cfg(target_os = "macos")]
@@ -187,7 +187,7 @@ impl<S: 'static> Host<S> {
             if until <= Instant::now() {
                 let notified = w.first_frame.notified();
                 if w.first_frame.expire() {
-                    self.reveal(event_loop, Reveal::Cached, None);
+                    self.reveal(event_loop, Reveal::Cached, None, Instant::now());
                     self.shell(event_loop);
                     if let Some(w) = &self.win { w.request_redraw(); }
                     self.publish();

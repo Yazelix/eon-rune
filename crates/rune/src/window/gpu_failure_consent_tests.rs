@@ -157,7 +157,7 @@ fn close_and_quit_after_terminal_gpu_loss() {
                 WindowEvent::Ime(winit::event::Ime::Commit("blocked".into())),
             );
             closing.handle_window_event(el, old_id, WindowEvent::CloseRequested);
-            closing.open(el, None);
+            closing.open(el, None, Instant::now());
             closing.redraw();
             assert_eq!(snapshot(&closed), before);
             assert!(!close_handle.is_visible());
@@ -193,7 +193,7 @@ fn close_and_quit_after_terminal_gpu_loss() {
                 old_id,
                 WindowEvent::Ime(winit::event::Ime::Commit("blocked".into())),
             );
-            quitting.open(el, None);
+            quitting.open(el, None, Instant::now());
             quitting.redraw();
             assert_eq!(snapshot(&seen), before);
             for allow in [false, true] {

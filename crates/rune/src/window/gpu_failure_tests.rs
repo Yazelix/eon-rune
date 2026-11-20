@@ -268,8 +268,8 @@ fn native_terminal_window_and_same_device_surface_control() {
                 .clone()
                 .unwrap();
             assert!(reason.contains("non-Destroyed"));
-            terminal.open(el, None);
-            terminal.show(el);
+            terminal.open(el, None, Instant::now());
+            terminal.show(el, Instant::now());
             terminal.redraw();
             terminal.first_frame_ready(el);
             terminal.create(el, None, false);

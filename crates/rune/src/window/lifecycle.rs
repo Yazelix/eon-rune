@@ -5,10 +5,12 @@ use super::*;
 use super::minimize::{HiddenPoll, shell_take};
 
 impl<S: 'static> Host<S> {
-    pub(super) fn window_request(&mut self, event_loop: &ActiveEventLoop, request: WindowRequest) {
+    /// `at` is when the request was made: an attention request it leads to waits no longer than
+    /// `App::attention_wait` after that.
+    pub(super) fn window_request(&mut self, event_loop: &ActiveEventLoop, request: WindowRequest, at: Instant) {
         match request {
-            WindowRequest::Open(token) => self.open(event_loop, token),
-            WindowRequest::Show => self.show(event_loop),
+            WindowRequest::Open(token) => self.open(event_loop, token, at),
+            WindowRequest::Show => self.show(event_loop, at),
             WindowRequest::Hide => self.hide(event_loop),
             WindowRequest::Close => self.close(event_loop),
         }
@@ -31,16 +33,16 @@ impl<S: 'static> Host<S> {
         }
     }
 
-    pub(super) fn show(&mut self, event_loop: &ActiveEventLoop) {
+    pub(super) fn show(&mut self, event_loop: &ActiveEventLoop, at: Instant) {
         if self.launcher() { self.reveal_launcher(event_loop); return; }
-        self.reveal(event_loop, Reveal::Show, None);
+        self.reveal(event_loop, Reveal::Show, None, at);
     }
 
-    pub(super) fn open(&mut self, event_loop: &ActiveEventLoop, token: Option<String>) {
+    pub(super) fn open(&mut self, event_loop: &ActiveEventLoop, token: Option<String>, at: Instant) {
         if self.launcher() { self.reveal_launcher(event_loop); return; }
         // The launcher's startup token belongs to the first window only.
         let token = token.or_else(|| self.startup_token(event_loop));
-        self.reveal(event_loop, Reveal::Open, token);
+        self.reveal(event_loop, Reveal::Open, token, at);
     }
 
     /// The window shown, or not, so far: the shown one, and nothing while it's hidden.
@@ -56,8 +58,9 @@ impl<S: 'static> Host<S> {
         }
     }
 
-    /// Brings the window on screen (`Reveal`); a window closed for good stays closed.
-    pub(super) fn reveal(&mut self, event_loop: &ActiveEventLoop, reveal: Reveal, mut token: Option<String>) {
+    /// Brings the window on screen (`Reveal`); a window closed for good stays closed. `at` is
+    /// when the reveal was asked for (`window_request`).
+    pub(super) fn reveal(&mut self, event_loop: &ActiveEventLoop, reveal: Reveal, mut token: Option<String>, at: Instant) {
         if self.gpu_failed() { return; }
         if self.life.finished() { return; }
         let mut built = false;
@@ -92,7 +95,7 @@ impl<S: 'static> Host<S> {
                 RevealEffect::Number => if let Some(w) = &self.win {
                     self.native_handle.native.number.store(native_window_number(&w.window).unwrap_or(0), Ordering::Release);
                 },
-                RevealEffect::Focus => self.activate(event_loop, token.take()),
+                RevealEffect::Focus => self.activate(event_loop, token.take(), at),
                 RevealEffect::Redraw => if let Some(w) = &self.win { w.request_redraw() },
                 // No settle, frame, surface configure or acquisition on a cached reveal, unless
                 // the refreshed frame left motion running.
@@ -116,25 +119,20 @@ impl<S: 'static> Host<S> {
     }
 
     /// Focuses a shown window; Wayland's compositor wants the open's token for that.
-    fn activate(&mut self, event_loop: &ActiveEventLoop, token: Option<String>) {
+    fn activate(&mut self, event_loop: &ActiveEventLoop, token: Option<String>, at: Instant) {
+        let wait = self.attention_wait;
         let Some(w) = self.win.as_mut() else { return };
         #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
         if is_wayland(event_loop) {
-            match token {
-                Some(token) => {
-                    if w.native.activator.is_none() {
-                        w.native.activator = crate::platform::activation::Activator::new(&w.window);
-                    }
-                    if let Some(a) = w.native.activator.as_mut() {
-                        a.activate(&token);
-                    }
-                }
-                // Without a token the compositor may only mark the window urgent.
-                None => w.window.request_user_attention(Some(winit::window::UserAttentionType::Informational)),
+            use crate::platform::activation;
+            match (wait, token) {
+                (Some(limit), token) => activation::request(&mut w.native.attention, &w.window, token.as_deref(), at, limit),
+                (None, Some(token)) => activation::forward(&mut w.native.attention, &w.window, &token),
+                (None, None) => activation::urgent(&w.window),
             }
             return;
         }
-        let _ = (event_loop, token);
+        let _ = (event_loop, token, at, wait);
         w.focus();
     }
 
@@ -158,10 +156,18 @@ impl<S: 'static> Host<S> {
         true
     }
 
-    pub(super) fn focus(&self, event_loop: &ActiveEventLoop) {
-        let Some(w) = self.shown_win() else { return };
+    /// `at` is when the focus was asked for.
+    pub(super) fn focus(&mut self, event_loop: &ActiveEventLoop, at: Instant) {
+        let wait = self.attention_wait;
+        let Some(w) = self.win.as_mut().filter(|_| self.life.shown()) else { return };
         if w.window.is_minimized() == Some(true) { w.window.set_minimized(false); }
         if is_wayland(event_loop) {
+            #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+            if let Some(limit) = wait {
+                crate::platform::activation::request(&mut w.native.attention, &w.window, None, at, limit);
+                return;
+            }
+            let _ = (at, wait);
             w.window.request_user_attention(Some(winit::window::UserAttentionType::Informational));
             return;
         }
@@ -210,8 +216,10 @@ impl<S: 'static> Host<S> {
         let polled = wake && !quiet && self.poll_hidden(event_loop, shows);
         if let Some(position) = requests.position { self.set_position(event_loop, position); }
         if let Some(place) = requests.place { self.place(event_loop, place); }
-        if let Some(request) = requests.window { self.window_request(event_loop, request); }
-        if requests.activation == Some(Activation::Focus) { self.focus(event_loop); }
+        // `AppHandle` requests count from this drain: the lane holds no send times.
+        let drained = Instant::now();
+        if let Some(request) = requests.window { self.window_request(event_loop, request, drained); }
+        if requests.activation == Some(Activation::Focus) { self.focus(event_loop, drained); }
         // After the show it may follow; `focus` and `minimize` are last-wins (`AppHandle`).
         if requests.activation == Some(Activation::Minimize) { self.rt.minimize_step(MinimizeEvent::Asked); }
         self.shell(event_loop);

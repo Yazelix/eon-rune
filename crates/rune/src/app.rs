@@ -67,6 +67,7 @@ pub struct App<S: 'static> {
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub(crate) standard_menus: bool,
     pub(crate) keep_running: bool,
+    pub(crate) attention_wait: Option<std::time::Duration>,
     pub(crate) on_close: Option<fn(&mut S, &mut Tx)>,
     pub(crate) on_quit: Option<fn(&mut S, &mut Tx)>,
     pub(crate) turn_scope: Option<TurnScope<S>>,
@@ -131,6 +132,7 @@ impl<S: 'static> App<S> {
             accessory: false,
             standard_menus: false,
             keep_running: false,
+            attention_wait: None,
             on_close: None,
             on_quit: None,
             turn_scope: None,
@@ -394,6 +396,22 @@ impl<S: 'static> App<S> {
     /// `AppHandle::quit` or `Tx::quit`.
     pub fn keep_running(mut self) -> Self {
         self.keep_running = true;
+        self
+    }
+
+    /// On Wayland, the event loop finishes a window's attention request (`WindowHandle::focus`,
+    /// an `open` that focuses a shown window, a forwarded activation token) only once the
+    /// compositor has processed it, waiting at most `limit` (at most a day) after the request was
+    /// sent. `focus` itself returns at once; the loop handles one handle's requests in the order
+    /// they were sent, so a `close` sent on the same `WindowHandle` after `focus` can't drop the
+    /// request, while a quit by another route (such as `std::process::exit` on another thread) is
+    /// not ordered after it. An `open` that has to create the window (one not shown, or hidden on
+    /// Wayland) waits for the compositor's first configure inside winit, without this bound.
+    /// A wait that runs out is logged once, and that window's later requests don't wait until the
+    /// compositor answers again or the window is shown again. Without it attention requests never
+    /// wait. No effect elsewhere.
+    pub fn attention_wait(mut self, limit: std::time::Duration) -> Self {
+        self.attention_wait = Some(limit);
         self
     }
 

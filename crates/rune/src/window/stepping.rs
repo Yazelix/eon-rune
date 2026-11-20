@@ -69,7 +69,7 @@ impl<S: 'static> Host<S> {
         }
         // Already showing: its next frame draws the new state, or a covered one's retry does.
         if visible && stale { w.request_redraw(); }
-        self.reveal(event_loop, Reveal::Cached, None);
+        self.reveal(event_loop, Reveal::Cached, None, Instant::now());
     }
 
     pub(super) fn first_frame_ready(&mut self, event_loop: &ActiveEventLoop) {

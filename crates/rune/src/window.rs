@@ -149,7 +149,11 @@ mod frame_move_tests;
 
 pub(crate) enum WakeEvent {
     DisplayTick(usize),
-    App(usize), Live(usize), Window(usize, WindowRequest), Focus(usize),
+    App(usize), Live(usize),
+    /// A `WindowHandle` request, with when it was sent: an attention request it leads to waits
+    /// no longer than `App::attention_wait` after that.
+    Window(usize, WindowRequest, Instant),
+    Focus(usize, Instant),
     Position(usize, (i32, i32)), Level(usize, bool),
     Place(usize, crate::windows::PlaceRequest),
     Frame(usize, crate::window::frame::FrameRequest),
@@ -392,7 +396,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: WakeEvent) {
         let _handling = crate::quit::handling();
         let slot = match &event {
-            WakeEvent::DisplayTick(i) | WakeEvent::App(i) | WakeEvent::Live(i) | WakeEvent::Window(i, _) | WakeEvent::Focus(i)
+            WakeEvent::DisplayTick(i) | WakeEvent::App(i) | WakeEvent::Live(i) | WakeEvent::Window(i, ..) | WakeEvent::Focus(i, _)
                 | WakeEvent::Position(i, _) | WakeEvent::Level(i, _) | WakeEvent::Place(i, _) | WakeEvent::Frame(i, _)
                 | WakeEvent::A11y(i) | WakeEvent::FrameSlot(i) | WakeEvent::GpuReady(i) => *i,
             WakeEvent::Reopen => {
@@ -507,6 +511,8 @@ struct Host<S: 'static> {
     spec: AppSpec<S>,
     args: Args,
     keep_running: bool,
+    /// `App::attention_wait`.
+    attention_wait: Option<Duration>,
     /// What the window still owes after its first frame (`post_frame`).
     #[cfg(target_os = "windows")]
     chores: post_frame::Chores,
@@ -591,6 +597,7 @@ impl<S: 'static> Host<S> {
             let _ = proxy.send_event(WakeEvent::App(slot));
         });
         let (open, keep_running, on_close, release_gpu) = (app.open, app.keep_running, app.on_close, app.release_gpu);
+        let attention_wait = app.attention_wait;
         let on_rest = app.on_rest;
         let (on_reopen, on_quit, turn_scope) = (app.on_reopen, app.on_quit, app.turn_scope);
         #[cfg(target_os = "macos")]
@@ -677,6 +684,7 @@ impl<S: 'static> Host<S> {
             spec,
             args,
             keep_running,
+            attention_wait,
             #[cfg(target_os = "windows")]
             chores: Default::default(),
             ends_app: false,

@@ -69,7 +69,8 @@ mod tests;
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 #[derive(Default)]
 pub(super) struct Native {
-    pub(super) activator: Option<crate::platform::activation::Activator>,
+    /// Its `xdg_activation_v1` binding and whether the compositor answers it (Wayland).
+    pub(super) attention: crate::platform::activation::Attention,
 }
 
 #[cfg(target_os = "windows")]

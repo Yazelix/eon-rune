@@ -14,7 +14,7 @@ impl<S: 'static> Host<S> {
             self.create(event_loop, None, false);
             if self.open_at_start && self.options.visible { self.reveal_launcher(event_loop); }
         } else if self.open_at_start {
-            self.open(event_loop, None);
+            self.open(event_loop, None, Instant::now());
         }
         self.started = true;
         self.drain(event_loop, false);
@@ -139,11 +139,11 @@ impl<S: 'static> Host<S> {
                     w.request_redraw();
                 }
             }
-            WakeEvent::Window(_, request) => {
-                self.window_request(event_loop, request);
+            WakeEvent::Window(_, request, at) => {
+                self.window_request(event_loop, request, at);
                 self.shell(event_loop);
             }
-            WakeEvent::Focus(_) => self.focus(event_loop),
+            WakeEvent::Focus(_, at) => self.focus(event_loop, at),
             WakeEvent::Position(_, position) => self.set_position(event_loop, position),
             WakeEvent::Place(_, place) => self.place(event_loop, place),
             WakeEvent::Level(_, on) => self.set_always_on_top(event_loop, on),
