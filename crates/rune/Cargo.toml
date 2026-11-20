@@ -86,8 +86,10 @@ rune-staging = { path = "../rune-staging" }
 rune-taffy = { path = "../rune-taffy" }
 # Allow backend patch fixes; headless pixel equivalence guards the precompiled Metal path.
 wgpu = { version = "~30.0.1", default-features = false, features = ["std", "parking_lot", "metal", "wgsl"] }
-# Keep Wayland client-side frames/buttons without the title font's ab_glyph/ttf-parser.
-winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen", "wayland-csd-adwaita-notitle"] }
+# No winit client-side decorations (Eon pin, eon-yp6vg.7.6): the host draws its own chrome, and
+# sctk-adwaita's tiny-skia would bring the published tiny-skia-path 0.11.4 beside the vendored one,
+# which a consumer vendoring by name and version (nixpkgs importCargoLock) cannot hold.
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
 taffy = { version = "0.15", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size"] }
 # Natively with `complex-scripts` (below): ICU4X's word and line dictionaries, as a browser's ICU
 # has them.
