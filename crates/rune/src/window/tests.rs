@@ -415,6 +415,25 @@ fn hidden_pace_renders_a_change_at_once_then_at_most_every_refresh() {
     assert!(pace.changed(t0 + Duration::from_secs(5)));
 }
 
+/// What each acquisition result tells an app about its skipped frame. Only a surface that needs
+/// fixing reads as `Surface`: an occluded window or a late drawable must not, or an app that
+/// withdraws its input on `Surface` would drop it for a window someone merely covered.
+#[test]
+fn each_missed_drawable_reports_why_the_frame_was_skipped() {
+    use crate::FrameSkip;
+    use wgpu::CurrentSurfaceTexture as S;
+    let of = |status| match Missed::of(status) { Err(missed) => missed.skip(), Ok(_) => panic!("a miss") };
+    assert_eq!(of(S::Occluded), FrameSkip::Covered);
+    assert_eq!(of(S::Timeout), FrameSkip::Timeout);
+    assert_eq!(of(S::Validation), FrameSkip::Timeout, "a validation miss is retried as a timeout");
+    assert_eq!(of(S::Outdated), FrameSkip::Surface);
+    assert_eq!(of(S::Lost), FrameSkip::Surface);
+    assert_eq!(Missed::Unconfigured.skip(), FrameSkip::Surface);
+    for missed in [Missed::Occluded, Missed::Timeout] {
+        assert_ne!(missed.skip(), FrameSkip::Surface, "{missed:?}");
+    }
+}
+
 #[test]
 fn missed_frames_never_poll() {
     use wgpu::CurrentSurfaceTexture as S;

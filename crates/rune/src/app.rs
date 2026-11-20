@@ -545,8 +545,9 @@ impl<S: 'static> App<S> {
     /// ([`FrameOutcome`](crate::FrameOutcome)): `Drawn` once it was encoded, submitted and
     /// presented, the first frame during creation and a hidden launcher's frames included;
     /// `Unchanged` for a frame only a timer asked for that drew what was on screen; `Skipped`
-    /// for one a covered, minimised or occluded window, or a drawable that never came, kept
-    /// from drawing. For logging frame timing: pair [`FrameEncoded::at`](crate::FrameEncoded::at)
+    /// for one a covered, minimised or occluded window, a drawable that never came, or a surface
+    /// that needs fixing kept from drawing, with [`FrameEncoded::skipped`](crate::FrameEncoded::skipped)
+    /// saying which. For logging frame timing: pair [`FrameEncoded::at`](crate::FrameEncoded::at)
     /// with `Tx::input_time` for input latency. It changes nothing about when or what the window
     /// draws; without it, each frame checks an `Option`. A single-window headless run reports
     /// every frame on its virtual clock as `Drawn`, with wall-clock instants and `refresh_hz` at

@@ -127,6 +127,12 @@ mod occluded_surface;
 }
 #[cfg(test)]
 test_group! { native =>
+#[cfg(all(test, target_os = "linux"))]
+#[path = "window/skip_reason_tests.rs"]
+mod skip_reason;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod tests;
 }
