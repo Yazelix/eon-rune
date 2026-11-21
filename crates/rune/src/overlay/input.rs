@@ -343,7 +343,17 @@ impl<T: 'static> Overlay<T> {
     /// without drawing, as a hidden overlay does, unless it already `stepped`. The next try
     /// waits, with the display link stopped so no tick tries sooner.
     pub(super) fn missed(&mut self, missed: crate::window::Missed, paced: bool, stepped: bool) {
-        let now = Instant::now();
+        self.missed_inner(missed, paced, stepped, Instant::now());
+    }
+
+    #[cfg(test)]
+    // `overlay::tests` compiles only in the `native` test group, so other test binaries would warn.
+    #[allow(dead_code)]
+    pub(super) fn missed_at(&mut self, missed: crate::window::Missed, paced: bool, stepped: bool, now: Instant) {
+        self.missed_inner(missed, paced, stepped, now);
+    }
+
+    fn missed_inner(&mut self, missed: crate::window::Missed, paced: bool, stepped: bool, now: Instant) {
         if stepped {
             drop_window_requests(&mut self.rt);
             self.clipboard.flush(&mut self.rt);
