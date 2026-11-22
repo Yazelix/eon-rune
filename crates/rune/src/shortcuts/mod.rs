@@ -13,9 +13,10 @@ mod service;
 mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", rune_x11))]
 mod x11;
-#[cfg(any(target_os = "linux", test))]
+#[cfg(any(all(target_os = "linux", rune_x11), test))]
+#[cfg_attr(not(all(target_os = "linux", rune_x11)), allow(dead_code))]
 mod x11_repeat;
 #[cfg(all(target_os = "linux", feature = "dbus"))]
 mod wayland;
@@ -80,7 +81,12 @@ fn backend(wayland: bool, sink: Sink) -> Result<NativeBackend, ShortcutError> {
         { Ok(Box::new(wayland::Native::new(sink)?)) }
         #[cfg(not(feature = "dbus"))]
         { Err(ShortcutError::Unsupported) }
-    } else { Ok(Box::new(x11::Native::new(sink)?)) };
+    } else {
+        #[cfg(rune_x11)]
+        { Ok(Box::new(x11::Native::new(sink)?)) }
+        #[cfg(not(rune_x11))]
+        { let _ = sink; Err(ShortcutError::Unsupported) }
+    };
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     { let _ = sink; Err(ShortcutError::Unsupported) }
 }

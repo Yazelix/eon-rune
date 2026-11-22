@@ -1,7 +1,7 @@
 //! The FileChooser portal's argument and reply formats, kept free of D-Bus so they're tested on
 //! every Unix host.
 use super::{FileDialogError, FileDialogOptions};
-use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
 /// `x11:<hex xid>`, or empty for no parent.
@@ -49,28 +49,7 @@ pub(super) fn outcome(status: u32, uris: &[String]) -> Result<Option<PathBuf>, F
 
 /// A local `file://` URI as a path, percent-decoded to raw bytes.
 pub(super) fn uri_path(uri: &str) -> Result<PathBuf, FileDialogError> {
-    let invalid = || FileDialogError(format!("file dialog returned a non-local URI: {uri}"));
-    let rest = uri.strip_prefix("file://").ok_or_else(invalid)?;
-    let path = match rest.find('/') {
-        Some(0) => rest,
-        Some(at) if rest[..at].eq_ignore_ascii_case("localhost") => &rest[at..],
-        _ => return Err(invalid()),
-    };
-    let bytes = path.split(['?', '#']).next().unwrap_or_default().as_bytes();
-    let hex = |b: u8| (b as char).to_digit(16).map(|d| d as u8);
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len()
-            && let (Some(hi), Some(lo)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
-            out.push(hi << 4 | lo);
-            i += 3;
-        } else {
-            out.push(bytes[i]);
-            i += 1;
-        }
-    }
-    Ok(PathBuf::from(std::ffi::OsString::from_vec(out)))
+    crate::file_uri::path(uri).ok_or_else(|| FileDialogError(format!("file dialog returned a non-local URI: {uri}")))
 }
 
 #[cfg(test)]

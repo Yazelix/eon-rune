@@ -27,6 +27,24 @@ fn present_paced<T: 'static>(overlay: &mut Overlay<T>, at: Instant, paced: bool)
     overlay.idle = idle_after(&overlay.rt, animating, paced.then_some(at + FRAME));
 }
 
+/// Pins `overlay.rt`'s logical wall clock to `elapsed` after `wall_start`.
+///
+/// Sets `rt.wall_start = Some(wall_start)` (anchoring wall-clock deadline conversions to
+/// `wall_start`) and installs a frozen `rt.test_clock` at `elapsed` so `Runtime::wall_clock()`
+/// returns that fixed time instead of advancing with real time. The pin stays in effect until
+/// another call overwrites it or the caller clears `rt.test_clock` (and `rt.wall_start` if
+/// returning to headless mode).
+///
+/// Paths that read `wall_start.elapsed()` directly rather than `wall_clock()` (such as
+/// `Runtime::now_clock()`) are not intercepted and still observe live wall time, and
+/// `wall_start.is_some()` checks still take their windowed branch while pinned.
+fn pin_wall_clock<T: 'static>(overlay: &mut Overlay<T>, wall_start: Instant, elapsed: Duration) {
+    overlay.rt.wall_start = Some(wall_start);
+    let mut clock = crate::Clock::manual(60.0);
+    clock.seek(elapsed.as_secs_f64());
+    overlay.rt.test_clock = Some(clock);
+}
+
 /// An overlay whose poll asks for the next frame every time it runs, counting its polls.
 fn frame_hungry(name: &'static str) -> Overlay<u32> {
     fn view(_: &u32, _: &mut Cx<u32>) -> El { crate::el().key("box").size(10.0, 10.0) }
@@ -216,8 +234,12 @@ fn a_poll_asking_for_the_next_frame_keeps_a_shown_overlay_stepping() {
     let (mut overlay, _) = Overlay::new(OverlaySpec::new("frame poll", app.size, view).options(Default::default()), 0, &app);
     overlay.presence = Presence::Shown { occluded: false };
     let start = Instant::now();
+    overlay.clock.hold(start);
     let idle: Vec<_> = (1..=5).map(|k| {
-        present(&mut overlay, start + k * FRAME);
+        let target = k * FRAME;
+        // Pin past `target` within the frame so a one-frame-late wake falls past `target + FRAME`.
+        pin_wall_clock(&mut overlay, start, target + FRAME / 4);
+        present(&mut overlay, start + target);
         overlay.idle
     }).collect();
     assert_eq!(overlay.rt.state, 5);

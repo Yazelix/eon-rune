@@ -33,6 +33,13 @@ pub(crate) mod tx;
 mod macos;
 #[cfg(not(target_arch = "wasm32"))]
 mod native;
+#[cfg(target_os = "linux")]
+mod wayland;
+#[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
+mod wayland_tests;
+}
 #[cfg(target_arch = "wasm32")]
 mod web;
 #[cfg(target_os = "macos")]
@@ -545,6 +552,61 @@ mod tests {
             assert_eq!(s.clears, usize::from(replacement.is_none()));
             assert_eq!(s.drops, 1, "normal shutdown joins after clipboard handoff/drop");
         }
+    }
+
+    /// `stop` says whether the worker finished: a held secret cleared and the backend dropped.
+    #[test]
+    fn stop_reports_a_finished_cleanup_of_the_held_secret() {
+        let state = Arc::new(Mutex::new(State::default()));
+        let shared = state.clone();
+        let worker = Worker::spawn(move || Some(Fake { state: shared.clone(), dropped: None }));
+        worker.sender.send(Request::Write(ClipboardWrite::secret("fixture".into(), LONG).0, None)).unwrap();
+        let (reply, received) = mpsc::channel();
+        worker.sender.send(Request::Read { purpose: Purpose::Paste(None, Forms::Text), reply, wake: Arc::new(|| {}) }).unwrap();
+        received.recv_timeout(Duration::from_secs(30)).unwrap();
+        // The bound is a watchdog here: the worker answers as soon as it has cleaned up.
+        assert!(worker.stop_within(Duration::from_secs(30)), "the worker acknowledged its cleanup");
+        let s = state.lock().unwrap();
+        assert_eq!((s.clears, s.drops, s.text.as_str()), (1, 1, ""), "the held secret was cleared before the backend dropped");
+        drop(s);
+        assert!(!worker.stop(), "a stopped worker reports nothing finished");
+    }
+
+    /// A cleanup that outlasts the bound is reported, so a caller can't take the 250 ms for success.
+    /// The backend's clear is held on a channel, so it is still running when the bound ends.
+    #[test]
+    fn stop_reports_a_cleanup_that_stalls_past_its_bound() {
+        struct Stalling(Arc<Mutex<State>>, mpsc::Receiver<()>, mpsc::Sender<()>);
+        impl Backend for Stalling {
+            fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String> {
+                let mut s = self.0.lock().unwrap();
+                s.text = copy.to_string(); s.revision += 1;
+                Ok(())
+            }
+            fn text(&mut self) -> Option<Zeroizing<String>> { Some(Zeroizing::new(self.0.lock().unwrap().text.clone())) }
+            fn revision(&self) -> Option<u64> { Some(self.0.lock().unwrap().revision) }
+            fn clear(&mut self) -> Result<(), String> {
+                // Held until the test releases it.
+                self.1.recv().unwrap();
+                self.0.lock().unwrap().clears += 1;
+                self.2.send(()).unwrap();
+                Ok(())
+            }
+        }
+        let state = Arc::new(Mutex::new(State::default()));
+        let shared = state.clone();
+        let (release, held) = mpsc::channel();
+        let (cleared, cleared_seen) = mpsc::channel();
+        let mut held = Some((held, cleared));
+        let worker = Worker::spawn(move || held.take().map(|(held, cleared)| Stalling(shared.clone(), held, cleared)));
+        worker.sender.send(Request::Write(ClipboardWrite::secret("fixture".into(), LONG).0, None)).unwrap();
+        let (reply, received) = mpsc::channel();
+        worker.sender.send(Request::Read { purpose: Purpose::Paste(None, Forms::Text), reply, wake: Arc::new(|| {}) }).unwrap();
+        received.recv_timeout(Duration::from_secs(30)).unwrap();
+        assert!(!worker.stop_within(Duration::from_millis(50)), "a cleanup still running at the bound is not reported finished");
+        release.send(()).unwrap();
+        cleared_seen.recv_timeout(Duration::from_secs(30)).unwrap();
+        assert_eq!(state.lock().unwrap().clears, 1, "the stalled cleanup did reach the held secret");
     }
 
     #[test]
