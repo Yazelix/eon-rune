@@ -41,7 +41,17 @@ impl<S: 'static> Host<S> {
         // come at the retry's pace, not the display's.
         if !stepped { covered_step(&mut self.rt); }
         self.clipboard.flush(&mut self.rt);
-        self.frame_reports.skipped();
+        self.frame_reports.skipped(missed.skip());
+    }
+
+    /// A hidden launcher's frame with no drawable: it waits out its own backoff and draws when
+    /// one comes (`HiddenMissed`).
+    pub(super) fn hidden_missed(&mut self, missed: Missed) {
+        if self.gpu_failed() { return; }
+        let Some(l) = self.win.as_mut() else { return };
+        l.first_frame.missed();
+        l.backoff_step(BackoffEvent::HiddenMissed { preparing: l.first_frame.deadline().is_some(), now: Instant::now() });
+        self.frame_reports.skipped(missed.skip());
     }
 
     /// A frame for a window that's hidden, covered, asleep or minimised: while shown, what it
@@ -63,7 +73,7 @@ impl<S: 'static> Host<S> {
             self.rt.set_live_visible(false);
             covered_step(&mut self.rt);
             self.clipboard.flush(&mut self.rt);
-            self.frame_reports.skipped();
+            self.frame_reports.skipped(crate::FrameSkip::Covered);
         }
     }
 
@@ -247,7 +257,7 @@ impl<S: 'static> Host<S> {
                 l.surface_ok = false;
                 return self.missed_frame(Missed::Unconfigured, built.is_some());
             }
-            Err(_) if hidden => { l.first_frame.missed(); l.backoff_step(BackoffEvent::HiddenMissed { preparing: l.first_frame.deadline().is_some(), now: Instant::now() }); self.frame_reports.skipped(); return; }
+            Err(missed) if hidden => return self.hidden_missed(missed),
             Err(missed) => return self.missed_frame(missed, built.is_some()),
         };
         #[cfg(feature = "frame-profile")]
@@ -311,7 +321,7 @@ impl<S: 'static> Host<S> {
                     return self.missed_frame(Missed::Unconfigured, true);
                 }
                 // Retrying at once is what spins while occluded; wait like any missed frame.
-                Err(_) if hidden => { l.first_frame.missed(); l.backoff_step(BackoffEvent::HiddenMissed { preparing: l.first_frame.deadline().is_some(), now: Instant::now() }); self.frame_reports.skipped(); return; }
+                Err(missed) if hidden => return self.hidden_missed(missed),
                 Err(missed) => return self.missed_frame(missed, true),
             };
             drawable = l.native.present.as_ref().and(self.present_log.as_ref()).and_then(|log| log.acquired());
@@ -331,7 +341,7 @@ impl<S: 'static> Host<S> {
                     l.surface_ok = false;
                     return self.missed_frame(Missed::Unconfigured, true);
                 }
-                Err(_) if hidden => { l.first_frame.missed(); l.backoff_step(BackoffEvent::HiddenMissed { preparing: l.first_frame.deadline().is_some(), now: Instant::now() }); self.frame_reports.skipped(); return; }
+                Err(missed) if hidden => return self.hidden_missed(missed),
                 Err(missed) => return self.missed_frame(missed, true),
             };
             #[cfg(target_os = "macos")]
