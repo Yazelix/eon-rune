@@ -158,6 +158,9 @@ pub(crate) struct Tracker {
     /// The last commit's memo-reused node ranges (start, len), while a frame is timed.
     pub reused: Vec<(usize, usize)>,
     sent: (Option<Instant>, u32),
+    /// Fixed clock for deterministic tests; `None` reads `Instant::now()`.
+    #[cfg(test)]
+    clock: Option<Instant>,
 }
 
 
@@ -178,10 +181,33 @@ pub(crate) struct Finished {
 }
 
 impl Tracker {
+    #[inline(always)]
+    pub(crate) fn now(&self) -> Instant {
+        #[cfg(test)]
+        if let Some(at) = self.clock { return at; }
+        Instant::now()
+    }
+
+    #[inline(always)]
+    fn now_fn(&self) -> impl Fn() -> Instant + Copy + use<> {
+        #[cfg(test)]
+        let pinned = self.clock;
+        move || {
+            #[cfg(test)]
+            if let Some(at) = pinned { return at; }
+            Instant::now()
+        }
+    }
+
+    #[cfg(test)]
+    // `interaction::tests` compiles its `#[test]` items only in the `native` test group, so other test binaries would warn.
+    #[allow(dead_code)]
+    pub(super) fn set_clock(&mut self, at: Option<Instant>) { self.clock = at; }
+
     /// A frame starts; `queued` when input waits for it. A built frame no host presented
     /// (a bare `Runtime`, a window that skipped drawing) ends at its build.
     pub(crate) fn frame_begins(&mut self, queued: bool) -> Option<Finished> {
-        self.begin_with(queued, slow_ms(), Instant::now, crate::frame::profile::cpu_ms)
+        self.begin_with(queued, slow_ms(), self.now_fn(), crate::frame::profile::cpu_ms)
     }
 
     fn begin_with(&mut self, queued: bool, slow_ms: f64, now: impl FnOnce() -> Instant, cpu: impl FnOnce() -> Option<f64>) -> Option<Finished> {
@@ -218,7 +244,7 @@ impl Tracker {
     /// The frame, of `nodes` nodes, is built; `shaped` text runs it shaped. A slow frame no
     /// input caused comes back to send.
     pub(crate) fn built(&mut self, shaped: u32, nodes: usize) -> Option<SlowFrame> {
-        self.build_with(shaped, nodes, watchdog::disarm(), slow_ms(), Instant::now, crate::frame::profile::cpu_ms)
+        self.build_with(shaped, nodes, watchdog::disarm(), slow_ms(), self.now_fn(), crate::frame::profile::cpu_ms)
     }
 
     fn build_with(&mut self, shaped: u32, nodes: usize, stacks: Option<Stacks>, slow_ms: f64, now: impl FnOnce() -> Instant, cpu: impl FnOnce() -> Option<f64>) -> Option<SlowFrame> {
@@ -274,7 +300,7 @@ impl Tracker {
     /// Sends the histograms when a minute has passed since the last, or `now` regardless.
     pub(crate) fn roll(&mut self, force: bool) {
         let Some(from) = self.rolled_since else { return };
-        let to = Instant::now();
+        let to = self.now();
         if self.rollup.is_empty() || (!force && to.saturating_duration_since(from) < ROLLUP_EVERY) { return; }
         export::send(export::Message::Rollup { rolls: self.rollup.take(), from, to });
         self.rolled_since = None;

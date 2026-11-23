@@ -173,11 +173,20 @@ test_group! { native =>
 #[test]
 fn a_fast_click_only_counts() {
     let mut rt = runtime(false);
-    click(&mut rt, "save-42");
+    let at = Instant::now();
+    rt.interaction_tracker().set_clock(Some(at));
+    let (x, y) = rt.find("save-42").unwrap();
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(1.0 / 60.0);
+    rt.interaction_presented(at + Duration::from_millis(2), None);
     assert!(SENT.take().is_empty());
-    let rolls = rt.interaction_tracker().rollup.take();
+    let tracker = rt.interaction_tracker();
+    let rolls = tracker.rollup.take();
     assert_eq!(rolls.len(), 1);
-    assert_eq!((&*rolls[0].control.text, rolls[0].count), ("settings/save-*", 1));
+    assert_eq!((&*rolls[0].control.text, rolls[0].count, rolls[0].slow), ("settings/save-*", 1, 0));
+    assert!((rolls[0].max_ms - 2.0).abs() < 1e-6);
+    assert!(tracker.breached.is_empty());
 }
 }
 
