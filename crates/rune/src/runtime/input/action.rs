@@ -289,7 +289,7 @@ impl<S: 'static> Runtime<S> {
         #[cfg(debug_assertions)]
         let (name, path, at) = (handler_name(&action), stall_path(&action).map(str::to_owned), self.handler_location(&action));
         let stall = crate::tooling::perf_warn::Stall::start();
-        let timed = self.interaction_note(&action).map(|note| (note, crate::time::Instant::now()));
+        let timed = self.interaction_note(&action).map(|note| (note, self.watch.interaction.now()));
         let ran = self.dispatch_action(action, tx);
         if let Some(before) = before {
             self.export_primary_selection(before, tx);

@@ -77,7 +77,8 @@ impl<S: 'static> Runtime<S> {
 
     /// An action that `interaction_note` named ran its handlers from `started`.
     pub(super) fn interaction_ran(&mut self, note: Note, started: crate::time::Instant) {
-        let handler = started.elapsed();
+        let now = self.watch.interaction.now();
+        let handler = now.saturating_duration_since(started);
         self.watch.interaction.noted(note, crate::input::time::current(), started, handler);
     }
 
