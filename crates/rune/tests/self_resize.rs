@@ -30,11 +30,11 @@ fn matches((physical, viewport, scale): Geometry, size: (f32, f32)) -> bool {
             )
 }
 
-fn wait_for(observed: &Mutex<Option<Geometry>>, size: (f32, f32)) {
+fn wait_for(observed: &Mutex<Option<Geometry>>, size: (f32, f32), scale: Option<f32>) {
     let start = rune::time::now();
     loop {
         let got = *observed.lock().unwrap();
-        if got.is_some_and(|got| matches(got, size)) {
+        if got.is_some_and(|got| scale.is_none_or(|scale| got.2 == scale) && matches(got, size)) {
             println!("self_resize: geometry {got:?}");
             return;
         }
@@ -63,6 +63,14 @@ fn main() {
         println!("self_resize: skipped (set RUNE_GUI_TESTS=1 on a private Wayland display)");
         return;
     }
+    let (initial, sizes): (_, &[(f32, f32)]) = match rune::env::var("RUNE_SELF_RESIZE_CASE").as_deref() {
+        Some("shrink") => ((1200.0, 720.0), &[(900.0, 600.0)]),
+        Some("grow") => ((900.0, 600.0), &[(1200.0, 720.0)]),
+        // A direct run still reproduces the rapid pair, which can cross a compositor configure.
+        None => ((1200.0, 720.0), &[(900.0, 600.0), (1200.0, 720.0)]),
+        Some(case) => panic!("unknown self-resize case {case:?}"),
+    };
+    let scale = rune::env::var("RUNE_SELF_RESIZE_SCALE").map(|scale| scale.parse::<f32>().unwrap());
     std::thread::spawn(|| {
         std::thread::sleep(Duration::from_secs(20));
         eprintln!("self_resize: timeout");
@@ -72,7 +80,7 @@ fn main() {
     let (ready, opened) = std::sync::mpsc::channel();
     let app = App::new(AppSpec::new(
         "self resize",
-        (1200.0, 720.0),
+        initial,
         || (),
         |_, _| col().w_full().h_full().fill(Color::BLACK),
     ))
@@ -90,10 +98,10 @@ fn main() {
             opened
                 .recv_timeout(Duration::from_secs(5))
                 .expect("window ready");
-            wait_for(&observed, (1200.0, 720.0));
-            for size in [(900.0, 600.0), (1200.0, 720.0)] {
+            wait_for(&observed, initial, scale);
+            for &size in sizes {
                 handle.update(move |_, tx| tx.resize_window_instant(size));
-                wait_for(&observed, size);
+                wait_for(&observed, size, scale);
             }
         });
         *result.lock().unwrap() = run.is_ok();
