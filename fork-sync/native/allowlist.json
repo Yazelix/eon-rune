@@ -1,5 +1,5 @@
 {
-  "analyzer_sha256": "7a121a09c63d119aa56b72bae621d29fe3dfe4ec53cb7501beb25b087a6ba7e1",
+  "analyzer_sha256": "e388df9202def279b309833c5ec61c55f5f4e1795c97e600de912eaf71a46ab7",
   "reasons": {
     "jump": "Pane children jump with the scripted split, zoom or restore. Eon has no layout transitions.",
     "sibling-jump": "The retained pane moves or resizes when a sibling mounts or unmounts on the same scripted cut.",
