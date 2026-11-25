@@ -98,13 +98,14 @@ case "$phase" in
         run wasm build "${cargo[@]}" check --locked -p rune --no-default-features --target wasm32-unknown-unknown --jobs 1
         run workspace build "${cargo[@]}" check --locked --workspace --all-targets --jobs 1
         run workspace-test-targets build "${cargo[@]}" metadata --locked --no-deps --format-version 1
-        python3 "$tools/test-batches.py" "$state/logs/workspace-test-targets.log" > "$state/provenance/workspace-test-batches.tsv"
+        rune_test_features=test-gpu-noop,test-gpu-counters
+        python3 "$tools/test-batches.py" "$state/logs/workspace-test-targets.log" "$rune_test_features" > "$state/provenance/workspace-test-batches.tsv"
         while IFS=$'\t' read -r batch package selector target; do
             args=()
             if test "$selector" != -; then args+=("$selector"); fi
             if test "$target" != -; then args+=("$target"); fi
             case "$package" in
-                rune) args+=(--features test-gpu-noop,test-gpu-counters);;
+                rune) args+=(--features "$rune_test_features");;
                 rune-kit) args+=(--features markdown,mermaid);;
             esac
             run "workspace-$batch" build "${cargo[@]}" test --locked --jobs 2 -p "$package" "${args[@]}" -- --test-threads=1

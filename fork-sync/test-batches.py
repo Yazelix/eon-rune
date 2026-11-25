@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 
-def batches(workspace):
+def batches(workspace, rune_features):
     members = set(workspace['workspace_members'])
     packages = sorted((p for p in workspace['packages'] if p['id'] in members), key=lambda p: p['name'])
     assert {p['id'] for p in packages} == members, 'missing workspace member metadata'
@@ -16,8 +16,9 @@ def batches(workspace):
             continue
         yield 'rune-lib', name, '--lib', '-'
         yield 'rune-doc', name, '--doc', '-'
+        enabled = set(package['features'].get('default', [])) | set(rune_features)
         for target in package['targets']:
-            if not target['test']:
+            if not target['test'] or set(target.get('required-features', [])) - enabled:
                 continue
             kind = target['kind'][0]
             if kind in ('test', 'bin', 'example'):
@@ -27,7 +28,7 @@ def batches(workspace):
 if __name__ == '__main__':
     log = Path(sys.argv[1]).read_text()
     metadata, = (json.loads(line) for line in log.splitlines() if line.startswith('{"packages":'))
-    rows = list(batches(metadata))
+    rows = list(batches(metadata, sys.argv[2].split(',')))
     assert len({row[0] for row in rows}) == len(rows), 'duplicate test batch'
     assert {'rune-lib', 'rune-doc', 'rune-test-integration', 'rune-test-unit_native_tests'} <= {row[0] for row in rows}, 'missing Rune test shards'
     for row in rows:
