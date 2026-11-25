@@ -21,7 +21,7 @@ use crate::platform::win32::dib::{Blit, Dib, Prefault};
 use crate::render::cpu_boot::{CpuPainter, HalfRounding, Scene, Target};
 use crate::runtime::RuntimeCore;
 use crate::time::Instant;
-use crate::window::chrome::{self, sync_chrome_core, sync_platform_core};
+use crate::window::chrome::{self, sync_platform_core};
 use crate::window::handle::native_window_number;
 use crate::window::host::Host;
 use crate::window::host::stepping::FrameMove;
@@ -30,7 +30,7 @@ use crate::window::surface::{
     Backoff, BackoffEvent, FRAME_LATENCY, HiddenPace, LoopFrame, Native, Presented, Redraw,
     SurfaceRetries, TIMER_FRAME, TimerFrame, Win, drawable_size, max_surface_dim, native, win,
 };
-use crate::window::{WakeEvent, sync_screen_origin_core};
+use crate::window::WakeEvent;
 
 /// The CPU renderer's side of a window: the buffer it paints in place and the painter that
 /// knows what the buffer last held.
@@ -214,20 +214,7 @@ impl Host {
             redraw: std::cell::Cell::new(Redraw::Idle),
         });
         self.apply_placement(event_loop);
-        crate::marks::mark("window.created");
-        if let Some(created) = self.on_created.take() { created(self.native_handle.clone()); }
-        if let Some(on_window) = self.on_window.as_mut() { on_window(&self.native_handle); }
-        if let Some(w) = self.win.as_mut() {
-            let size = w.window.inner_size();
-            let scale = w.window.scale_factor() as f32;
-            let rt = self.app.rt_mut();
-            if size.width > 0 && size.height > 0 {
-                w.resize_surface(None, size);
-                rt.set_viewport((w.config.width as f32 / scale, w.config.height as f32 / scale), scale);
-            }
-            sync_chrome_core(rt, w, self.chrome, self.titlebar);
-            sync_screen_origin_core(rt, &w.window);
-        }
+        if self.finish_creation(event_loop) { return Ok(()); }
         // The first frame, into the hidden window, then the window with it.
         crate::marks::mark("frame.first.begin");
         self.draw_cpu(false);

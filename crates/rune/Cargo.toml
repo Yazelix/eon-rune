@@ -362,6 +362,10 @@ name = "tray_macos"
 harness = false
 
 [[test]]
+name = "self_resize"
+harness = false
+
+[[test]]
 name = "unit_layout_tests"
 path = "src/lib.rs"
 

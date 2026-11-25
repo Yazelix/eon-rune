@@ -776,6 +776,11 @@ app.run();
   close as usual. Programmatic close (`Tx::close_window`, `AppHandle::close`, `WindowHandle::close`),
   quit/relaunch, teardown, and an already-exiting loop bypass `on_close_request`, and apps without
   the hook behave as before.
+- `App::on_window_event(|s, window, event, tx| -> bool)` observes the original winit event before
+  Rune's input dispatch. Return true to consume input. Lifecycle and modifier bookkeeping still run.
+- `App::on_window_geometry(|s, geometry, tx| -> bool)` reports the initial native physical size,
+  scale, and output presence before the first frame, then reports changed observations at idle.
+  Return true when the view state changed.
 - `App::on_window(|w: &WindowHandle| ..)` runs on the UI thread after every native creation, for
   icons, native styles, or display-bound protocol objects through `WindowHandle::with_raw_handle`
   and `WindowHandle::with_raw_display_handle`. Pair `with_raw_display_handle` with

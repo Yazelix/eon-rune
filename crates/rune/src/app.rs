@@ -29,8 +29,11 @@ use crate::tooling::{AppSpec, Args};
 
 #[path = "app/web.rs"]
 mod web;
+mod window_hooks;
 #[cfg(target_arch = "wasm32")]
 pub(crate) use web::with_font;
+pub use window_hooks::WindowGeometry;
+pub(crate) use window_hooks::WindowHooks;
 
 pub(crate) type Update<S> = Box<dyn FnOnce(&mut S, &mut Tx) -> bool + Send>;
 /// `App::on_window`'s hook, run after each native window creation.
@@ -92,6 +95,7 @@ pub struct App<S: 'static> {
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub(crate) standard_menus: bool,
     pub(crate) keep_running: bool,
+    pub(crate) window_hooks: WindowHooks<S>,
     pub(crate) on_close_request: Option<fn(&mut S, &mut Tx) -> CloseResponse>,
     pub(crate) on_close: Option<fn(&mut S, &mut Tx)>,
     pub(crate) on_quit: Option<fn(&mut S, &mut Tx)>,
@@ -159,6 +163,7 @@ impl<S: 'static> App<S> {
             accessory: false,
             standard_menus: false,
             keep_running: false,
+            window_hooks: WindowHooks::default(),
             on_close_request: None,
             on_close: None,
             on_quit: None,

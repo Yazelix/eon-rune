@@ -256,6 +256,7 @@ impl Host {
             w.timer_frame.no_longer_quiet();
             w.loop_frame.touched();
         }
+        if self.before_window_event(event_loop, &event) { return; }
         #[cfg(target_os = "windows")]
         if matches!(event, WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. })
             && let Some(w) = &mut self.win

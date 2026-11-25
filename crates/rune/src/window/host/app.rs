@@ -3,9 +3,9 @@
 
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
-use winit::window::Window;
+use winit::{event::WindowEvent, window::Window};
 
-use crate::app::{Shared, TurnScope, WindowRequests};
+use crate::app::{Shared, TurnScope, WindowHooks, WindowRequests};
 use crate::compose::{Compositor, Frame};
 use crate::el::Tx;
 use crate::frame::clock::FrameClock;
@@ -32,10 +32,18 @@ pub(crate) struct CompositorFrame<'a> {
 pub(crate) trait WindowApp {
     fn rt(&self) -> &RuntimeCore;
     fn rt_mut(&mut self) -> &mut RuntimeCore;
+    #[cfg(all(test, target_os = "linux"))]
+    #[allow(dead_code)]
+    fn test_any(&self) -> &dyn std::any::Any;
+    #[cfg(all(test, target_os = "linux"))]
+    #[allow(dead_code)]
+    fn test_any_mut(&mut self) -> &mut dyn std::any::Any;
     fn with_driver(&mut self, f: &mut dyn FnMut(&mut RuntimeCore, &mut dyn AppDriver));
 
     fn enter_turn(&mut self) -> bool;
     fn leave_turn(&mut self);
+    fn run_window_event(&mut self, window: &Window, event: &WindowEvent, mods: crate::Mods) -> Option<(bool, bool)>;
+    fn run_window_geometry(&mut self, window: &Window, initial: bool) -> Option<bool>;
     fn run_on_close_request(&mut self) -> Option<crate::CloseResponse>;
     fn run_on_close(&mut self);
     fn run_on_quit(&mut self) -> bool;
@@ -197,6 +205,7 @@ pub(in crate::window) fn test_app_with_close_request<S: 'static>(
         shared: Arc::new(Shared::default()),
         comp: None,
         on_frame_drawn: None,
+        window_hooks: WindowHooks::default(),
         on_close_request,
         on_close,
         on_rest: None,
@@ -214,6 +223,7 @@ pub(crate) struct TypedWindowApp<S: 'static> {
     pub(crate) shared: Arc<Shared<S>>,
     pub(super) comp: Option<Box<dyn Compositor<S>>>,
     pub(super) on_frame_drawn: Option<OnFrameDrawn<S>>,
+    pub(super) window_hooks: WindowHooks<S>,
     pub(super) on_close_request: Option<fn(&mut S, &mut Tx) -> crate::CloseResponse>,
     pub(super) on_close: Option<fn(&mut S, &mut Tx)>,
     pub(super) on_rest: Option<fn(&mut S, &mut Tx) -> bool>,
@@ -228,6 +238,7 @@ pub(crate) struct TypedWindowApp<S: 'static> {
 impl<S: 'static> TypedWindowApp<S> {
     #[cfg(all(test, feature = "hot"))]
     pub(crate) fn from_app(mut app: crate::App<S>, waker: crate::runtime::Waker) -> Self {
+        let window_hooks = std::mem::take(&mut app.window_hooks);
         let (on_close_request, on_close, on_rest, on_reopen, on_quit, turn_scope) = (
             app.on_close_request, app.on_close, app.on_rest, app.on_reopen, app.on_quit, app.turn_scope,
         );
@@ -237,7 +248,7 @@ impl<S: 'static> TypedWindowApp<S> {
         let mut rt = crate::tooling::runtime_for(&spec, state, spec.size, crate::runtime::Env::default(), waker);
         rt.configure(runtime);
         Self {
-            rt, shared, comp, on_frame_drawn: None, on_close_request, on_close, on_rest, on_quit, on_reopen, turn_scope,
+            rt, shared, comp, on_frame_drawn: None, window_hooks, on_close_request, on_close, on_rest, on_quit, on_reopen, turn_scope,
             keep_layout, kept_layout: layout_seed,
         }
     }
@@ -254,6 +265,12 @@ impl<S: 'static> TypedWindowApp<S> {
 }
 
 impl<S: 'static> WindowApp for TypedWindowApp<S> {
+    #[cfg(all(test, target_os = "linux"))]
+    fn test_any(&self) -> &dyn std::any::Any { self }
+
+    #[cfg(all(test, target_os = "linux"))]
+    fn test_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
     fn rt(&self) -> &RuntimeCore { self.rt.core() }
 
     fn rt_mut(&mut self) -> &mut RuntimeCore { self.rt.core_mut() }
@@ -279,6 +296,33 @@ impl<S: 'static> WindowApp for TypedWindowApp<S> {
             #[cfg(not(feature = "hot"))]
             (scope.leave)(&mut self.rt.state);
         }
+    }
+
+    fn run_window_event(&mut self, window: &Window, event: &WindowEvent, mods: crate::Mods) -> Option<(bool, bool)> {
+        let hook = self.window_hooks.event?;
+        let mut consumed = false;
+        let stale = self.rt.update_if(|state, tx| {
+            tx.mods = mods;
+            tx.key_repeat = matches!(event, WindowEvent::KeyboardInput { event, .. } if event.repeat);
+            consumed = hook(state, window, event, tx);
+            consumed && !tx.live_only
+        });
+        Some((consumed, stale))
+    }
+
+    fn run_window_geometry(&mut self, window: &Window, initial: bool) -> Option<bool> {
+        let hook = self.window_hooks.geometry?;
+        let size = window.inner_size();
+        let geometry = crate::WindowGeometry {
+            physical_size: (size.width, size.height),
+            scale_factor: window.scale_factor(),
+            has_output: window.current_monitor().is_some(),
+        };
+        if !initial && self.window_hooks.last_geometry == Some(geometry) {
+            return None;
+        }
+        self.window_hooks.last_geometry = Some(geometry);
+        Some(self.rt.update_if(|state, tx| hook(state, geometry, tx)))
     }
 
     fn run_on_close_request(&mut self) -> Option<crate::CloseResponse> {

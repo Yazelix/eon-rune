@@ -32,7 +32,7 @@ use crate::window::surface::{
 };
 #[cfg(target_os = "windows")]
 use crate::window::win32::{covered_draw::CoveredDraw, cpu_frame, handover};
-use crate::window::{WakeEvent, sync_screen_origin_core};
+use crate::window::WakeEvent;
 
 impl Host {
     #[cfg_attr(not(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))), allow(unused_variables))]
@@ -458,23 +458,9 @@ impl Host {
         self.apply_placement(event_loop);
         #[cfg(target_os = "macos")]
         if visible && let Some(w) = &mut self.win && w.native.panel.is_some() { w.show(focus); }
-        crate::marks::mark("window.created");
-        if let Some(created) = self.on_created.take() { created(self.native_handle.clone()); }
-        if let Some(on_window) = self.on_window.as_mut() { on_window(&self.native_handle); }
-        if let (Some(w), Some((gpu, ..))) = (self.win.as_mut(), self.gpu.as_ref()) {
-            #[cfg(target_os = "macos")]
-            if let Some(pacing) = &mut w.native.pacing { pacing.update_display(&w.window); }
-            let size = w.window.inner_size();
-            let scale = w.window.scale_factor() as f32;
-            if size.width > 0 && size.height > 0 {
-                w.resize_surface(Some(&**gpu), size);
-                self.app.rt_mut().set_viewport((w.config.width as f32 / scale, w.config.height as f32 / scale), scale);
-            }
-            sync_chrome_core(self.app.rt_mut(), w, self.chrome, self.titlebar);
-            sync_screen_origin_core(self.app.rt_mut(), &w.window);
-            if w.window.has_focus() {
-                self.app.window_focus(true);
-            }
+        if self.finish_creation(event_loop) { return Ok(()); }
+        if self.win.as_ref().is_some_and(|w| w.window.has_focus()) {
+            self.app.window_focus(true);
         }
         // The first frame, now, so the window comes on screen with it instead of empty for a
         // frame or two. AppKit has ordered the window in, but it reaches the screen with this
