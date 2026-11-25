@@ -116,12 +116,14 @@ fn glyph_payload_keeps_derived_corpora_stable() {
     let scene = generate::seeded(1, 8);
     let glyph = &scene.primitives[7];
     assert_eq!(glyph.params[1], 2.0);
-    assert_eq!(glyph.radii, [24.375, 22.375, 26.5, 13.25]);
-    assert_eq!(glyph.params[2], 0.3125);
-    for scene in [generate::dashed(1, 8), generate::radial(1, 8)] {
-        let shapes: Vec<_> = scene.primitives.iter().filter(|p| p.source == glyph.source).collect();
-        assert!(!shapes.is_empty());
-        assert!(shapes.iter().all(|p| p.radii == glyph.radii));
+    assert_eq!(glyph.radii, [0.0; 4]);
+    assert_eq!(glyph.params[2], 0.0);
+    for derived in [generate::dashed(1, 8), generate::radial(1, 8)] {
+        for original in &scene.primitives {
+            let mut matching = derived.primitives.iter().filter(|p| p.source == original.source).peekable();
+            assert!(matching.peek().is_some());
+            assert!(matching.all(|p| p.radii == original.radii));
+        }
     }
 }
 
