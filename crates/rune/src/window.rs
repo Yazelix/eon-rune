@@ -118,6 +118,13 @@ test_group! { native =>
 mod tests;
 }
 
+#[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
+#[path = "window/wayland_only_tests.rs"]
+mod wayland_only_tests;
+}
+
 pub(crate) enum WakeEvent {
     DisplayTick(usize),
     App(usize), Live(usize), Window(usize, WindowRequest, Instant), Focus(usize, Instant),

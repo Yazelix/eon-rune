@@ -1827,7 +1827,10 @@ buffer capacity may grow further. macOS checks the cap after arboard allocates t
 and may receive plain text synthesized by AppKit from RTF. Linux reads require a
 Wayland compositor with data-control support. X11, Wayland without data-control,
 and other bounded-read backends report `Unsupported`; this API does not use
-arboard's X11 fallback. Primary operations outside Linux explicitly report
+arboard's X11 fallback. Linux and BSD builds include X11 by default via the `x11` feature.
+With that feature off, native windows require a Wayland display, XWayland overlay and
+X11 shortcut fallbacks are disabled, and the Linux clipboard uses Wayland data-control
+directly. Primary operations outside Linux explicitly report
 `Unsupported` and never alias the regular clipboard. Legacy secret watching is
 independent of the new read's bound; clipboard I/O has no hard completion deadline.
 Direct operations follow the shared queue's order without coalescing. `Written`
@@ -1886,7 +1889,7 @@ to hand a web view as is. RTF is passed through untouched.
 | --- | --- | --- | --- |
 | macOS | text, `public.html`, `public.rtf` in one pasteboard change | HTML; else RTF converted to HTML (TextEdit, Notes, Pages); else text | `public.png` as is, else `public.tiff` converted to PNG |
 | Windows | text and CF_HTML (`HTML Format`); no RTF | CF_HTML fragment, else text | `PNG`, else `CF_DIBV5`, through arboard, encoded as PNG |
-| Linux (X11, Wayland data-control) | text and `text/html`; no RTF | `text/html`, else text | `image/png` through arboard, decoded and encoded again |
+| Linux (X11, Wayland data-control) | text and `text/html`; no RTF | `text/html`, else text | `image/png`, decoded and encoded again with arboard when `x11` is enabled |
 | Web | `text/plain` and `text/html` through the async Clipboard API; no RTF | `text/html` from the paste event or `navigator.clipboard.read()`, else text | `image/png` from the paste event's files or `navigator.clipboard.read()` |
 
 `rune::clipboard::revision()` returns the OS clipboard's change counter as `Option<u64>`

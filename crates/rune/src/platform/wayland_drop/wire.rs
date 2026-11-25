@@ -584,7 +584,7 @@ impl Dispatch<WlDataDevice, u32> for QueueState {
                 state.step_seat(seat_name, Event::Drop);
             }
             wl_data_device::Event::Selection { id } => {
-                // Rune uses arboard for clipboard; destroy clipboard offers immediately so proxies do not leak.
+                // The clipboard uses data-control; destroy these offers immediately so proxies do not leak.
                 if let Some(offer) = id {
                     let offer_id = offer.id().protocol_id();
                     if let Some(seat_dev) = state.seats.get_mut(&seat_name) {

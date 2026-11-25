@@ -45,5 +45,5 @@ pub mod web;
 pub(crate) mod web_math;
 #[cfg(target_os = "windows")]
 pub(crate) mod win32;
-#[cfg(any(test, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))))]
+#[cfg(any(test, rune_x11))]
 pub(crate) mod x11;

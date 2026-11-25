@@ -49,7 +49,7 @@ impl OverlayCore {
                 frame::record_presented(false);
             }
         }
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(rune_x11)]
         if let Some(Live { backing: Backing::Xwayland(surface), .. }) = self.surface.live_mut() {
             if was_live && size == self.at.size { surface.place(self.at, &self.options); }
             surface.show();
@@ -322,7 +322,7 @@ impl OverlayCore {
                     crate::platform::ime::cancel(window);
                     window.set_ime_allowed(false);
                 }
-                #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+                #[cfg(rune_x11)]
                 if let Some(x11) = &self.x11 { x11.hide(); }
                 #[cfg(target_os = "windows")]
                 {
@@ -341,7 +341,7 @@ impl OverlayCore {
                 window.set_visible(false);
             }
             #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
-            Backing::Layer(_) | Backing::Xwayland(_) => {
+            _ => {
                 self.surface.take_live();
                 self.drop_hidden_images(app);
             }
@@ -408,7 +408,7 @@ impl OverlayCore {
         if let Some(p) = position(event_loop, self.at, &self.options) {
             attrs = attrs.with_position(p);
         }
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(rune_x11)]
         {
             use winit::platform::x11::{WindowAttributesExtX11, WindowType};
             attrs = attrs.with_override_redirect(true).with_x11_window_type(vec![WindowType::Notification]);
@@ -460,7 +460,7 @@ impl OverlayCore {
         #[cfg(not(target_os = "macos"))]
         {
             window.set_cursor_hittest(self.options.input.resolved(self.interactive) == OverlayInput::All).ok();
-            #[cfg(all(unix, not(target_os = "ios"), not(target_os = "android")))]
+            #[cfg(rune_x11)]
             {
                 self.x11 = crate::platform::x11::overlay::InputWindow::new(&window, self.shared.wake.lock().unwrap().clone(), self.options.input.resolved(self.interactive), self.options.follow_pointer, self.options.keys);
                 if self.options.input == OverlayInput::Regions && self.x11.is_none() { return None; }

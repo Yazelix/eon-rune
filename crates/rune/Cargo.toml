@@ -7,7 +7,7 @@ description = "GPU-rendered Rust UI framework (wgpu, winit) with keyed element t
 autotests = false
 
 [features]
-default = ["accessibility", "dbus", "embedded-fonts", "hunspell", "metal-backend", "ogg-audio", "svg", "rune-gpu/default", "rune-image/default", "rune-media/default", "rune-text/default"]
+default = ["accessibility", "dbus", "embedded-fonts", "hunspell", "metal-backend", "ogg-audio", "svg", "x11", "rune-gpu/default", "rune-image/default", "rune-media/default", "rune-text/default"]
 # Bundle Inter (Regular, Medium, SemiBold; on web also IBM Plex Mono) as the fonts text falls back
 # to when the app registers none. Disable when AppSpec::fonts supplies the app's own fonts to omit
 # the bytes (about 1.25 MB native).
@@ -90,6 +90,10 @@ test-gpu-counters = ["wgpu/counters"]
 # GPU-free wgpu noop backend for Linux surface-failure and device-loss tests.
 test-gpu-noop = ["wgpu/noop"]
 
+# On Linux and BSD, enable X11 windows and clipboard, pointer, shortcut and overlay fallbacks.
+# Without it, Linux clipboard uses Wayland data-control directly. Other targets are unaffected.
+x11 = ["winit/x11", "dep:x11rb", "dep:arboard"]
+
 [dependencies]
 # The accessibility tree's types; the platform adapters below come with `accessibility`.
 accesskit = "0.25.2"
@@ -108,9 +112,8 @@ rune-taffy = { workspace = true }
 rune-text = { workspace = true }
 # Allow backend patch fixes; headless pixel equivalence guards the precompiled Metal path.
 wgpu = { workspace = true, features = ["std", "parking_lot", "wgsl"] }
-# Keep Wayland client-side frames/buttons without the title font's ab_glyph/ttf-parser.
 # Eon supplies its own window chrome. Avoid a second tiny-skia-path source in its vendor graph.
-winit = { workspace = true, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+winit = { workspace = true, features = ["rwh_06", "wayland", "wayland-dlopen"] }
 taffy = { workspace = true, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size"] }
 parley = { workspace = true, features = ["std"] }
 bytemuck = { workspace = true }
@@ -129,13 +132,6 @@ libc = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pollster = { workspace = true }
-
-[target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
-arboard = { version = "3.6", default-features = false, features = ["wayland-data-control"] }
-
-# Pasted images on Windows and Linux; macOS reads the pasteboard's PNG or TIFF itself.
-[target.'cfg(any(target_os = "windows", all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android")))))'.dependencies]
-arboard = { version = "3.6", default-features = false, features = ["wayland-data-control", "image-data"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 rune-spell = { workspace = true, features = ["hunspell"] }
@@ -161,6 +157,7 @@ objc2-metal = { workspace = true, features = ["std", "MTLDrawable", "block2", "o
 wgpu = { workspace = true, features = ["metal"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+arboard = { version = "3.6", default-features = false }
 accesskit_macos = { version = "0.27.2", optional = true }
 # Names for the interaction watchdog's stack samples (`tooling::interaction::stack`).
 rustc-demangle = "0.1"
@@ -175,10 +172,12 @@ wayland-backend = { version = "0.3", features = ["client_system"] }
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "staging", "unstable"] }
 wayland-protocols-wlr = { version = "0.3", features = ["client"] }
-x11rb = { version = "0.13", features = ["shape", "xinput", "randr", "allow-unsafe-code", "dl-libxcb"] }
+x11rb = { version = "0.13", features = ["shape", "xinput", "randr", "allow-unsafe-code", "dl-libxcb"], optional = true }
+arboard = { version = "3.6", default-features = false, features = ["wayland-data-control", "image-data"], optional = true }
 xkbcommon = "0.9"
 
 [target.'cfg(target_os = "windows")'.dependencies]
+arboard = { version = "3.6", default-features = false, features = ["image-data"] }
 # DirectComposition handover (`platform::win32::dcomp_handover`), OLE drag and drop
 # (`drag_out::windows`, `platform::win32::drop_target`), jump lists and the taskbar button's
 # progress and badge (`platform::win32::{jump_list,taskbar}`).
@@ -368,6 +367,10 @@ harness = false
 
 [[test]]
 name = "self_resize"
+harness = false
+
+[[test]]
+name = "wayland_only"
 harness = false
 
 [[test]]

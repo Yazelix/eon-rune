@@ -196,7 +196,7 @@ fn native_geometry_creation_idle_and_event_order() {
     event_loop.run_app(&mut Probe { phase: Phase::Admission, host, closing, deadline: std::time::Instant::now() + Duration::from_secs(10) }).unwrap();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", rune_x11))]
 #[test]
 #[ignore = "requires isolated X11"]
 #[allow(clippy::disallowed_methods, reason = "native test checks its isolation guard")]

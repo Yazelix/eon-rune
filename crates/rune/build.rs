@@ -22,6 +22,7 @@ const FS_ENTRY: &str = "@fragment\nfn fs(i: Out) -> @location(0) vec4<f32> {";
 
 fn main() {
     println!("cargo::rerun-if-changed=build.rs");
+    x11_cfg();
     // Paths are from the package's folder, where cargo runs this.
     let read = |path: &str| {
         println!("cargo::rerun-if-changed={path}");
@@ -783,5 +784,16 @@ fn parse_shader_consts(src: &WgslSources<'_>) -> ParsedShaderConsts {
         pinned_kind_off_decl: pinned_kind.line,
         pinned_kinds: [kind_rect, kind_shadow, kind_glyph],
         generated: out,
+    }
+}
+
+/// `rune_x11` enables native X11 code on the Cargo target.
+fn x11_cfg() {
+    println!("cargo::rustc-check-cfg=cfg(rune_x11)");
+    let var = |name: &str| std::env::var_os(name).map(|v| v.to_string_lossy().into_owned()).unwrap_or_default();
+    let os = var("CARGO_CFG_TARGET_OS");
+    let unix = var("CARGO_CFG_TARGET_FAMILY").split(',').any(|f| f == "unix");
+    if std::env::var_os("CARGO_FEATURE_X11").is_some() && unix && !matches!(os.as_str(), "macos" | "ios" | "android") {
+        println!("cargo::rustc-cfg=rune_x11");
     }
 }

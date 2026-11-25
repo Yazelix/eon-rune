@@ -6,7 +6,7 @@
 
 pub(crate) mod binding;
 pub(crate) mod machine;
-mod uri;
+pub(crate) mod uri;
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 mod pipe;
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]

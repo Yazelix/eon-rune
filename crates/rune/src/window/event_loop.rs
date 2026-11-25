@@ -20,6 +20,21 @@ pub(crate) fn run_windows(factory: Factory, args: Args, options: crate::RunOptio
     run_configured(factory, args, options.accessory)
 }
 
+/// A Linux or BSD build without the `x11` feature runs on Wayland alone: without a Wayland display
+/// it refuses before any GPU or windowing work, naming what it needs, instead of winit's advice to
+/// enable its X11 backend. Empty variables count as unset, as winit counts them.
+#[cfg(any(test, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), not(rune_x11))))]
+#[cfg_attr(not(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), not(rune_x11))), allow(dead_code))]
+pub(crate) fn wayland_only_refusal(var: impl Fn(&str) -> Option<std::ffi::OsString>) -> Option<String> {
+    let set = |name: &str| var(name).is_some_and(|value| !value.is_empty());
+    (!set("WAYLAND_DISPLAY") && !set("WAYLAND_SOCKET")).then(|| WAYLAND_ONLY.to_owned())
+}
+
+/// What a Wayland-only launch says without a Wayland display.
+#[cfg(any(test, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), not(rune_x11))))]
+#[cfg_attr(not(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), not(rune_x11))), allow(dead_code))]
+pub(crate) const WAYLAND_ONLY: &str = "event loop: no Wayland display (WAYLAND_DISPLAY and WAYLAND_SOCKET are unset); this build of Rune has no X11 support";
+
 /// Without a display (no `WAYLAND_DISPLAY` or `DISPLAY`, a refused X11 connection) the event
 /// loop can't be built.
 fn event_loop_error(error: winit::error::EventLoopError) -> String {
@@ -126,6 +141,11 @@ fn run_configured(factory: Factory, args: Args, accessory: bool) -> Result<(), S
     // before the loop runs), and what AppKit would otherwise wait for on this thread.
     #[cfg(target_os = "macos")]
     let beside = crate::platform::macos::launch::begin(!inactive).inspect_err(|_| crate::render::discard_prewarm())?;
+    #[cfg(all(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")), not(rune_x11)))]
+    if let Some(refusal) = wayland_only_refusal(|name| std::env::var_os(name)) {
+        crate::render::discard_prewarm();
+        return Err(refusal);
+    }
     // While AppKit starts up.
     crate::render::prewarm_gpu();
     #[allow(unused_mut)]

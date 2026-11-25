@@ -1,4 +1,4 @@
-//! The OS clipboard: one worker thread over arboard, and the per-OS reads and writes.
+//! The OS clipboard: one worker thread over arboard or Wayland data-control.
 
 use super::*;
 
@@ -43,24 +43,30 @@ impl Worker {
         }).expect("clipboard worker");
         Self { sender, join: Mutex::new(Some((handle, completed))) }
     }
-    pub(super) fn stop(&self) {
-        let Some((handle, completed)) = self.join.lock().unwrap().take() else { return };
+    pub(super) fn stop(&self) -> bool { self.stop_within(Duration::from_millis(250)) }
+
+    pub(super) fn stop_within(&self, bound: Duration) -> bool {
+        let Some((handle, completed)) = self.join.lock().unwrap().take() else { return false };
         self.sender.send(Request::Shutdown).ok();
         // A hung clipboard owner must not hang application exit. Join only after completion.
-        if completed.recv_timeout(Duration::from_millis(250)).is_ok() { handle.join().ok(); }
+        let done = completed.recv_timeout(bound).is_ok();
+        if done { handle.join().ok(); }
+        done
     }
 }
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
+
 pub(super) fn worker() -> &'static mpsc::Sender<Request> {
     if cfg!(test) {
         panic!("unit test reached the OS clipboard; install a test clipboard (`rt.use_clipboard` or `Client::use_memory`)");
     }
-    &WORKER.get_or_init(|| Worker::spawn(|| arboard::Clipboard::new().ok())).sender
-}
-
-#[cfg(any(target_os = "ios", target_os = "android"))]
-pub(super) fn worker() -> &'static mpsc::Sender<Request> {
-    &WORKER.get_or_init(|| Worker::spawn(|| None::<Board>)).sender
+    &WORKER.get_or_init(|| {
+        #[cfg(any(target_os = "macos", target_os = "windows", rune_x11))]
+        { Worker::spawn(|| arboard::Clipboard::new().ok()) }
+        #[cfg(all(target_os = "linux", not(rune_x11)))]
+        { Worker::spawn(|| Some(super::wayland::Wayland)) }
+        #[cfg(not(any(target_os = "macos", target_os = "windows", rune_x11, target_os = "linux")))]
+        { Worker::spawn(|| None::<Board>) }
+    }).sender
 }
 
 /// Called by the shared event-loop exit path, including overlay-only applications.
@@ -71,10 +77,10 @@ pub(super) fn clear_secret_now() {
 }
 
 pub(super) fn shutdown() {
-    if let Some(worker) = WORKER.get() { worker.stop(); }
+    if let Some(worker) = WORKER.get() { let _ = worker.stop(); }
 }
 
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
+#[cfg(any(target_os = "macos", target_os = "windows", rune_x11))]
 impl Backend for arboard::Clipboard {
     #[cfg(target_os = "linux")]
     fn primary_text(&mut self) -> Option<String> {
@@ -92,22 +98,10 @@ impl Backend for arboard::Clipboard {
         self.clear_with().clipboard(LinuxClipboardKind::Primary).map_err(|e| e.to_string())
     }
     fn bounded_text(&mut self, primary: bool, cap: usize) -> plain::Outcome {
+        #[cfg(not(target_os = "linux"))]
         use plain::Outcome;
         #[cfg(target_os = "linux")]
-        {
-            use wl_clipboard_rs::paste::{ClipboardType, Error, MimeType, Seat, get_contents, get_mime_types_ordered};
-            let selection = if primary { ClipboardType::Primary } else { ClipboardType::Regular };
-            let contents = get_mime_types_ordered(selection, Seat::Unspecified)
-                .and_then(|types| plain::text_mime(&types).ok_or(Error::NoMimeType))
-                .and_then(|mime| get_contents(selection, Seat::Unspecified, MimeType::Specific(mime)));
-            match contents {
-                Ok((pipe, _)) => plain::decode(pipe, cap),
-                Err(Error::ClipboardEmpty) => Outcome::Empty,
-                Err(Error::NoMimeType) => Outcome::NonText,
-                Err(Error::WaylandConnection(_) | Error::MissingProtocol { .. } | Error::PrimarySelectionUnsupported) => Outcome::Unsupported,
-                Err(_) => Outcome::HostFailure,
-            }
-        }
+        return super::wayland::bounded_text(primary, cap);
         // shortcut: arboard allocates macOS text first, replace with a bounded native read after Mac qualification.
         #[cfg(target_os = "macos")]
         {
@@ -140,11 +134,8 @@ impl Backend for arboard::Clipboard {
         let html = windows_read_html().or_else(|| self.get().html().ok()).filter(|h| !h.is_empty() && h.len() <= html::MAX_RICH_BYTES);
         #[cfg(not(target_os = "windows"))]
         let html = self.get().html().ok().filter(|h| !h.is_empty() && h.len() <= html::MAX_RICH_BYTES);
-        #[cfg(any(target_os = "windows", all(unix, not(any(target_os = "ios", target_os = "android")))))]
         let image = all.then(|| self.get_image().ok()).flatten()
             .and_then(|i| u32::try_from(i.width).ok().zip(u32::try_from(i.height).ok()).and_then(|(w, h)| ClipboardImage::from_rgba(w, h, &i.bytes)));
-        #[cfg(not(any(target_os = "windows", all(unix, not(any(target_os = "ios", target_os = "android"))))))]
-        let image: Option<ClipboardImage> = None;
         let files = if all { self.get().file_list().unwrap_or_default() } else { Vec::new() };
         if text.is_none() && html.is_none() && image.is_none() && files.is_empty() { return None; }
         let mut content = ClipboardContent::from(text.unwrap_or_default()).with_files(files);
@@ -185,7 +176,7 @@ fn run_worker<B: Backend>(recv: mpsc::Receiver<Request>, mut open: impl FnMut() 
     drop(clipboard);
 }
 
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
+#[cfg(any(target_os = "macos", target_os = "windows", rune_x11))]
 fn write(cb: &mut arboard::Clipboard, copy: &ClipboardWrite) -> Result<(), String> {
     let content = &copy.content;
     if copy.clear_after.is_none() && content.is_rich() {
@@ -199,11 +190,10 @@ fn write(cb: &mut arboard::Clipboard, copy: &ClipboardWrite) -> Result<(), Strin
 
 /// Windows and Linux hold one of Rune's forms per write: the files, else the image, else HTML
 /// beside the text (CF_HTML, `text/html`), else the text. RTF isn't written.
-#[cfg(all(not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+#[cfg(any(target_os = "windows", rune_x11))]
 fn write_one_form(cb: &mut arboard::Clipboard, content: &ClipboardContent) -> Result<(), String> {
     let error = |e: arboard::Error| e.to_string();
     if !content.files().is_empty() { return cb.set().file_list(content.files()).map_err(error); }
-    #[cfg(any(target_os = "windows", all(unix, not(any(target_os = "ios", target_os = "android")))))]
     if let Some(rgba) = content.image().and_then(ClipboardImage::to_rgba) {
         let (width, height) = (rgba.width() as usize, rgba.height() as usize);
         return cb.set_image(arboard::ImageData { width, height, bytes: rgba.into_raw().into() }).map_err(error);
@@ -214,7 +204,7 @@ fn write_one_form(cb: &mut arboard::Clipboard, content: &ClipboardContent) -> Re
     }
 }
 
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
+#[cfg(any(target_os = "macos", target_os = "windows", rune_x11))]
 fn write_text(cb: &mut arboard::Clipboard, copy: &ClipboardWrite) -> Result<(), arboard::Error> {
     let text = copy.content.text();
     if copy.clear_after.is_none() { return cb.set_text(text); }
@@ -222,7 +212,7 @@ fn write_text(cb: &mut arboard::Clipboard, copy: &ClipboardWrite) -> Result<(), 
     { use arboard::SetExtApple; return cb.set().exclude_from_history().text(text); }
     #[cfg(target_os = "windows")]
     { use arboard::SetExtWindows; return cb.set().exclude_from_monitoring().text(text); }
-    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[cfg(rune_x11)]
     { use arboard::SetExtLinux; return cb.set().exclude_from_history().text(text); }
     #[allow(unreachable_code)]
     cb.set_text(text)

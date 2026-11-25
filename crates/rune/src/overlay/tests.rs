@@ -216,8 +216,14 @@ fn a_poll_asking_for_the_next_frame_keeps_a_shown_overlay_stepping() {
     let (mut overlay, _) = Overlay::new(OverlaySpec::new("frame poll", app.size, view).options(Default::default()), 0, &app);
     overlay.presence = Presence::Shown { occluded: false };
     let start = crate::time::now();
+    overlay.clock.hold(start);
+    overlay.rt.wall_start = Some(start);
+    overlay.rt.frame.set_test_clock(crate::ManualClock::new(60.0));
     let idle: Vec<_> = (1..=5).map(|k| {
-        present(&mut overlay, start + k * FRAME);
+        let target = k * FRAME;
+        // A wake due one frame later must fall past the present's idle cutoff.
+        overlay.rt.frame.test_clock_mut().unwrap().seek((target + FRAME / 4).as_secs_f64());
+        present(&mut overlay, start + target);
         overlay.idle
     }).collect();
     assert_eq!(overlay.rt.state, 5);

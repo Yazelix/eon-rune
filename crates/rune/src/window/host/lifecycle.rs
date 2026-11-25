@@ -266,7 +266,9 @@ impl Host {
                 (None, None) => activation::urgent(&w.window),
             }
             return;
-        } else if let Some(token) = token.as_deref()
+        }
+        #[cfg(rune_x11)]
+        if let Some(token) = token.as_deref()
             && crate::platform::x11::activation::activate(&w.window, token)
         {
             return;

@@ -13,9 +13,10 @@ mod service;
 mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", rune_x11))]
 mod x11;
-#[cfg(any(target_os = "linux", test))]
+#[cfg(any(all(target_os = "linux", rune_x11), test))]
+#[cfg_attr(not(all(target_os = "linux", rune_x11)), allow(dead_code))]
 mod x11_repeat;
 #[cfg(all(target_os = "linux", feature = "dbus"))]
 mod wayland;
@@ -162,7 +163,7 @@ fn open_linux_backend<T>(
 fn linux_backend(wayland: bool, sink: Sink) -> Result<NativeBackend, ShortcutError> {
     let session_type = crate::env::var("XDG_SESSION_TYPE");
     let wayland_display = crate::env::var("WAYLAND_DISPLAY");
-    let display = crate::env::var("DISPLAY");
+    let display = if cfg!(rune_x11) { crate::env::var("DISPLAY") } else { None };
     let env = LinuxEnv {
         wayland,
         session_type: session_type.as_deref(),
@@ -178,7 +179,12 @@ fn linux_backend(wayland: bool, sink: Sink) -> Result<NativeBackend, ShortcutErr
             #[cfg(not(feature = "dbus"))]
             { Err(ShortcutError::Unsupported) }
         },
-        || Ok(Box::new(x11::Native::new(sink.clone())?) as NativeBackend),
+        || {
+            #[cfg(rune_x11)]
+            { Ok(Box::new(x11::Native::new(sink.clone())?) as NativeBackend) }
+            #[cfg(not(rune_x11))]
+            { let _ = &sink; Err(ShortcutError::Unsupported) }
+        },
     )
 }
 

@@ -37,6 +37,13 @@ pub(crate) mod tx;
 mod macos;
 #[cfg(not(target_arch = "wasm32"))]
 mod native;
+#[cfg(target_os = "linux")]
+mod wayland;
+#[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
+mod wayland_tests;
+}
 #[cfg(target_arch = "wasm32")]
 mod web;
 #[cfg(target_os = "macos")]
