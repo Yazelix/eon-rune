@@ -1,6 +1,6 @@
-//! A prewarmed overlay with `release_gpu_when_hidden` makes its window at startup on X11, and
-//! nothing on Windows, and no GPU surface, nor device, until it shows; each hide gives the
-//! surface back (and on Windows the window), and `release_gpu_after` does so once the overlay
+//! A prewarmed overlay with `release_gpu_when_hidden` parks its window at startup on X11.
+//! Windows and Wayland make the window on first show. The GPU surface and device wait until
+//! then on either backend. Each hide gives the surface back, and `release_gpu_after` waits until the overlay
 //! stayed hidden that long. The device waits for the next show, which takes it rather than
 //! making another (hex#1268). Prints
 //! how long each show waits for its first present, and the process's private memory along the
@@ -97,9 +97,9 @@ mod lazy {
         std::thread::spawn(move || {
             let run = std::panic::catch_unwind(move || {
                 let mut r = Vec::new();
-                if cfg!(target_os = "windows") {
+                if cfg!(target_os = "windows") || rune::env::var_os("WAYLAND_DISPLAY").is_some() {
                     std::thread::sleep(Duration::from_millis(1500));
-                    assert_eq!(created.load(Ordering::SeqCst), 0, "a hidden overlay has no window on Windows");
+                    assert_eq!(created.load(Ordering::SeqCst), 0, "a hidden overlay waits for its first show");
                 } else {
                     wait(Duration::from_secs(10), || full.availability() == Availability::Available).expect("the prewarmed window");
                     // Let startup make the prewarmed window.
@@ -111,6 +111,7 @@ mod lazy {
                 let idle = private_mb();
 
                 show("full screen, first show of the process", &full, &mut r);
+                assert_eq!(created.load(Ordering::SeqCst), 1, "its first show has made the window once");
                 assert_eq!(STARTS.load(Ordering::SeqCst), 1);
                 println!("  {}", full.surface_description().unwrap());
                 let shown = private_mb();

@@ -594,6 +594,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
             // putting off behind another window's.
             let now = crate::time::now();
             for host in this.hosts.iter_mut().flatten() { host.turn_ends(event_loop, now); }
+            if this.hosts.iter().flatten().any(|host| host.finished()) { this.cleanup(event_loop); }
             let effects = wayland_wake::about_to_wait(&mut this.wayland_wake, &this.hosts);
             this.apply_wayland_wake(event_loop, effects);
             // Layer surfaces have no redraw events: keep turning while one animates (its vsync

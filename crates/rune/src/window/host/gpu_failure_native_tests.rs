@@ -55,6 +55,9 @@ fn native_terminal_window_and_same_device_surface_control() {
             host.resume(active);
             let gpu = host.gpu.as_ref().unwrap().0.clone();
             gpu.device.destroy();
+            // wgpu reports a destroyed Vulkan device on its next maintain.
+            rune_gpu::health::poll(&gpu.device, wgpu::PollType::Poll).ok();
+            assert!(gpu.is_lost(), "the recovery control needs a reported device loss");
             assert!(!host.gpu_failed());
             assert!(host.replace_lost_surface());
             assert!(!std::sync::Arc::ptr_eq(&gpu, &host.gpu.as_ref().unwrap().0));
