@@ -259,7 +259,7 @@ impl Activator {
     /// foreign token is ignored, or only marks the window urgent.
     pub(crate) fn activate(&mut self, token: &str) {
         self.send_activate(token);
-        let _ = self.queue.flush();
+        self.queue.flush().ok();
     }
 
     fn send_activate(&mut self, token: &str) {
@@ -306,7 +306,7 @@ impl Drop for Activator {
     fn drop(&mut self) {
         for token in self.replies.live.drain(..) { token.destroy(); }
         if let Some(activation) = &self.activation { activation.destroy(); }
-        let _ = self.queue.flush();
+        self.queue.flush().ok();
     }
 }
 

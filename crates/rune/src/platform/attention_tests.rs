@@ -162,7 +162,7 @@ fn a_forwarded_token_probes_again_until_the_window_has_a_binding() {
 #[test]
 fn a_request_is_bounded_from_when_it_was_made() {
     let limit = Duration::from_secs(5);
-    let at = Instant::now();
+    let at = crate::time::now();
     let end = deadline(at, limit);
     assert_eq!(end, at + limit);
     // Handled 4.5 s late, it has half a second left, not a fresh five.
@@ -174,7 +174,7 @@ fn a_request_is_bounded_from_when_it_was_made() {
 
 #[test]
 fn an_endless_limit_waits_a_day_and_never_overflows() {
-    let at = Instant::now();
+    let at = crate::time::now();
     assert_eq!(deadline(at, Duration::MAX), at + LONGEST);
     assert_eq!(deadline(at, LONGEST + Duration::from_secs(1)), at + LONGEST);
     assert_eq!(deadline(at, LONGEST), at + LONGEST);

@@ -13,7 +13,7 @@ pub(crate) enum Policy {
 
 impl Policy {
     pub(crate) fn watch_setup(&self, gpu: &Gpu, wake: impl FnOnce() -> Waker) -> Result<(), crate::render::SurfaceSetupError> {
-        if matches!(self, Self::Terminal(_)) { let _ = gpu.failure.watch(wake()); }
+        if matches!(self, Self::Terminal(_)) { gpu.failure.watch(wake()).ok(); }
         self.observe_setup(Some(gpu))
     }
 
@@ -73,9 +73,9 @@ impl<S: 'static> crate::App<S> {
         let core = &self.shared.core;
         let latch = core.gpu_failure.get_or_init(Default::default);
         let weak = Arc::downgrade(core);
-        let _ = latch.watch(Arc::new(move || {
+        latch.watch(Arc::new(move || {
             if let Some(core) = weak.upgrade() { core.wake_app(); }
-        }));
+        })).ok();
         self
     }
 }

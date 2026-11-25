@@ -4,12 +4,12 @@ use std::io::{Read, Write};
 use std::os::fd::AsFd;
 use std::os::unix::net::UnixStream;
 
-fn after(ms: u64) -> Option<Instant> { Some(Instant::now() + Duration::from_millis(ms)) }
+fn after(ms: u64) -> Option<Instant> { Some(crate::time::now() + Duration::from_millis(ms)) }
 
 #[test]
 fn a_passed_deadline_returns_at_once() {
     let (ours, _peer) = UnixStream::pair().unwrap();
-    let start = Instant::now();
+    let start = crate::time::now();
     assert_eq!(poll_fd(ours.as_fd(), false, Some(start)), Poll::TimedOut);
     // Generous: a descheduled test thread mustn't fail it; a wait that ignored the deadline
     // would hang instead.
@@ -20,7 +20,7 @@ fn a_passed_deadline_returns_at_once() {
 fn a_silent_peer_times_out_at_the_deadline_not_before() {
     let (ours, _peer) = UnixStream::pair().unwrap();
     for wait in [Duration::from_micros(400), Duration::from_millis(30)] {
-        let start = Instant::now();
+        let start = crate::time::now();
         assert_eq!(poll_fd(ours.as_fd(), false, Some(start + wait)), Poll::TimedOut);
         let took = start.elapsed();
         assert!(took >= wait, "ended early: {took:?} < {wait:?}");

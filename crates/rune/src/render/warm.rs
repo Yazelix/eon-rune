@@ -60,7 +60,7 @@ pub(super) fn warm_for(features: wgpu::Features, prepare: Option<Box<dyn FnOnce(
             WarmSlot::spawn_attached(&SLOT, "rune-gpu-warm", move || {
                 if owner.observe(Some(&gpu)).is_ok() {
                     prepare(&gpu.device);
-                    let _ = owner.observe(Some(&gpu));
+                    owner.observe(Some(&gpu)).ok();
                 }
             }).ok();
         }
