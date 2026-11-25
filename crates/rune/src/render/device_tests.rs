@@ -827,7 +827,8 @@ fn gpu_memory_policy_child() {
     const MIB: u64 = 1024 * 1024;
 
     let mode = crate::env::var("RUNE_TEST_GPU_MEMORY_POLICY").expect("policy test mode");
-    let expected_block = match mode.as_str() {
+    let expected_device_block = match mode.as_str() {
+        "default" if cfg!(target_os = "linux") => 16 * MIB,
         "default" => 8 * MIB,
         "manual-setter" => {
             crate::set_gpu_memory_policy(GpuMemoryPolicy::Manual { block_size: (4 * MIB)..(8 * MIB) });
@@ -845,6 +846,7 @@ fn gpu_memory_policy_child() {
         "parked-invalidation" => {
             #[cfg(not(target_os = "macos"))]
             {
+                crate::set_gpu_memory_policy(GpuMemoryPolicy::MemoryUsage);
                 let Some(gpu) = Gpu::test_headless_or_noop() else { return };
                 let renderer = super::super::Renderer::new(&gpu.device, wgpu::TextureFormat::Bgra8Unorm);
                 super::super::prewarm::park(gpu, renderer, super::super::prewarm::PARKED);
@@ -870,11 +872,13 @@ fn gpu_memory_policy_child() {
     });
     let backend = gpu.adapter.get_info().backend;
     if matches!(backend, wgpu::Backend::Dx12 | wgpu::Backend::Vulkan) {
+        // Vulkan can place device-local storage in a host-visible memory type.
+        let expected_host_block = (expected_device_block / 2).max(4 * MIB);
         if let Some(report) = gpu.device.generate_allocator_report() {
             if let Some(max_block) = report.blocks.iter().map(|b| b.size).max() {
-                assert_eq!(
-                    max_block, expected_block,
-                    "mode={mode} backend={backend:?} expected max block size {expected_block}, got blocks: {:?}",
+                assert!(
+                    max_block == expected_device_block || (backend == wgpu::Backend::Vulkan && max_block == expected_host_block),
+                    "mode={mode} backend={backend:?} expected {expected_device_block} device or {expected_host_block} Vulkan host bytes, got blocks: {:?}",
                     report.blocks.iter().map(|b| b.size).collect::<Vec<_>>(),
                 );
             }
@@ -899,7 +903,8 @@ fn gpu_memory_policy_child() {
 }
 
 /// Verifies startup `GpuMemoryPolicy` end-to-end in isolated child processes so parallel tests
-/// never race on the process-wide policy or parked warm-up slot: default stays `MemoryUsage`,
+/// never race on the process-wide policy or parked warm-up slot. The platform default applies
+/// until an explicit policy is set.
 /// `set_gpu_memory_policy` and `App::gpu_memory_policy` apply `Manual` (4..8 MiB, with larger
 /// dedicated resources still succeeding) and `Performance` to created devices, and changing the
 /// policy discards a parked warm-up device.

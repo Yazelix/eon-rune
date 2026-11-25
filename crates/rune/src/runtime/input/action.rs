@@ -238,6 +238,7 @@ pub(crate) fn merge(tx: &mut Tx, one: Tx) {
     tx.pick_reads.extend(one.pick_reads);
     tx.paste |= one.paste;
     if one.primary.copy.is_some() { tx.primary.copy = one.primary.copy; }
+    if one.primary_check.is_some() { tx.primary_check = one.primary_check; }
     if one.primary.paste.is_some() { tx.primary.paste = one.primary.paste; }
     tx.clipboard_reads.extend(one.clipboard_reads);
     if let Some(one) = one.trace {
@@ -328,14 +329,23 @@ impl RuntimeCore {
     /// Runs `action`'s handlers; debug builds warn when they block the main thread.
     pub(in crate::runtime) fn run_action(&mut self, app: &mut dyn AppDriver, action: Action, tx: &mut Tx) -> bool {
         let selects = cfg!(target_os = "linux") && matches!(action, Action::Key { .. } | Action::Physical(..) | Action::Focus(..) | Action::A11y(..));
-        let before = (selects && !self.primary_focus_pending(tx)).then(|| self.primary_selection(app));
+        let previous_check = tx.primary_check.take();
+        let before = (selects && previous_check.is_none() && !self.primary_edit_pending(tx)).then(|| self.primary_selection(app));
         let previous_primary = tx.primary.copy.take();
         #[cfg(debug_assertions)]
         let (name, path, at) = (handler_name(&action), stall_path(&action).map(str::to_owned), self.handler_location(&action));
         let stall = crate::tooling::perf_warn::Stall::start();
         let timed = self.interaction_note(&action).map(|note| (note, crate::time::now()));
         let ran = self.dispatch_action(app, action, tx);
-        if let Some(before) = before { self.export_primary_selection(app, before, tx); }
+        if matches!(tx.primary.copy, Some(crate::clipboard::primary::Export::Explicit(_))) {
+            tx.primary_check = None;
+        } else if previous_check.is_some() {
+            tx.primary_check = previous_check;
+        } else if tx.primary_check.is_some() {
+            tx.primary_check = if self.primary_edit_pending(tx) { None } else { before };
+        } else if let Some(before) = before {
+            self.export_primary_selection(app, before, tx);
+        }
         if tx.primary.copy.is_none() { tx.primary.copy = previous_primary; }
         if ran && let Some((note, started)) = timed { self.interaction_ran(note, started); }
         #[cfg(debug_assertions)]

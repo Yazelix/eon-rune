@@ -47,6 +47,32 @@ fn pending_primary_export_waits_for_removed_field_to_rebuild() {
     assert!(rt.core_mut().take_primary().copy.is_none());
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn input_key_handler_exports_the_selection_from_the_rebuilt_field() {
+    fn view(field: &TextEdit, _: &mut Cx<TextEdit>) -> El {
+        text_input(field, style()).single_line().key("title").size(150.0, 30.0)
+            .on_edit(|field: &mut TextEdit| field)
+            .on_input_key(|field: &mut TextEdit, _, _| {
+                field.set_selection(0, 5);
+                true
+            })
+    }
+
+    let mut field = TextEdit::new("draft title");
+    field.focused = true;
+    let mut rt = Runtime::new(field, view, (200.0, 100.0), Env::default());
+    rt.frame(0.0);
+    let key = || crate::KeyEvent { key: crate::Key::Function(7), mods: Default::default() };
+    rt.key(key());
+    rt.frame(0.0);
+    assert!(matches!(rt.core_mut().take_primary().copy,
+        Some(super::Export::Automatic { text: Some(text), .. }) if text == "draft"));
+    rt.key(key());
+    rt.frame(0.0);
+    assert!(rt.core_mut().take_primary().copy.is_none());
+}
+
 #[test]
 fn middle_click_on_textbox_wrapper_padding_focuses_queues_paste_and_stops_ancestors() {
     struct State {

@@ -167,7 +167,7 @@ impl RuntimeCore {
         match picked {
             Some(id) => {
                 self.trace_event(format_args!("field-menu:pick:{id}"));
-                let before = (cfg!(target_os = "linux") && !self.primary_focus_pending(one))
+                let before = (cfg!(target_os = "linux") && !self.primary_edit_pending(one))
                     .then(|| self.primary_selection(app)).flatten();
                 self.field_menu_pick(app, pending.field, id, one);
                 self.export_primary_selection(app, before, one);

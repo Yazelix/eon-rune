@@ -12,8 +12,9 @@ pub(in crate::runtime) enum Boundary {
 }
 
 impl RuntimeCore {
-    pub(in crate::runtime) fn primary_focus_pending(&self, tx: &Tx) -> bool {
-        (tx.blur || tx.focus_to.is_some() || self.kbd.focus_request.is_some()) && self.focused_input().is_some()
+    pub(in crate::runtime) fn primary_edit_pending(&self, tx: &Tx) -> bool {
+        self.edit.input_click.primary_check.is_some()
+            || ((tx.blur || tx.focus_to.is_some() || self.kbd.focus_request.is_some()) && self.focused_input().is_some())
     }
 
     fn focused_primary_edit<'a>(&'a self, app: &'a mut dyn AppDriver) -> Option<(&'a InputSpec, &'a crate::TextEdit)> {
@@ -65,11 +66,14 @@ impl RuntimeCore {
 
     pub(in crate::runtime) fn export_primary_selection(&self, app: &mut dyn AppDriver, before: Option<SelectionKey>, tx: &mut Tx) {
         if !cfg!(target_os = "linux") || matches!(tx.primary.copy, Some(Export::Explicit(_))) { return; }
-        if self.primary_focus_pending(tx) { return; }
+        if self.primary_edit_pending(tx) { return; }
+        if let Some(copy) = self.changed_primary_selection(app, before) { tx.primary.copy = Some(copy); }
+    }
+
+    fn changed_primary_selection(&self, app: &mut dyn AppDriver, before: Option<SelectionKey>) -> Option<Export> {
         let after = self.primary_selection(app);
-        if after != before && let Some(selection) = after {
-            tx.primary.copy = Some(Export::Automatic { selection, text: self.primary_selection_text(app) });
-        }
+        if after == before { return None; }
+        after.map(|selection| Export::Automatic { selection, text: self.primary_selection_text(app) })
     }
 
     pub(in crate::runtime) fn export_primary_text(&mut self, app: &dyn ViewDriver, before: Option<SelectionKey>) {
@@ -83,6 +87,9 @@ impl RuntimeCore {
     }
 
     pub(in crate::runtime) fn latch_primary(&mut self, app: &mut dyn AppDriver, tx: &mut Tx) {
+        if tx.primary_check.is_some() || tx.primary.copy.is_some() {
+            self.edit.input_click.primary_check = tx.primary_check.take();
+        }
         if let Some(copy) = tx.primary.copy.take() {
             if matches!(copy, Export::Automatic { .. }) { self.edit.input_click.primary_boundary = Boundary::Pending; }
             self.edit.input_click.primary.copy = Some(copy);
@@ -90,8 +97,8 @@ impl RuntimeCore {
         if tx.primary.paste.take().is_some() {
             self.edit.input_click.primary.paste = Some(if tx.blur { None } else { self.paste_target() });
         }
-        if self.primary_focus_pending(tx) {
-            // The focus request is applied against the rebuilt view's editor accessors.
+        if self.primary_edit_pending(tx) {
+            // A rebuilt view must validate the editor before publishing automatic exports.
             self.edit.input_click.primary_boundary = Boundary::Pending;
         } else if matches!(self.edit.input_click.primary_boundary, Boundary::Ready) {
             self.validate_primary_export(app);
@@ -110,6 +117,11 @@ impl RuntimeCore {
     }
 
     pub(in crate::runtime) fn finish_primary_frame(&mut self, app: &mut dyn AppDriver) {
+        if let Some(before) = self.edit.input_click.primary_check.take()
+            && let Some(copy) = self.changed_primary_selection(app, before)
+        {
+            self.edit.input_click.primary.copy = Some(copy);
+        }
         if self.pointer.press_held().is_some() {
             self.edit.input_click.primary_boundary = Boundary::Pending;
         } else {
@@ -120,8 +132,9 @@ impl RuntimeCore {
 
     pub(crate) fn take_primary(&mut self) -> Requests {
         let input = &mut self.edit.input_click;
-        let waiting = matches!(input.primary.copy, Some(Export::Automatic { .. }))
-            && matches!(input.primary_boundary, Boundary::Pending);
+        let waiting = input.primary_check.is_some()
+            || (matches!(input.primary.copy, Some(Export::Automatic { .. }))
+                && matches!(input.primary_boundary, Boundary::Pending));
         let copy = if waiting || self.pointer.press_held().is_some() { None } else { input.primary.copy.take() };
         Requests { copy, paste: input.primary.paste.take() }
     }

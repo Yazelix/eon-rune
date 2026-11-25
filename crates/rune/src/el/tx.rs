@@ -62,6 +62,8 @@ pub struct Tx {
     pub(crate) copy: Option<crate::ClipboardWrite>,
     pub(crate) paste: bool,
     pub(crate) primary: crate::clipboard::primary::Requests,
+    /// Compare with the pre-handler selection once the committed view can identify its editor.
+    pub(crate) primary_check: Option<Option<crate::clipboard::primary::SelectionKey>>,
     pub(crate) clipboard_reads: Vec<ClipboardRead>,
     pub(crate) pick_reads: Vec<PickRead>,
     pub(crate) clear_secret: bool,

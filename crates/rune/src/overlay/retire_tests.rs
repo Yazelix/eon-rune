@@ -3,6 +3,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use super::{INITIAL_RETRY, MAX_RETRY, Retire, RetireEffect, RetireEvent};
+#[cfg(feature = "test-gpu-counters")]
+use crate::overlay::rest_tests::texture_usage;
 use crate::overlay::{AppSpec, Overlay, OverlaySpec};
 use crate::render::{Gpu, OFFSCREEN_FORMAT, Offscreen, Renderer};
 use crate::{Cx, El, Pixels};
@@ -237,7 +239,7 @@ fn drop_hidden_images_and_park_do_not_block_on_busy_shared_gpu_and_retire_on_lat
         let target = Offscreen::new(&busy.gpu.device, 16, 16);
         busy.drain();
         #[cfg(feature = "test-gpu-counters")]
-        let base_textures = busy.gpu.device.get_internal_counters().hal.textures.read();
+        let base_textures = texture_usage(&busy.gpu);
         overlay.rt.frame(0.0);
         let mut enc = busy.gpu.device.create_command_encoder(&Default::default());
         overlay.render_offscreen(&busy.gpu, &mut enc, &target.view, OFFSCREEN_FORMAT, (16, 16), 0.0);
@@ -247,7 +249,7 @@ fn drop_hidden_images_and_park_do_not_block_on_busy_shared_gpu_and_retire_on_lat
         busy.gpu.queue.on_submitted_work_done(move || ff.store(true, Ordering::Release));
         assert!(overlay.core.renderer.as_ref().unwrap().has_images());
         #[cfg(feature = "test-gpu-counters")]
-        assert!(busy.gpu.device.get_internal_counters().hal.textures.read() > base_textures);
+        assert!(texture_usage(&busy.gpu) > base_textures);
 
         let started = crate::time::now();
         let (chunks, sibling_done) = busy.submit_busy(planned);
@@ -268,7 +270,7 @@ fn drop_hidden_images_and_park_do_not_block_on_busy_shared_gpu_and_retire_on_lat
             assert!(frame_done.load(Ordering::Acquire), "overlay frame submission retired via wake_due");
             assert!(sibling_done.load(Ordering::Acquire), "shared queue retired via wake_due");
             #[cfg(feature = "test-gpu-counters")]
-            assert_eq!(busy.gpu.device.get_internal_counters().hal.textures.read(), base_textures,
+            assert_eq!(texture_usage(&busy.gpu), base_textures,
                 "GPU image texture freed once in-flight work completes");
             overlapped = true;
             break;
@@ -284,7 +286,7 @@ fn drop_hidden_images_and_park_do_not_block_on_busy_shared_gpu_and_retire_on_lat
         for planned in [25, 50, 100, 100, 100].map(Duration::from_millis) {
             busy.drain();
             #[cfg(feature = "test-gpu-counters")]
-            let base_textures = busy.gpu.device.get_internal_counters().hal.textures.read();
+            let base_textures = texture_usage(&busy.gpu);
             let spec = OverlaySpec::new("busy-park", app.size, view).options(Default::default()).release_gpu_when_hidden();
             let (mut overlay, _) = Overlay::new(spec, None, &app);
             overlay.core.gpu = Some(busy.gpu.clone());
@@ -308,7 +310,7 @@ fn drop_hidden_images_and_park_do_not_block_on_busy_shared_gpu_and_retire_on_lat
                 }
                 assert!(sibling_done.load(Ordering::Acquire), "park retired shared queue via wake_due");
                 #[cfg(feature = "test-gpu-counters")]
-                assert_eq!(busy.gpu.device.get_internal_counters().hal.textures.read(), base_textures,
+                assert_eq!(texture_usage(&busy.gpu), base_textures,
                     "parked renderer textures freed once in-flight work completes");
                 overlapped = true;
                 break;

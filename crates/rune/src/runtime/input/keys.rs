@@ -206,6 +206,8 @@ impl RuntimeCore {
         if !Tx::took(f(app.states(), ev, one), one) {
             return false;
         }
+        // A custom handler may have removed the editor. The action supplies the prior selection.
+        if cfg!(target_os = "linux") && !one.live_only { one.primary_check = Some(None); }
         if !one.live_only && let Some(check) = before {
             self.edit.caret_follow_check = Some(check);
         }

@@ -37,6 +37,7 @@ fn worker_observes_loss_without_consuming_host_teardown() {
     policy.watch_setup(&gpu, || Arc::new(|| {})).unwrap();
     Policy::Recover.watch_setup(&gpu, || panic!("recover must retain the existing waker")).unwrap();
     gpu.device.destroy();
+    rune_gpu::health::poll(&gpu.device, wgpu::PollType::Poll).ok();
     assert!(gpu.is_lost());
     assert!(!Policy::Recover.failed_on(&gpu));
     assert!(policy.failed_on(&gpu));
