@@ -443,9 +443,8 @@ impl SurfaceRenderer {
         }
         let commands = encoder.finish();
         if !allowed() { return None; }
-        // Report submission before completion can race it.
+        // Commit to submission before notifying observers. An observer may stop future submissions.
         for (surface, timing) in reports { surface.report(timing); }
-        if !allowed() { return None; }
         let index = queue.submit([commands]);
         self.release_decoded(queue);
         self.completion.wake();

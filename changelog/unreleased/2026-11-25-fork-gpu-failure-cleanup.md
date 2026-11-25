@@ -1,0 +1,1 @@
+- A shared GPU failure wakes every opted-in window and overlay. An overlay that fails while restoring its GPU surface releases its parked window. A video frame reported as submitted reaches the GPU queue even if its observer stops future submissions.

@@ -105,7 +105,6 @@ impl Default for GpuRenderer {
             info.name, info.backend, info.vendor
         );
         let renderer = Renderer::new(&gpu.device, OFFSCREEN_FORMAT);
-        eprintln!("reference shader: {}", renderer.uber_shader());
         Self {
             gpu,
             renderer,

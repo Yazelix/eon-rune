@@ -40,6 +40,9 @@ with subprocess.Popen(['git', '-C', str(candidate), 'archive', upstream], stdout
     subprocess.run(['tar', '-x', '-C', str(baseline)], stdin=archive.stdout, check=True)
     archive.stdout.close()
     assert archive.wait() == 0
+# Match the consumer's decoration policy in both binaries using the same vendored winit.
+baseline_rune = baseline / 'crates/rune/Cargo.toml'
+baseline_rune.write_text(baseline_rune.read_text().replace(', "wayland-csd-adwaita-notitle"', ''))
 shutil.copytree(fixtures, state / 'baseline-fixtures')
 for manifest in (state / 'baseline-fixtures').rglob('Cargo.toml'):
     manifest.write_text(manifest.read_text().replace(str(candidate), str(baseline)))

@@ -31,14 +31,19 @@ fn recover_is_the_default_and_handle_sees_its_opted_in_latch() {
 #[cfg(all(not(target_arch = "wasm32"), feature = "test-gpu-noop"))]
 #[test]
 fn worker_observes_loss_without_consuming_host_teardown() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     let gpu = Gpu::test_noop();
     let latch = Arc::new(Failure::default());
     let mut policy = Policy::Terminal(latch.clone());
-    policy.watch_setup(&gpu, || Arc::new(|| {})).unwrap();
-    Policy::Recover.watch_setup(&gpu, || panic!("recover must retain the existing waker")).unwrap();
+    let woke = Arc::new(AtomicBool::new(false));
+    let recovering = Arc::new(());
+    policy.watch_setup(&gpu, &woke, |wake| wake.store(true, Ordering::SeqCst)).unwrap();
+    Policy::Recover.watch_setup(&gpu, &recovering, |_| panic!("recover must retain the existing waker")).unwrap();
     gpu.device.destroy();
     rune_gpu::health::poll(&gpu.device, wgpu::PollType::Poll).ok();
     assert!(gpu.is_lost());
+    assert!(woke.load(Ordering::SeqCst));
     assert!(!Policy::Recover.failed_on(&gpu));
     assert!(policy.failed_on(&gpu));
     let reason = policy.observe(Some(&gpu)).unwrap_err();

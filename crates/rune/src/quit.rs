@@ -279,7 +279,7 @@ thread_local! {
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(crate) fn handling() -> Handling { Handling(LOOP.replace(Loop::Handling)) }
 
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(crate) fn loop_state() -> Loop { LOOP.get() }
 
 pub(crate) struct Handling(Loop);

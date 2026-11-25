@@ -225,10 +225,7 @@ impl OverlayCore {
         let shared = self.shared.clone();
         let make_surface = |instance: &wgpu::Instance| make(instance).ok_or_else(|| "could not create its GPU surface".to_owned());
         let setup_surface = |gpu: &Gpu, surface: &wgpu::Surface<'_>, existing: Option<Renderer>| -> Result<_, crate::render::SurfaceSetupError> {
-            policy.watch_setup(gpu, || {
-                let weak = Arc::downgrade(&shared);
-                Arc::new(move || { if let Some(shared) = weak.upgrade() { shared.wake(); } })
-            })?;
+            policy.watch_setup(gpu, &shared, |shared| shared.wake())?;
             let (mut config, translucent) = crate::window::surface_config(surface, &gpu.adapter, (w, h), srgb_blend)
                 .ok_or_else(|| crate::render::SurfaceSetupError::unsupported("the GPU adapter can't present to this overlay"))?;
             let info = gpu.adapter.get_info();

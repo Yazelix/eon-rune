@@ -1,4 +1,4 @@
-use super::gpu_tests::{Gpu, OFFSCREEN_FORMAT, Offscreen, draw};
+use super::gpu_tests::{Gpu, OFFSCREEN_FORMAT, Offscreen, bgra_ramp, clear_pass, draw};
 use super::pipeline::completion::{CompletionWorker, Parked, ReadWorker};
 use std::ops::ControlFlow;
 use rune_gpu::configure::Gate;
@@ -245,6 +245,36 @@ fn rewake_during_active_poll_runs_another_poll_before_parking() {
     second_rx.recv_timeout(WAIT_TIMEOUT).expect("rewake must trigger second poll");
     drop(worker);
     assert_eq!(polls.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn reported_video_submission_completes_when_its_observer_stops_future_submissions() {
+    let Some(gpu) = Gpu::headless_wgpu() else { return };
+    let surface = NativeSurface::new();
+    surface.push_bytes(bgra_ramp(8, 8).0, 1).unwrap();
+    let allowed = Arc::new(AtomicBool::new(true));
+    let observer_gate = allowed.clone();
+    let (sent, reports) = mpsc::channel();
+    surface.set_observer(Arc::new(move |timing| {
+        if timing.completed_at.is_none() { observer_gate.store(false, Ordering::Release); }
+        sent.send(timing).ok();
+    }));
+    let mut renderer = SurfaceRenderer::new(&gpu.device, OFFSCREEN_FORMAT);
+    renderer.prepare(&gpu.device, &gpu.queue, &[draw(&surface, [0.0, 0.0, 8.0, 8.0])], (8, 8));
+    let target = Offscreen::new(&gpu.device, 8, 8);
+    let mut encoder = gpu.device.create_command_encoder(&Default::default());
+    renderer.draw(&mut clear_pass(&mut encoder, &target.view, wgpu::Color::BLACK, None), 0);
+
+    let submitted = renderer.submit_if(&gpu.queue, encoder, || allowed.load(Ordering::Acquire));
+    assert!(!allowed.load(Ordering::Acquire), "the submission observer tripped the gate");
+    assert!(submitted.is_some(), "a reported submission must reach the queue");
+    let report = reports.try_recv().expect("submission report");
+    assert_eq!(report.frame_id, 1);
+    assert!(report.completed_at.is_none());
+    let completed = gpu.wait(&reports, Duration::from_secs(10)).expect("completion report");
+    assert_eq!(completed.frame_id, 1);
+    assert!(completed.completed_at.is_some());
+    assert_eq!(surface.counts(), (1, 1));
 }
 
 fn drop_joins_completion_thread(with_timestamps: bool) {

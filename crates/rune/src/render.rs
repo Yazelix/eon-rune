@@ -8,9 +8,9 @@ mod breaker;
 #[cfg(any(target_os = "windows", target_arch = "wasm32"))]
 mod damaged;
 mod device;
-pub(crate) mod failure;
 mod dxbc;
 mod effect_warm;
+pub(crate) mod failure;
 mod fill;
 mod first_use;
 mod gpu_loss;

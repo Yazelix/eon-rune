@@ -18,6 +18,7 @@ cases = (
     ('window::host::hooks::skip_reason_native::native_frame_skips_report_their_reason', 'RUNE_SKIP_REASON_NATIVE', 'SKIP REASON PASS'),
     ('window::host::hooks::gpu_failure_tests::native_terminal_window_and_same_device_surface_control', 'RUNE_GPU_FAILURE_NATIVE', 'terminal-gpu-loss-native: pass'),
     ('window::host::hooks::gpu_failure_tests::linux_cpu_window_handles_failed_gpu_start_by_policy', 'RUNE_GPU_FAILURE_NATIVE', 'terminal-gpu-cpu-first: pass'),
+    ('overlay::gpu_failure::tests::terminal_overlay_unpark_releases_its_window', 'RUNE_GPU_FAILURE_NATIVE', 'terminal-overlay-unpark: pass'),
     ('clipboard::wayland_tests::live::live_wayland_round_trip', 'RUNE_CLIPBOARD_LIVE_TEST', None),
     ('clipboard::wayland_tests::live::live_wayland_secret_expiry_and_shutdown', 'RUNE_CLIPBOARD_LIVE_TEST', None),
 )

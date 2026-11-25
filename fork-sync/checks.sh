@@ -144,6 +144,7 @@ case "$phase" in
         overlay_binary=$(python3 "$tools/test-artifact.py" overlay_gpu_lifecycle "$state/logs/native-regressions-build.log")
         run native-regressions heavy python3 "$state/native-tools/rebase-tests.py" "$native_binary" "$overlay_binary" "$state/native-regressions"
         run fixture-lock build bash "$tools/resolve-lock.sh" "$state"
+        python3 "$tools/verify-fixture-winit.py" "$state/provenance/lock/fixtures-locked-metadata.log" "$state/provenance/lock/baseline-fixtures-locked-metadata.log"
         run fixture-build build "${cargo[@]}" build --locked --manifest-path "$state/fixtures/Cargo.toml" --profile perf -p yazelix-venus --example primary_i --example hosted --example eon_transitions --features rune/frame-profile
         cp "$CARGO_TARGET_DIR/perf/examples/primary_i" "$state/candidates/primary"
         cp "$CARGO_TARGET_DIR/perf/examples/hosted" "$state/candidates/hosted"

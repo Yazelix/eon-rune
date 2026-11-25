@@ -8,12 +8,7 @@ use std::sync::{
 fn first_failure_is_bounded_on_a_character_boundary_and_wakes_once() {
     let failure = Failure::default();
     let calls = Arc::new(AtomicUsize::new(0));
-    let counted = calls.clone();
-    failure
-        .watch(Arc::new(move || {
-            counted.fetch_add(1, Ordering::SeqCst);
-        }))
-        .unwrap();
+    failure.watch(&calls, count_wake).unwrap();
     assert!(failure.message().is_none());
     failure.record("界".repeat(400));
     assert_eq!(failure.message().unwrap(), "界".repeat(341));
@@ -27,9 +22,9 @@ fn subscription_observes_an_existing_failure_without_a_lost_wake() {
     let failure = Failure::default();
     failure.record("earlier failure".into());
     assert_eq!(
-        failure.watch(Arc::new(|| panic!(
+        failure.watch(&Arc::new(()), |_| panic!(
             "already failed subscription returns synchronously"
-        ))),
+        )),
         Err("earlier failure".into())
     );
     failure.record("duplicate".into());
@@ -37,15 +32,15 @@ fn subscription_observes_an_existing_failure_without_a_lost_wake() {
 }
 
 #[test]
-fn wake_runs_without_holding_the_failure_or_wake_mutex() {
+fn wake_runs_without_holding_the_failure_mutex() {
     let failure = Arc::new(Failure::default());
-    let weak = Arc::downgrade(&failure);
+    let owner = Arc::new(Arc::downgrade(&failure));
     failure
-        .watch(Arc::new(move || {
+        .watch(&owner, |weak| {
             let failure = weak.upgrade().unwrap();
             assert_eq!(failure.message().as_deref(), Some("lost"));
-            assert_eq!(failure.watch(Arc::new(|| {})), Err("lost".into()));
-        }))
+            assert_eq!(failure.watch(&Arc::new(()), |_| {}), Err("lost".into()));
+        })
         .unwrap();
     failure.record("lost".into());
 }
@@ -54,8 +49,9 @@ fn wake_runs_without_holding_the_failure_or_wake_mutex() {
 fn callback_thread_can_publish_to_an_idle_host_waker() {
     let failure = Arc::new(Failure::default());
     let (send, recv) = std::sync::mpsc::channel();
+    let send = Arc::new(send);
     failure
-        .watch(Arc::new(move || send.send(()).unwrap()))
+        .watch(&send, |send| send.send(()).unwrap())
         .unwrap();
     let worker = failure.clone();
     let thread = std::thread::spawn(move || worker.record("worker loss".into()));
@@ -63,4 +59,25 @@ fn callback_thread_can_publish_to_an_idle_host_waker() {
         .unwrap();
     thread.join().unwrap();
     assert_eq!(failure.message().as_deref(), Some("worker loss"));
+}
+
+#[test]
+fn device_failure_wakes_every_registered_terminal_owner() {
+    let failure = Failure::default();
+    let first = Arc::new(AtomicUsize::new(0));
+    let second = Arc::new(AtomicUsize::new(0));
+    let dropped = Arc::new(());
+    failure.watch(&dropped, |_| panic!("a dropped owner cannot wake")).unwrap();
+    drop(dropped);
+    for owner in [&first, &second, &first] {
+        failure.watch(owner, count_wake).unwrap();
+    }
+
+    failure.record("lost".into());
+    assert_eq!(first.load(Ordering::SeqCst), 1, "first terminal window must still wake");
+    assert_eq!(second.load(Ordering::SeqCst), 1, "second terminal window must wake");
+}
+
+fn count_wake(calls: &AtomicUsize) {
+    calls.fetch_add(1, Ordering::SeqCst);
 }

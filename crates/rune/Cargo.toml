@@ -112,7 +112,7 @@ rune-taffy = { workspace = true }
 rune-text = { workspace = true }
 # Allow backend patch fixes; headless pixel equivalence guards the precompiled Metal path.
 wgpu = { workspace = true, features = ["std", "parking_lot", "wgsl"] }
-# Eon supplies its own window chrome. Avoid a second tiny-skia-path source in its vendor graph.
+# Eon supplies its own window chrome. Keep Adwaita CSD out of Rune's winit features.
 winit = { workspace = true, features = ["rwh_06", "wayland", "wayland-dlopen"] }
 taffy = { workspace = true, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size"] }
 parley = { workspace = true, features = ["std"] }

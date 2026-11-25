@@ -530,6 +530,13 @@ impl<T: 'static> Overlay<T> {
 
 #[cfg(test)]
 test_group! { native =>
+#[cfg(target_os = "linux")]
+impl<T: 'static> Overlay<T> {
+    pub(super) fn unpark_in_test(&mut self) -> bool {
+        with_app!(self, |core, app| core.unpark(&mut app).is_some())
+    }
+}
+
 #[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;

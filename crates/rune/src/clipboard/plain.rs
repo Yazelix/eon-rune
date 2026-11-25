@@ -56,7 +56,8 @@ fn submit(selection: Selection, complete: impl FnOnce(Outcome) + Send + 'static,
     drop(native::worker().send(Request::Plain(operation(primary, done))));
 }
 /// Reads only text. Wayland consumes at most cap+1 bytes; Vec capacity may grow further.
-/// macOS checks after arboard allocates the string. Other bounded-read backends are unsupported.
+/// macOS checks after arboard allocates the string. Bounded reads from an X11-only session
+/// return `Unsupported`. Regular clipboard writes still use arboard in an X11 build.
 pub fn read_text(selection: Selection, cap: usize, complete: impl FnOnce(Outcome) + Send + 'static) {
     submit(selection, complete, |primary, done| Operation::Read(primary, cap, done));
 }

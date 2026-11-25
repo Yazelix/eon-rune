@@ -222,7 +222,7 @@ impl Host {
         let shared = self.shared.clone();
         let make_surface = |instance: &wgpu::Instance| instance.create_surface(window.clone()).map_err(|e| e.to_string());
         let setup_surface = |gpu: &Gpu, surface: &wgpu::Surface<'_>, prewarmed: Option<Renderer>| -> Result<_, SurfaceSetupError> {
-            policy.watch_setup(gpu, || super::setup_waker(&shared))?;
+            policy.watch_setup(gpu, &shared, crate::app::SharedCore::wake_app)?;
             let initial = drawable_size(None, (phys.width, phys.height), max_surface_dim(Some(gpu)));
             let (mut config, translucent) = surface_config(surface, &gpu.adapter, initial, srgb_blend)
                 .ok_or_else(|| SurfaceSetupError::unsupported("the GPU adapter can't present to this window"))?;
@@ -615,7 +615,7 @@ impl Host {
             instance.create_surface(window.clone()).map_err(|e| e.to_string())
         };
         let setup_surface = |gpu: &Gpu, surface: &wgpu::Surface<'_>, prewarmed: Option<Renderer>| {
-            policy.watch_setup(gpu, || super::setup_waker(&shared))?;
+            policy.watch_setup(gpu, &shared, crate::app::SharedCore::wake_app)?;
             let size = drawable_size(prev, (raw_size.width, raw_size.height), max_surface_dim(Some(gpu)));
             let (mut config, translucent) = surface_config(surface, &gpu.adapter, size, srgb_blend)
                 .ok_or_else(|| SurfaceSetupError::unsupported("the GPU adapter can't present to this window"))?;

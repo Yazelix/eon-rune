@@ -20,3 +20,10 @@ impl OverlayCore {
         }
     }
 }
+
+#[cfg(test)]
+test_group! { native =>
+#[cfg(target_os = "linux")]
+#[path = "gpu_failure_native_tests.rs"]
+mod tests;
+}

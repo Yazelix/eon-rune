@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use crate::render::{Gpu, failure::Failure};
-use crate::runtime::Waker;
 
 #[derive(Clone, Default)]
 pub(crate) enum Policy {
@@ -12,8 +11,10 @@ pub(crate) enum Policy {
 }
 
 impl Policy {
-    pub(crate) fn watch_setup(&self, gpu: &Gpu, wake: impl FnOnce() -> Waker) -> Result<(), crate::render::SurfaceSetupError> {
-        if matches!(self, Self::Terminal(_)) { gpu.failure.watch(wake()).ok(); }
+    pub(crate) fn watch_setup<T: Send + Sync + 'static>(
+        &self, gpu: &Gpu, owner: &Arc<T>, notify: fn(&T),
+    ) -> Result<(), crate::render::SurfaceSetupError> {
+        if matches!(self, Self::Terminal(_)) { gpu.failure.watch(owner, notify).ok(); }
         self.observe_setup(Some(gpu))
     }
 
@@ -72,10 +73,7 @@ impl<S: 'static> crate::App<S> {
     pub fn terminal_gpu_loss(self) -> Self {
         let core = &self.shared.core;
         let latch = core.gpu_failure.get_or_init(Default::default);
-        let weak = Arc::downgrade(core);
-        latch.watch(Arc::new(move || {
-            if let Some(core) = weak.upgrade() { core.wake_app(); }
-        })).ok();
+        latch.watch(core, crate::app::SharedCore::wake_app).ok();
         self
     }
 }

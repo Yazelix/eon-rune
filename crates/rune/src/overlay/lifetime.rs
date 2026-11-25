@@ -491,12 +491,14 @@ impl OverlayCore {
         Some(())
     }
 
-    /// The parked window's GPU surface, and the device for the first surface. Failing, the
-    /// window stays parked for the next show to try again.
+    /// Attach a GPU surface to the parked window. A recoverable failure keeps the window parked
+    /// so the next show can try again.
     pub(super) fn unpark(&mut self, app: &mut dyn OverlayApp) -> Option<Live> {
         let Some(Backing::Window(window)) = self.surface.take_parked() else { return None };
         let live = self.attach(app, Backing::Window(window.clone()), crate::window::backing_scale(&window));
-        if live.is_none() { self.surface.park(Backing::Window(window)); }
+        if live.is_none() && !matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Failed) {
+            self.surface.park(Backing::Window(window));
+        }
         live
     }
 

@@ -26,6 +26,9 @@ revision from the recipe's URL into an isolated clone. No current Eon checkout
 files are used as fixture source. Direct Rune checks retain the candidate's vendored
 winit and checked-in lock. The matched fixtures share that winit source and use
 corresponding local renderer and accessibility dependencies from each Rune tree.
+Both hosted fixtures use Venus's Wayland feature set without Adwaita CSD. The
+upstream fixture export removes the upstream Rune manifest's Adwaita feature so
+the matched window chrome and winit dependencies use the same configuration.
 Darwin and the consumer's chosen winit are qualified separately. Generated Wayland bindings retain
 their source notices; the recipe inventories their XML origins and versions.
 

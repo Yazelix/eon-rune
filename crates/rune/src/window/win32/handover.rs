@@ -211,7 +211,7 @@ impl Host {
         crate::marks::mark("gpu.window.ready");
         let Prepared { gpu, mut renderer, surface, mut config, handover } = prepared;
         let gpu = Arc::new(gpu);
-        if let Err(error) = self.gpu_failure.watch_setup(&gpu, || crate::window::host::setup_waker(&self.shared)) {
+        if let Err(error) = self.gpu_failure.watch_setup(&gpu, &self.shared, crate::app::SharedCore::wake_app) {
             drop(surface);
             return self.fail_gpu(error.message, tries);
         }
@@ -592,7 +592,10 @@ pub(crate) fn warm_gpu_cache() -> Result<(), String> {
     if hwnd.is_null() { return Err("no window could be made to warm the GPU on".into()); }
     // What a window's hand-over makes: the device, the frame and fill pipelines for its swap
     // chain's format, then (started by the warm frame's prepare) the pinned ones.
-    let made = prepare(hwnd as isize, (1280, 800), true, wgpu::Features::empty(), &Mutex::new(Vec::new()));
+    let made = prepare(
+        hwnd as isize, (1280, 800), true, wgpu::Features::empty(), &Mutex::new(Vec::new()),
+        &crate::window::gpu_failure::Policy::Recover,
+    );
     let result = made.map(|mut prepared| prepared.renderer.wait_pinned());
     // SAFETY: the window made above, on this thread; the surface on it is gone with `prepared`.
     unsafe { DestroyWindow(hwnd) };

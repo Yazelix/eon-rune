@@ -254,7 +254,7 @@ pub(super) fn render(gpu: &Gpu, renderer: &mut SurfaceRenderer, draws: &[Surface
     }
     pixels
 }
-fn clear_pass<'e>(
+pub(super) fn clear_pass<'e>(
     encoder: &'e mut wgpu::CommandEncoder,
     view: &wgpu::TextureView,
     clear: wgpu::Color,
