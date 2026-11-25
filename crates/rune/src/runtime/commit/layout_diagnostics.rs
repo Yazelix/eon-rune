@@ -118,6 +118,8 @@ pub(in crate::runtime) fn warned_at(needle: &str) -> bool {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 mod tests {
     use crate::{Env, GrowthSpec, Runtime, ScrollSpec, col, el};
 
@@ -164,4 +166,5 @@ mod tests {
             assert!(!super::warned_at("growth-sibling:"));
         }
     }
+}
 }

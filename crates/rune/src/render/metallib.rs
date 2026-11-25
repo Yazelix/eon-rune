@@ -511,5 +511,8 @@ fn native_uber_msl_hash([vs, fs]: &[String; 2]) -> blake3::Hash {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "metallib_tests.rs"]
 mod tests;
+}

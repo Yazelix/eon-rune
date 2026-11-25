@@ -43,11 +43,17 @@ pub(in crate::window) use redraw::{Redraw, RedrawEffect, RedrawEvent};
 pub(in crate::window) use win::{SurfaceRetries, SurfaceStep, SURFACE_TRIES, Win};
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "surface/backoff_tests.rs"]
 mod backoff_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, target_os = "macos"))]
 #[path = "surface/occluded_surface_tests.rs"]
 mod occluded_surface_tests;
+}
 
 /// Frames a window's swap chain may hold that the compositor hasn't shown. Windows: one, so a
 /// frame shows at the first composition after it's done, and the window waits for room itself

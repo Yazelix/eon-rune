@@ -213,5 +213,8 @@ unsafe fn hold_object(object: &AnyObject) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "traffic_lights_tests.rs"]
 mod tests;
+}

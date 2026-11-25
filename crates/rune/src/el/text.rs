@@ -1121,5 +1121,8 @@ impl El {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 #[path = "text_tests.rs"]
 mod tests;
+}

@@ -599,5 +599,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "key_preview_tests.rs"]
 mod key_preview_tests;
+}

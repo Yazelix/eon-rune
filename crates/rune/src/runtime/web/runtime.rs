@@ -262,5 +262,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "runtime_tests.rs"]
 mod tests;
+}

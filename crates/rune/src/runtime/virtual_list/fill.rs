@@ -170,5 +170,8 @@ impl Fill {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 #[path = "fill_tests.rs"]
 mod tests;
+}

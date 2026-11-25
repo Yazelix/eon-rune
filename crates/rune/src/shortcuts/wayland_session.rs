@@ -454,5 +454,8 @@ fn start_unregisters<H, R, U>(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "wayland_session_tests.rs"]
 mod tests;
+}

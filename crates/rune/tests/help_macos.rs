@@ -160,6 +160,7 @@ mod mac {
             handle.quit();
             run.is_ok()
         });
+        rune::orderly_exit();
         app.run();
         assert!(worker.join().unwrap(), "help_macos failed");
         println!("help_macos: ok");

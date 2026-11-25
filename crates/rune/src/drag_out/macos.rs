@@ -238,6 +238,8 @@ fn pasteboard_items(start: &DragOutStart) -> Vec<Retained<NSPasteboardItem>> {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -302,4 +304,5 @@ mod tests {
     fn a_panicking_end_callback_does_not_unwind() {
         report(Box::new(|_| panic!("boom")), DragOutcome::Cancelled);
     }
+}
 }

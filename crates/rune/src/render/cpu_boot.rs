@@ -42,7 +42,10 @@ mod shade;
 pub(crate) mod tool;
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests;
+}
 
 pub use drift::{Drift, Pixels, drift, drift_wanted, last_drift};
 pub use fill::{FillReport, attach_text, fill_masks};

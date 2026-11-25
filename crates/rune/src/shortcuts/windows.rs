@@ -101,6 +101,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -113,4 +115,5 @@ mod tests {
         let space: Shortcut = "ctrl+space".parse().unwrap();
         assert_eq!(virtual_key(&space), Ok(u32::from(VK_SPACE)));
     }
+}
 }

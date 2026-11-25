@@ -133,5 +133,8 @@ impl FrameReports {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "encoded_tests.rs"]
 mod tests;
+}

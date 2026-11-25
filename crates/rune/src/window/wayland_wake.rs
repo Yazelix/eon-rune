@@ -118,5 +118,8 @@ pub(crate) fn about_to_wait(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "wayland_wake_tests.rs"]
 mod tests;
+}

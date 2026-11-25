@@ -709,5 +709,8 @@ pub(crate) fn refresh_focus_preferences(
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "host_events_tests.rs"]
 mod tests;
+}

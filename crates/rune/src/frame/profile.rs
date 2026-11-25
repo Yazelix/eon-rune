@@ -290,6 +290,9 @@ pub(crate) fn install_text_hook() {
     }
 }
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(all(test, feature = "frame-profile"))]
 #[path = "profile_tests.rs"]
 mod tests;
+}

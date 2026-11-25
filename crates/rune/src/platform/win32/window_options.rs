@@ -109,5 +109,8 @@ pub(crate) fn configure_window(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "window_options_tests.rs"]
 mod tests;
+}

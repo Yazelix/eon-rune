@@ -141,6 +141,9 @@ fn should_log_uncaptured() -> bool {
     { INSTALL_UNCAPTURED_IN_TEST.load(Ordering::Acquire) }
 }
 
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "gpu_loss_tests.rs"]
 mod tests;
+}

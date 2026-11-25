@@ -501,5 +501,8 @@ fn video_json(v: &crate::video::Snapshot) -> Value {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "trace_tests.rs"]
 mod tests;
+}

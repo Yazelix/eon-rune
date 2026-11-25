@@ -366,5 +366,8 @@ impl Live {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "frame_tests.rs"]
 mod tests;
+}

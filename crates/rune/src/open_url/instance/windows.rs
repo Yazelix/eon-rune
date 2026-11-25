@@ -727,5 +727,8 @@ pub(crate) fn raise_front() {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "windows_tests.rs"]
 mod tests;
+}

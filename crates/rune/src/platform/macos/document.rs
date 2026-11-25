@@ -10,8 +10,11 @@ use objc2_foundation::{NSString, NSURL};
 use crate::window::spec::{represented_file_title, represented_path_is_dir};
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "document_tests.rs"]
 mod tests;
+}
 
 /// Small seam over `NSWindow` so unit tests verify URL construction, title-from-file
 /// derivation, clearing, and edited-state updates without opening a native window.

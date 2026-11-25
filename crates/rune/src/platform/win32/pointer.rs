@@ -204,5 +204,8 @@ impl Drop for MouseWatch {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "pointer_tests.rs"]
 mod tests;
+}

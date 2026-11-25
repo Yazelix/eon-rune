@@ -449,7 +449,7 @@ fn every_short_sequence_of_streaming_events_leaves_what_dev_left() {
     walk_all(&ALPHABET, LENGTH);
 }
 
-// The deep run: `cargo test -p rune --lib -- --ignored every_deeper_sequence`.
+// The deep run: `cargo test -p rune --test unit_motion_tests -- --ignored every_deeper_sequence`.
 #[ignore = "the deep run"]
 #[test]
 fn every_deeper_sequence_of_streaming_events_leaves_what_dev_left() {

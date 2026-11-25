@@ -629,5 +629,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "macos_tests.rs"]
 mod tests;
+}

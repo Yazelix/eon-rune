@@ -4,7 +4,7 @@
 # stays. IBM Plex Mono ships as is: its licence reserves the name "Plex" for unmodified fonts.
 # web/first/ holds the same faces cut to Latin, Greek and Cyrillic text, which a web app embeds
 # for its first frame; it fetches the full faces after that. Needs HarfBuzz's hb-subset (brew
-# install harfbuzz). Check with `cargo test -p rune --lib default_fonts full_faces`.
+# install harfbuzz). Check the default_fonts and full_faces tests with `cargo test -p rune-text --lib`.
 set -euo pipefail
 cd "$(dirname "$0")/../crates/rune/assets"
 mkdir -p web/first

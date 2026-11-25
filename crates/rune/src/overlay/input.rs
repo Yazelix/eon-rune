@@ -684,5 +684,8 @@ impl OverlayCore {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "input_tests.rs"]
 mod tests;
+}

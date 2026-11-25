@@ -272,5 +272,8 @@ impl IDropTarget_Impl for Target_Impl {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "drop_target_tests.rs"]
 mod tests;
+}

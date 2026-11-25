@@ -201,5 +201,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "unseen_presence_tests.rs"]
 mod tests;
+}

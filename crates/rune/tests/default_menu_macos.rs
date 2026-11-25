@@ -1,4 +1,7 @@
 //! Main-thread AppKit menu assertions, without opening a window or running an event loop.
+#[cfg(all(test, target_os = "macos"))]
+include!("../src/test_shards/unit_native_tests.rs");
+
 #[cfg(target_os = "macos")]
 #[allow(dead_code)]
 #[path = "../src/native_menu/default_macos.rs"]

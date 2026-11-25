@@ -202,5 +202,8 @@ pub(crate) fn activate(window: &winit::window::Window, token: &str) -> bool {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "activation_tests.rs"]
 mod tests;
+}

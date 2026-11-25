@@ -176,5 +176,8 @@ fn bounds(rects: &[[u32; 4]], size: (u32, u32)) -> Option<[u32; 4]> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "cpu_frames_tests.rs"]
 mod tests;
+}

@@ -302,4 +302,7 @@ impl crate::Tx {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}

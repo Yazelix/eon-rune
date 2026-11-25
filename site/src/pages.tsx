@@ -619,7 +619,7 @@ export function LaunchFastView() {
           <h3>Changing the shader</h3>
           <p>
             Edit <code>clip.wgsl</code> or <code>shader.wgsl</code>, then run{" "}
-            <code>cargo test -p rune --lib --features metal-backend precompiled_uber_metallib_is_fresh</code> on a Mac.
+            <code>cargo test -p rune --test unit_paint_tests --features metal-backend precompiled_uber_metallib_is_fresh</code> on a Mac.
             The test compares the
             library and the shader's fingerprints, and its failure message says what to do:
           </p>

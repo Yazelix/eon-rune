@@ -13,20 +13,35 @@ use crate::runtime::Runtime;
 
 pub(crate) mod actions;
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod actions_tests;
+}
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 mod aria_tests;
+}
 pub(crate) mod dump;
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod dump_tests;
+}
 mod node;
 pub(crate) mod roles;
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests;
+}
 mod text;
 pub(crate) mod tree;
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tree_tests;
+}
 
 #[cfg(all(feature = "accessibility", target_os = "macos"))]
 mod macos;

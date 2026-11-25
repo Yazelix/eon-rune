@@ -355,5 +355,8 @@ fn escape(title: &str) -> String { title.replace('&', "&&").replace('\t', " ") }
 fn wide(s: &str) -> Vec<u16> { s.encode_utf16().chain(Some(0)).collect() }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "win32_tests.rs"]
 mod tests;
+}

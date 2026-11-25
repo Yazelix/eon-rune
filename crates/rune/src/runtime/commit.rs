@@ -13,7 +13,10 @@ pub(crate) mod memo_reuse;
 pub(crate) mod path;
 pub(super) mod prune;
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 mod prune_tests;
+}
 pub(super) mod relayout;
 pub(super) mod remount;
 pub(super) mod text_layout;

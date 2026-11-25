@@ -43,6 +43,8 @@ unsafe extern "C" {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::SecureInput;
     use crate::runtime::Runtime;
@@ -90,4 +92,5 @@ mod tests {
         claim.set(rt.has_secure_focus());
         assert!(!claim.0);
     }
+}
 }

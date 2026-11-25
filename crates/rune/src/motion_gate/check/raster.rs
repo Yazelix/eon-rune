@@ -255,6 +255,8 @@ pub fn from_pixels(rgba: &[u8], pw: u32, ph: u32, size: (f32, f32)) -> Grid {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::render::{KIND_GLYPH, KIND_LAYER, KIND_LAYER_END, KIND_RECT};
@@ -319,4 +321,5 @@ mod tests {
             assert_eq!(srgb_decode(v as f32 / 255.0).to_bits(), inline(v).to_bits(), "byte {v}");
         }
     }
+}
 }

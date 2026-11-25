@@ -351,5 +351,8 @@ fn us_unshifted(c: char) -> Option<char> {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "chord_tests.rs"]
 mod tests;
+}

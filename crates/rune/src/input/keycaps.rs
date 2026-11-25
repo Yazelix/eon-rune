@@ -256,6 +256,8 @@ fn ripple(id: u64, x: f32, y: f32) -> El {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -360,6 +362,7 @@ mod tests {
         }
         assert!(saw_shrunk, "leaving keycap should collapse its height as it exits");
     }
+}
 }
 
 /// Without `keys-overlay` in a release build: no overlay can exist, so its runtime isn't linked.

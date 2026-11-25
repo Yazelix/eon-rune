@@ -779,9 +779,15 @@ impl GpuStartup {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "web_math_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 #[path = "web_startup_tests.rs"]
 mod startup_tests;
+}

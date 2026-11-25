@@ -165,5 +165,8 @@ impl Retire<Weak<Gpu>> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "retire_tests.rs"]
 mod tests;
+}

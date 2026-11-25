@@ -331,5 +331,8 @@ impl Drop for Adapter {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "windows_tests.rs"]
 mod tests;
+}

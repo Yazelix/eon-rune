@@ -208,5 +208,8 @@ impl<T: Clone, S: Send + 'static> ComposePool<T, S> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "compose_cache_tests.rs"]
 mod tests;
+}

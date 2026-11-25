@@ -195,9 +195,15 @@ impl FrameClock {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "clock_walk_tests.rs"]
 mod walk_tests;
+}
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "clock_tests.rs"]
 mod tests;
+}

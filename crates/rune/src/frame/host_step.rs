@@ -627,5 +627,8 @@ pub(crate) fn draw_ui(
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "host_step_tests.rs"]
 mod tests;
+}

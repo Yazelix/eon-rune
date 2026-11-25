@@ -132,5 +132,8 @@ pub(crate) fn sync_window_theme(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "color_scheme_tests.rs"]
 mod tests;
+}

@@ -154,4 +154,7 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests;
+}

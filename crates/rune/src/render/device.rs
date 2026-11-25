@@ -782,5 +782,8 @@ fn report_gpu_allocations(device: wgpu::Device) {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "device_tests.rs"]
 mod tests;
+}

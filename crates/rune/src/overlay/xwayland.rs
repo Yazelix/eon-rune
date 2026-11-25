@@ -119,5 +119,8 @@ pub(crate) fn step(state: &mut SurfaceState, event: SurfaceEvent) -> crate::mach
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "xwayland_tests.rs"]
 mod tests;
+}

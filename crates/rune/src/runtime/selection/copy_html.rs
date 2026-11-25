@@ -318,5 +318,8 @@ fn count_span_visits<R>(f: impl FnOnce() -> R) -> (R, usize) {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "copy_html_tests.rs"]
 mod tests;
+}

@@ -466,13 +466,22 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "gesture_routing_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 #[path = "gesture_tests.rs"]
 mod gesture_tests;
+}
 
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 #[path = "modal_wheel_tests.rs"]
 mod modal_wheel_tests;
+}

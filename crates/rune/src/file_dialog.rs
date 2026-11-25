@@ -542,4 +542,7 @@ fn show_over(kind: FileDialogKind, multiple: bool, options: FileDialogOptions, w
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}

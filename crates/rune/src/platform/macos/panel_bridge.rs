@@ -317,6 +317,8 @@ impl Drop for Bridge {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use objc2::{class, runtime::ClassBuilder};
@@ -441,4 +443,5 @@ mod tests {
         }
         WINDOWS.with(|w| w.borrow_mut().remove(&(window as usize)));
     }
+}
 }

@@ -316,5 +316,8 @@ pub(crate) fn wake_after_secs(rt: &RuntimeCore) -> Option<f64> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "embed_frame_tests.rs"]
 mod tests;
+}

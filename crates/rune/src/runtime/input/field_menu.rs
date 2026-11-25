@@ -246,5 +246,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "field_menu_tests.rs"]
 mod tests;
+}

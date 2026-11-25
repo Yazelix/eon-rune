@@ -185,5 +185,8 @@ struct Vertex {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "csd_corners_tests.rs"]
 mod tests;
+}

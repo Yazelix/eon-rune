@@ -85,6 +85,8 @@ pub(super) fn uri_path(uri: &str) -> Result<PathBuf, FileDialogError> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     fn uris(list: &[&str]) -> Vec<String> { list.iter().map(|s| (*s).into()).collect() }
@@ -142,4 +144,5 @@ mod tests {
         assert_eq!(parent_window(0), "");
         assert_eq!(parent_window(0x3a0000f), "x11:3a0000f");
     }
+}
 }

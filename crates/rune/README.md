@@ -955,7 +955,7 @@ Staying fast afterwards is "Fast apps" (`site/src/FastApps.tsx`) and "Smooth scr
   visual commit and NVIDIA G-SYNC premultiplied VRR guard on CPU-to-GPU handover, and Windows
   overlays (`App::overlay`) refuse cleanly because they require DirectComposition. After editing
   `clip.wgsl` or `shader.wgsl`, run
-  `cargo test -p rune --lib --features metal-backend precompiled_uber_metallib_is_fresh` on a Mac;
+  `cargo test -p rune --test unit_paint_tests --features metal-backend precompiled_uber_metallib_is_fresh` on a Mac;
   if the MSL, flags or library hash changed, run `scripts/precompile-metal-shaders.sh` (needs
   Xcode's Metal toolchain) and commit the updated libraries and hash files. Metal binary archives on
   wgpu's backend would need `wgpu-hal` support.
@@ -3094,6 +3094,23 @@ feature (`crates/rune/src/a11y/`).
   update's size and cost.
 
 ## Run
+
+### Tests
+
+`cargo test -p rune --jobs 1` runs all eight Rune unit harnesses, integration tests, and doctests.
+Use `--lib` for the core unit group or `--test unit_layout_tests` for a specific group. The
+other groups are `unit_app_tests`, `unit_input_tests`, `unit_motion_tests`, `unit_native_tests`,
+`unit_paint_tests`, and `unit_selection_tests`. The extracted crates each run their own unit
+tests. Cargo reports that `src/lib.rs` belongs to multiple targets because the eight Rune groups
+share that entry point. Each group compiles separately to keep peak memory bounded.
+
+Keep tests beside their owners. `test_group!` assigns the registration to a single harness,
+while shared test helpers remain available to every group that needs them. Run
+`python3 scripts/test-shards.py --check` after changing a registration. The script can strip
+and restore test registrations for merges and formatting. Rustfmt treats `test_group!` as
+opaque, so format standalone test files directly.
+
+### Application
 
 ```sh
 cargo build --release -p settings

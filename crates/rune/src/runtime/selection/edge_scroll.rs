@@ -378,5 +378,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "edge_scroll_tests.rs"]
 mod tests;
+}

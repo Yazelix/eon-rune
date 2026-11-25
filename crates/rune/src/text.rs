@@ -8,4 +8,7 @@ pub use rune_text::*;
 pub mod pixel_compare;
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod runtime_tests;
+}

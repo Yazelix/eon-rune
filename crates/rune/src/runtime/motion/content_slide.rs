@@ -120,5 +120,8 @@ impl tracks::MotionState {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "content_slide_tests.rs"]
 mod tests;
+}

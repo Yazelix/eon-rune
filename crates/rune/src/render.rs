@@ -56,21 +56,42 @@ pub(crate) mod translucency;
 pub mod cpu_boot;
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod abi_tests;
+}
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 mod backdrop_tests;
+}
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 mod image_tests;
+}
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 #[path = "render/native_surface_tests.rs"]
 mod native_surface;
+}
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 mod prewarm_tests;
+}
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(test)]
 #[path = "render/warm_tests.rs"]
 mod warm_tests;
+}
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod webgl_shader_tests;
+}
 
 use pass::{ActivePass, Backdrop};
 

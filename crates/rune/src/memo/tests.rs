@@ -459,7 +459,7 @@ fn region_debug_check_redacts_secure_text() {
     );
 }
 
-/// `cargo test -p rune --profile perf --lib memo_build_time -- --ignored --nocapture`
+/// `cargo test -p rune --profile perf --test unit_app_tests memo_build_time -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn memo_build_time() {

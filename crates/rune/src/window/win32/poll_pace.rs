@@ -362,5 +362,8 @@ pub(crate) fn next_tick(anchor: Instant, grid: VSyncGrid) -> Instant {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "poll_pace_tests.rs"]
 mod tests;
+}

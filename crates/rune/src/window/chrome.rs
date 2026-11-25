@@ -17,7 +17,10 @@ pub(in crate::window) mod float_on_open;
 pub(in crate::window) mod mac;
 pub(in crate::window) mod platform_sync;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}
 
 pub(in crate::window) use platform_sync::sync_platform_core;
 

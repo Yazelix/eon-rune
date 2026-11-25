@@ -28,6 +28,8 @@ pub(crate) struct AlphaSurface {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 mod tests {
     #[test]
     fn gpu_straight_alpha_matches_cpu_reference() {
@@ -61,6 +63,7 @@ mod tests {
             }
         }
     }
+}
 }
 impl AlphaSurface {
     pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, size: (u32, u32)) -> Self {

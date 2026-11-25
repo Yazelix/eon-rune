@@ -199,6 +199,7 @@ mod mac {
             handle.quit();
             run.is_ok()
         });
+        rune::orderly_exit();
         app.run();
         // The last step closes the window while its menu tracks: `run` returning means the
         // tracking loop ended with it.

@@ -201,53 +201,125 @@ use types::{AxisScroll, GlideTo, Inh, NodeCold, RowLayout, ScaleMotion, ScrollSt
 pub(crate) use window_requests::HostState;
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod timer_wake_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod grid_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod truncate_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod truncate_fade_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod line_clamp_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod aspect_fit_tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 mod aspect_ratio_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod anchor_fit_tests;
+}
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 mod drop_tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 mod elements_tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 mod any_handlers_tests;
+}
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 mod on_key_tests;
+}
+#[cfg(test)]
+test_group! { motion =>
 #[cfg(test)]
 mod live_only_tests;
+}
+#[cfg(test)]
+test_group! { motion =>
 #[cfg(test)]
 mod live_check_tests;
+}
+#[cfg(test)]
+test_group! { selection =>
 #[cfg(test)]
 mod virtual_store_tests;
+}
+#[cfg(test)]
+test_group! { selection =>
 #[cfg(test)]
 mod select_all_tests;
+}
+#[cfg(test)]
+test_group! { selection =>
 #[cfg(test)]
 mod selection_api_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod anchored_grow_tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 mod languages_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod layout_seed_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod pixel_snap_tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 mod recorder_tests;
+}
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 mod size_tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 mod video_tests;
+}
 
 /// Zero-sized alignment barrier terminating `RuntimeCore` and the identical `#[repr(C)]`
 /// prefix of `Runtime<S>`, ensuring `Runtime<S>::state` always sits at or past
@@ -518,6 +590,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 mod prefix_layout_tests {
     use std::cell::Cell;
     use std::rc::Rc;
@@ -638,6 +712,7 @@ mod prefix_layout_tests {
         );
         assert_eq!(drops.get(), 1, "state with Drop must drop exactly once");
     }
+}
 }
 
 #[cfg(test)]

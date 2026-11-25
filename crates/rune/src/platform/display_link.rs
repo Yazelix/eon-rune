@@ -337,6 +337,8 @@ fn target_time(now: Instant, host_now: u64, host_target: u64, frequency: f64) ->
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use std::sync::Arc;
     use super::*;
@@ -395,4 +397,5 @@ mod tests {
         assert_eq!(cb.take_target(), 700);
         assert!(cb.on_tick(800), "next active tick wakes cleanly with no lost wake");
     }
+}
 }

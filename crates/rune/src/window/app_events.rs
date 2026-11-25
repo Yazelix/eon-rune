@@ -188,5 +188,8 @@ impl Windows {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "app_events_tests.rs"]
 mod tests;
+}

@@ -116,5 +116,8 @@ impl crate::window::host::Host {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "look_tests.rs"]
 mod tests;
+}

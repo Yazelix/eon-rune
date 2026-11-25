@@ -690,5 +690,8 @@ fn dispatch_native(_: PathRequest) -> Result<(), OpenPathError> {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "open_path_tests.rs"]
 mod tests;
+}

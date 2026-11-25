@@ -307,5 +307,8 @@ impl DisplayLinkCore {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "display_link_machine_tests.rs"]
 mod tests;
+}

@@ -361,5 +361,33 @@ harness = false
 name = "tray_macos"
 harness = false
 
+[[test]]
+name = "unit_layout_tests"
+path = "src/lib.rs"
+
+[[test]]
+name = "unit_motion_tests"
+path = "src/lib.rs"
+
+[[test]]
+name = "unit_input_tests"
+path = "src/lib.rs"
+
+[[test]]
+name = "unit_paint_tests"
+path = "src/lib.rs"
+
+[[test]]
+name = "unit_selection_tests"
+path = "src/lib.rs"
+
+[[test]]
+name = "unit_app_tests"
+path = "src/lib.rs"
+
+[[test]]
+name = "unit_native_tests"
+path = "src/lib.rs"
+
 [lints]
 workspace = true

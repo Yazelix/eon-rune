@@ -442,5 +442,8 @@ pub(crate) fn full_keyboard_access() -> bool {
 pub(crate) fn full_keyboard_access() -> bool { true }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "preferences_tests.rs"]
 mod tests;
+}

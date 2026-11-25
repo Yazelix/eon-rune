@@ -846,5 +846,8 @@ fn flatten_node<E: FlattenEl>(
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 #[path = "flatten_tests.rs"]
 mod flatten_tests;
+}

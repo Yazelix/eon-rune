@@ -18,6 +18,8 @@ fn norm(path: &str, keep: usize) -> String {
     out
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn names_drop_unkeyed_segments_ids_and_prose() {
     assert_eq!(norm("#0/sidebar/row-x1208", 4), "sidebar/row-x*");
@@ -28,7 +30,10 @@ fn names_drop_unkeyed_segments_ids_and_prose() {
     assert_eq!(norm("#0/a\u{e9}b", 4), "a_b");
     assert_eq!(norm(&format!("#0/{}", "x".repeat(50)), 4).len(), 32);
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn names_are_interned() {
     let mut names = Names::default();
@@ -39,7 +44,10 @@ fn names_are_interned() {
     assert_eq!(&*names.route(Some("#0/settings"), Some("#0/settings/confirm-7")).text, "settings+modal:confirm-*");
     assert_eq!(&*names.route(None, None).text, "root");
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn the_gate_wants_perf_or_a_loopback_collector() {
     use gate::{loopback, wanted};
@@ -55,7 +63,10 @@ fn the_gate_wants_perf_or_a_loopback_collector() {
     assert_eq!(loopback("[::1]:4318").map(|a| a.port()), Some(4318));
     assert_eq!(gate::endpoint(None).map(|a| a.to_string()).as_deref(), Some(gate::DEFAULT_ENDPOINT));
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn release_without_tooling_ignores_ambient_otel_endpoint() {
     use gate::wanted;
@@ -63,7 +74,10 @@ fn release_without_tooling_ignores_ambient_otel_endpoint() {
     assert!(!wanted(None, Some("http://localhost:4318/"), false, false));
     assert!(!wanted(None, Some("[::1]:4318"), false, false));
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn rollup_quantiles_land_within_a_bucket() {
     let mut names = Names::default();
@@ -77,6 +91,7 @@ fn rollup_quantiles_land_within_a_bucket() {
     assert!((r.quantile(0.5) - 50.0).abs() / 50.0 < 0.16, "p50 {}", r.quantile(0.5));
     assert!((r.quantile(0.98) - 98.0).abs() / 98.0 < 0.16, "p98 {}", r.quantile(0.98));
     assert!(rollup.is_empty());
+}
 }
 
 #[derive(Default)]
@@ -121,6 +136,8 @@ fn click(rt: &mut Runtime<App>, key: &str) {
     rt.interaction_presented(crate::time::now(), None);
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn a_slow_click_names_its_page_and_control() {
     let mut rt = runtime(true);
@@ -138,7 +155,10 @@ fn a_slow_click_names_its_page_and_control() {
     assert_eq!(s.rebuilt.first().map(|r| &*r.0), Some("settings"), "nothing is memoized: the whole page rebuilt");
     assert!(!active(), "phases stop timing once the frame is built");
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn a_slow_click_says_whose_time_it_took() {
     let mut rt = runtime(true);
@@ -159,7 +179,10 @@ fn a_slow_click_says_whose_time_it_took() {
     assert_eq!((rolls[0].slow, rolls[0].contended), (0, 1), "not counted against the app");
     assert!(tracker.breached.is_empty(), "nor sampled sooner next time");
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn a_fast_click_only_counts() {
     let mut rt = runtime(false);
@@ -169,7 +192,10 @@ fn a_fast_click_only_counts() {
     assert_eq!(rolls.len(), 1);
     assert_eq!((&*rolls[0].control.text, rolls[0].count), ("settings/save-*", 1));
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn typing_in_a_field_says_key_edit_never_the_text() {
     let mut rt = runtime(false);
@@ -181,7 +207,10 @@ fn typing_in_a_field_says_key_edit_never_the_text() {
     let rolls = rt.interaction_tracker().rollup.take();
     assert_eq!(rolls.iter().map(|r| (&*r.control.text, r.action)).collect::<Vec<_>>(), [("settings/note", "key_edit")]);
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn a_frame_no_host_presents_ends_at_its_build() {
     let mut rt = runtime(true);
@@ -195,7 +224,10 @@ fn a_frame_no_host_presents_ends_at_its_build() {
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].present, sent[0].built);
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn off_nothing_is_timed() {
     SENT.take();
@@ -206,7 +238,10 @@ fn off_nothing_is_timed() {
     let tracker = rt.interaction_tracker();
     assert!(tracker.rollup.is_empty() && matches!(tracker.frame, Frame::Idle));
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn slow_spans_carry_the_signature_and_stretches() {
     let mut rt = runtime(true);
@@ -221,4 +256,5 @@ fn slow_spans_carry_the_signature_and_stretches() {
     assert_eq!(attr("rune.control").unwrap()["stringValue"], "settings/save-*");
     let root = spans[0]["spanId"].clone();
     assert!(spans[1..].iter().all(|s| s["parentSpanId"] == root && s["traceId"] == spans[0]["traceId"]));
+}
 }

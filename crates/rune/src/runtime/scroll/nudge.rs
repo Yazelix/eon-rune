@@ -91,5 +91,8 @@ impl Nudge {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "nudge_tests.rs"]
 mod tests;
+}

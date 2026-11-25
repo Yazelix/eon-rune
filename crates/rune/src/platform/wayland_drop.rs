@@ -16,5 +16,8 @@ mod wire;
 pub(crate) use wire::{DropTarget, install, shutdown, take};
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "wayland_drop/tests.rs"]
 mod tests;
+}

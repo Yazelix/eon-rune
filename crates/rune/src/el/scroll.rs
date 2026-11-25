@@ -432,5 +432,8 @@ pub(crate) type AtBottomFn = Rc<dyn Fn(crate::states::States<'_>, bool) -> bool>
 pub(crate) type VisibleRowsFn = Rc<dyn Fn(crate::states::States<'_>, std::ops::Range<usize>) -> bool>;
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 #[path = "scroll_tests.rs"]
 mod tests;
+}

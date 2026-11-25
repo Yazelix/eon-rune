@@ -226,6 +226,8 @@ fn icon(c: Cursor) -> CursorIcon {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -360,4 +362,5 @@ mod tests {
         rt.pointer_leave();
         assert_eq!(rt.cursor(), Cursor::Default);
     }
+}
 }

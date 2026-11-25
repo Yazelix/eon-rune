@@ -261,5 +261,8 @@ mod dbus {
 pub(crate) use dbus::{DEST, RequestError, RequestTimeouts, is_unavailable, register_app_id, request, spawn, timeout};
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "portal_tests.rs"]
 mod tests;
+}

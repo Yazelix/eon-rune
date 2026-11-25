@@ -122,6 +122,7 @@ mod mac {
             *out.lock().unwrap() = Some(run.is_ok());
             handle.quit();
         });
+        rune::orderly_exit();
         app.run();
         std::fs::remove_file(&file).ok();
         assert_eq!(*result.lock().unwrap(), Some(true), "macos_drag_out failed");

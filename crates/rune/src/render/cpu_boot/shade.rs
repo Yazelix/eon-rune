@@ -643,5 +643,8 @@ pub(super) fn image(i: &Instance, page: &super::Image<'_>, p: [f32; 2]) -> [f32;
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "shade_tests.rs"]
 mod tests;
+}

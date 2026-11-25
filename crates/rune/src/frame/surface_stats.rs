@@ -282,9 +282,15 @@ pub(crate) fn read(shared: &Mutex<SurfaceStats>) -> SurfaceStats {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "surface_stats_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "surface_stats_walk_tests.rs"]
 mod walk_tests;
+}

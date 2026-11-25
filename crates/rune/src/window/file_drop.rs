@@ -42,6 +42,8 @@ impl FileDrop {
 pub(super) const DROP_SAMPLE: Duration = Duration::from_millis(16);
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -59,4 +61,5 @@ mod tests {
             FileStep::Leave,
         ]);
     }
+}
 }

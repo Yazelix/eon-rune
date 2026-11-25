@@ -21,8 +21,14 @@ pub(crate) use sight::{Cover, Sight};
 pub(in crate::window) use wake::{WakeFacts, WakeWork};
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "state/covered_tests.rs"]
 mod covered_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 #[path = "state/wake_tests.rs"]
 mod wake_tests;
+}

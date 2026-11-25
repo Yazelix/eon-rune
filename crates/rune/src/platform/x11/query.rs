@@ -127,5 +127,8 @@ pub(super) fn with_connection<T>(run: impl FnMut(&X11Connection) -> QueryOutcome
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "query_tests.rs"]
 mod tests;
+}

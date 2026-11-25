@@ -802,5 +802,8 @@ impl TreeState {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "width_hold_tests.rs"]
 mod width_hold_tests;
+}

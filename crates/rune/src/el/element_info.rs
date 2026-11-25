@@ -73,6 +73,8 @@ impl ElementInfo {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use crate::{Cx, El, ElementInfo, Env, Runtime, el};
 
@@ -86,4 +88,5 @@ mod tests {
         let focused = ElementInfo { focused: true, ..ElementInfo::stub("send") };
         assert_eq!((focused.key.as_deref(), focused.path.as_str(), focused.focused, focused.opacity), (Some("send"), "send", true, 1.0));
     }
+}
 }

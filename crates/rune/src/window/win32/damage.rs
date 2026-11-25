@@ -327,5 +327,8 @@ fn bounds(i: &Instance, size: (u32, u32)) -> Option<[u32; 4]> {
 fn area(r: [u32; 4]) -> u32 { (r[2] - r[0]) * (r[3] - r[1]) }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "damage_tests.rs"]
 mod tests;
+}

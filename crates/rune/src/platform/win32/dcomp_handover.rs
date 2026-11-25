@@ -106,5 +106,8 @@ fn create_device() -> Result<IDCompositionDevice, String> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "dcomp_handover_tests.rs"]
 mod tests;
+}

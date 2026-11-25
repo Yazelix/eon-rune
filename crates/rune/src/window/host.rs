@@ -32,8 +32,11 @@ pub(in crate::window) mod stepping;
 pub(in crate::window) mod window_script;
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "host/frame_move_tests.rs"]
 mod frame_move_tests;
+}
 
 pub(in crate::window) use app::{CompositorFrame, WindowApp};
 use app::TypedWindowApp;

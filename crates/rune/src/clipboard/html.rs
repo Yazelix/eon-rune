@@ -416,5 +416,8 @@ pub(crate) fn unpack_cf_html(raw: &[u8]) -> Option<String> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "html_tests.rs"]
 mod tests;
+}

@@ -328,5 +328,8 @@ fn headless_core(
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "hot_tests.rs"]
 mod tests;
+}

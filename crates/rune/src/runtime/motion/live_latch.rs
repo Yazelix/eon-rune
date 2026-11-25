@@ -470,5 +470,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "live_latch_tests.rs"]
 mod tests;
+}

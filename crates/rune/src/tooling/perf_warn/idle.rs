@@ -98,9 +98,12 @@ fn step(streak: &mut Streak, r: Reading) -> crate::machine::Effects<(Woke, f64)>
     if frames == IDLE_FRAMES { Effects::one((woke, r.clock - from)) } else { Effects::none() }
 }
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(all(test, debug_assertions))]
 #[path = "idle_tests.rs"]
 mod tests;
+}
 
 impl IdleMeter {
     /// Passes `changed`, `poll`'s answer, through.

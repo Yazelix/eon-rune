@@ -1,0 +1,1 @@
+- Compile Rune unit tests in eight Cargo harnesses to reduce peak test build memory. `cargo test -p rune` runs every group, and `--lib` selects the core group.

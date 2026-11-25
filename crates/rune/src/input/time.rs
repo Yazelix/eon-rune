@@ -105,5 +105,8 @@ fn since_boot(now: Instant, uptime: f64, timestamp: f64) -> Instant {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "time_tests.rs"]
 mod tests;
+}

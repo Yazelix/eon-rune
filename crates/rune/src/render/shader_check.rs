@@ -246,5 +246,8 @@ pub(crate) fn with_uber_shaders_refused<R>(refuse: bool, f: impl FnOnce() -> R) 
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "shader_check_tests.rs"]
 mod tests;
+}

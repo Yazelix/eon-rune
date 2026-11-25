@@ -185,5 +185,8 @@ pub(in crate::window) fn apply_create_plan(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "reopen_tests.rs"]
 mod tests;
+}

@@ -143,6 +143,7 @@ mod mac {
             *out.lock().unwrap() = Some(run.is_ok());
             handle.quit();
         });
+        rune::orderly_exit();
         app.run();
         assert_eq!(*result.lock().unwrap(), Some(true), "macos_window_corners failed");
         println!("macos_window_corners: ok");

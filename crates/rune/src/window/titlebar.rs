@@ -117,6 +117,8 @@ impl TitlebarSet {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod set_tests {
     use super::*;
 
@@ -162,6 +164,7 @@ mod set_tests {
         assert!(!TitlebarSet { titlebar: None, height: Some(44.0) }.over(hidden).has_controls());
         assert_eq!(hidden.mac_chrome(Chrome::DEFAULT), Chrome { full_size_content: true, drag_regions: true, traffic_lights: None });
     }
+}
 }
 
 /// What the window's own controls take of the app's titlebar, in points

@@ -480,6 +480,8 @@ pub(crate) fn name(role: Role) -> String {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
@@ -622,4 +624,5 @@ mod tests {
         assert_eq!(focus_role(Role::Image), "img");
         assert_eq!(focus_role(Role::List), "group");
     }
+}
 }

@@ -579,5 +579,8 @@ fn lower_priority() {
 fn vrr_guard(vendor: u32) -> bool { vendor == 0x10DE }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "handover_tests.rs"]
 mod tests;
+}

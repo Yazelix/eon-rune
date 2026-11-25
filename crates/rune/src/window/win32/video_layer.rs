@@ -332,5 +332,8 @@ fn release(handover: Option<&Handover>, e: &Entry) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "video_layer_tests.rs"]
 mod tests;
+}

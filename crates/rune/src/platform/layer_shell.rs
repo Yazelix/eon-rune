@@ -1100,5 +1100,8 @@ impl Drop for LayerSurface {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "layer_shell_tests.rs"]
 mod tests;
+}

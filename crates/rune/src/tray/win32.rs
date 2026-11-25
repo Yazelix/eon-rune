@@ -295,6 +295,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -351,4 +353,5 @@ mod tests {
         assert_eq!(menu_item_flags(false, Some(true)), MF_STRING | MF_GRAYED | MF_CHECKED);
         assert_eq!(menu_item_flags(false, Some(false)), MF_STRING | MF_GRAYED | MF_UNCHECKED);
     }
+}
 }

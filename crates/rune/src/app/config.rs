@@ -92,6 +92,8 @@ impl<S: 'static> Runtime<S> {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests {
     use crate::{App, AppSpec, Cx, Env, FontSmoothing, Ime, Key, KeyEvent, Mods, PhysicalInput, el};
 
@@ -164,4 +166,5 @@ mod tests {
         assert_eq!(cfg.max_native_materials, crate::MAX_NATIVE_MATERIALS);
         assert!(cfg.on_focus.is_none() && cfg.on_mods.is_none() && cfg.on_visibility.is_none() && cfg.on_ime.is_none() && cfg.on_field_menu.is_none() && cfg.dev_stats.is_none());
     }
+}
 }

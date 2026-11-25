@@ -438,5 +438,8 @@ mod mac {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "watchdog_tests.rs"]
 mod tests;
+}

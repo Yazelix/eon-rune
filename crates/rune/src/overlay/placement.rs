@@ -108,5 +108,8 @@ pub(crate) fn monitor_at(event_loop: &ActiveEventLoop, target: &DisplayTarget, s
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "placement_tests.rs"]
 mod tests;
+}

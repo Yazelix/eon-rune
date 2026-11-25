@@ -346,5 +346,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "bottom_tests.rs"]
 mod tests;
+}

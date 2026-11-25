@@ -268,5 +268,8 @@ pub(in crate::runtime) fn step(mode: &mut ScrollMode, event: Event) -> Effects<E
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "mode_tests.rs"]
 mod tests;
+}

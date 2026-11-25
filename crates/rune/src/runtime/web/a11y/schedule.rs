@@ -227,5 +227,8 @@ pub(crate) fn step(
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "schedule_tests.rs"]
 mod tests;
+}

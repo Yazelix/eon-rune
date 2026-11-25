@@ -133,6 +133,8 @@ pub(crate) fn scale_change_size(size: (u32, u32), from: f64, to: f64, maximized:
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -242,4 +244,5 @@ mod tests {
         let newer = FrameRequest { resize_drag: Some(crate::ResizeEdge::NorthWest), ..Default::default() };
         assert_eq!(resize.merge(newer).resize_drag, Some(crate::ResizeEdge::NorthWest));
     }
+}
 }

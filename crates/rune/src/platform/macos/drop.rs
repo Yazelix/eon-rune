@@ -449,5 +449,8 @@ unsafe fn receive(key: usize, token: u64, pb: &NSPasteboard, dir: &Path, paths: 
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "drop_tests.rs"]
 mod tests;
+}

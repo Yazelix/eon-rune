@@ -728,5 +728,8 @@ fn client_size(hwnd: HWND) -> (i32, i32) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "frame_tests.rs"]
 mod tests;
+}

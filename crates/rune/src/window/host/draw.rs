@@ -769,5 +769,8 @@ pub(super) fn display_hz(l: &Win) -> Option<f64> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "draw_tests.rs"]
 mod tests;
+}

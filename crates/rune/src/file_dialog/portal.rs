@@ -129,6 +129,8 @@ async fn run(kind: FileDialogKind, multiple: bool, options: FileDialogOptions, p
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;
@@ -187,4 +189,5 @@ mod tests {
         assert_eq!(dbus_error(fdo(fdo::Error::SpawnChildExited("portal".into()))), unavailable());
         assert_ne!(dbus_error(fdo(fdo::Error::Failed("x".into()))), unavailable());
     }
+}
 }

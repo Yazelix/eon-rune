@@ -114,5 +114,8 @@ pub(in crate::runtime) fn step(watch: &mut Watch, event: Event<'_>) -> Effects<E
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "watch_tests.rs"]
 mod tests;
+}

@@ -65,9 +65,12 @@ impl Prime {
     pub(crate) fn stop(&mut self) { *self = Prime::Steady; }
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, target_os = "macos"))]
 #[path = "native_tests.rs"]
 mod tests;
+}
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 #[derive(Default)]

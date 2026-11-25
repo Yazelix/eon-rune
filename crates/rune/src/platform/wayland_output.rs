@@ -318,5 +318,8 @@ mod wayland {
 pub(crate) use wayland::query;
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "wayland_output_tests.rs"]
 mod tests;
+}

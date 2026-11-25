@@ -138,5 +138,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "page_tests.rs"]
 mod tests;
+}

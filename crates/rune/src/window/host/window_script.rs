@@ -181,6 +181,8 @@ pub(in crate::window) fn is_system_pointer(event: &WindowEvent) -> bool {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use winit::dpi::PhysicalSize;
     use winit::event::{DeviceId, MouseScrollDelta, TouchPhase};
@@ -412,4 +414,5 @@ mod tests {
             assert!(!is_system_pointer(&other), "{other:?}");
         }
     }
+}
 }

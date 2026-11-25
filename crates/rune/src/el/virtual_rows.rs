@@ -181,9 +181,15 @@ impl RowSource {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "virtual_rows_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { layout =>
 #[cfg(test)]
 #[path = "virtual_rows_append_tests.rs"]
 mod append_tests;
+}

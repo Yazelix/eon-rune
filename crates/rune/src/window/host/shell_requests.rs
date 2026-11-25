@@ -97,5 +97,8 @@ impl Host {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "shell_requests_tests.rs"]
 mod tests;
+}

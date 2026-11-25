@@ -22,5 +22,8 @@ pub(crate) fn keys_support(policy: KeyPolicy, focuser: bool) -> OverlaySupport {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "keys_tests.rs"]
 mod tests;
+}

@@ -225,6 +225,8 @@ impl Win {
     }
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn launcher_first_frame_holds_reveal_and_hide_cancels_late_completion() {
     let now = crate::time::now();
@@ -244,7 +246,10 @@ fn launcher_first_frame_holds_reveal_and_hide_cancels_late_completion() {
     assert!(canceled.request_reveal(false, false, now), "the prepared frame can be revealed without another preparation");
     assert!(canceled.deadline().is_none());
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn launcher_stale_reveal_waits_for_an_unsettled_hidden_frame() {
     let now = crate::time::now();
@@ -273,7 +278,10 @@ fn launcher_stale_reveal_waits_for_an_unsettled_hidden_frame() {
     first.gpu_done();
     assert!(first.pending() && first.complete(), "a late first frame still reveals");
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn launcher_refresh_with_no_drawable_retries_and_never_reveals_stale_pixels() {
     let now = crate::time::now();
@@ -298,7 +306,10 @@ fn launcher_refresh_with_no_drawable_retries_and_never_reveals_stale_pixels() {
     assert!(shown.request_reveal(true, true, now));
     assert!(shown.deadline().is_none() && shown.ready());
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn launcher_hidden_resize_holds_reveal_until_the_resized_frame_draws() {
     let now = crate::time::now();
@@ -313,6 +324,7 @@ fn launcher_hidden_resize_holds_reveal_until_the_resized_frame_draws() {
     assert_eq!(frame.deadline(), deadline, "keeps the original reveal deadline");
     frame.gpu_done(); // Hidden frame drew at the new height.
     assert!(frame.pending() && frame.complete(), "reveals once the new-height frame finishes");
+}
 }
 
 impl Win {
@@ -623,6 +635,8 @@ impl Win {
 /// covered, occluded or hidden by the system may not draw for as long as it stays that way.
 /// It runs at the first frame skipped for being off screen, or `READY_FALLBACK` after opening
 /// when no frame comes at all; a window on screen still runs it after its first frame.
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn on_ready_runs_for_a_window_launched_occluded_or_hidden() {
     let now = crate::time::now();
@@ -647,4 +661,5 @@ fn on_ready_runs_for_a_window_launched_occluded_or_hidden() {
     assert_eq!(hidden.ready_deadline(), Some(now + READY_FALLBACK), "the event loop wakes for it");
     assert!(!hidden.ready_due(now + READY_FALLBACK - ms(1)));
     assert!(hidden.ready_due(now + READY_FALLBACK) && hidden.take_ready(), "a window that never draws runs it after the fallback");
+}
 }

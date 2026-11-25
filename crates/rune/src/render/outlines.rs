@@ -7,8 +7,11 @@ use rune_staging::Staging;
 use super::*;
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "texture_limit_tests.rs"]
 mod texture_limit_tests;
+}
 
 /// Rows the texture starts with (256 KB).
 pub(super) const MIN_ROWS: u32 = 16;

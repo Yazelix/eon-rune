@@ -399,5 +399,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 #[path = "offset_tests.rs"]
 mod tests;
+}

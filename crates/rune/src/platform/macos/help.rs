@@ -88,6 +88,8 @@ impl Drop for NativeHelp {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::{diff, snap};
 
@@ -103,4 +105,5 @@ mod tests {
         assert_eq!((stays, covered), (vec![true, false], vec![true]));
         assert_eq!(snap([10.3, 4.74, 30.0, 24.2], 2.0), [10.5, 4.5, 30.0, 24.0], "rects snap to device pixels");
     }
+}
 }

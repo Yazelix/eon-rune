@@ -74,5 +74,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "primary_selection_tests.rs"]
 mod tests;
+}

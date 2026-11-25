@@ -603,4 +603,7 @@ impl Drop for Presenter {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}

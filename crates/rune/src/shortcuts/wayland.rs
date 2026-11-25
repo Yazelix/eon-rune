@@ -325,6 +325,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use zbus::fdo;
@@ -341,4 +343,5 @@ mod tests {
         assert_eq!(dbus_error(fdo(fdo::Error::SpawnChildExited("portal".into()))), ShortcutError::Unsupported);
         assert!(matches!(dbus_error(fdo(fdo::Error::Failed("x".into()))), ShortcutError::Backend(_)));
     }
+}
 }

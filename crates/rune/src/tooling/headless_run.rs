@@ -260,6 +260,8 @@ pub(crate) fn test_turn() -> TestTurn {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -311,4 +313,5 @@ mod tests {
         let _turn = test_turn();
         assert_eq!(headless_run().map(|r| r as *const _), before.map(|r| r as *const _));
     }
+}
 }

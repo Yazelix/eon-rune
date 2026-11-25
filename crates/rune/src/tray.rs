@@ -569,6 +569,8 @@ pub(super) fn macos_screen_rect_to_physical(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -910,4 +912,5 @@ mod tests {
         assert!(String::from_utf16(&d.szTip[..len]).is_ok(), "tooltip split a UTF-16 surrogate pair: {:?}", &d.szTip[len.saturating_sub(2)..len]);
         assert_eq!(len, 126);
     }
+}
 }

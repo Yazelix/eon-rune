@@ -131,5 +131,8 @@ impl<S: 'static> HeadlessApp for TypedHeadlessApp<S> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;
+}

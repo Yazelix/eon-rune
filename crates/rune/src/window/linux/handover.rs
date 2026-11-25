@@ -308,5 +308,8 @@ fn count_drift(gpu: Arc<Gpu>, readback: Readback) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "handover_tests.rs"]
 mod tests;
+}

@@ -144,6 +144,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -162,4 +164,5 @@ mod tests {
             assert!(matches!(x11_keycode(&shortcut, 8, 100), Err(ShortcutError::InvalidAccelerator(_))), "{accel}");
         }
     }
+}
 }

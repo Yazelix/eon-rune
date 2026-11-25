@@ -92,5 +92,8 @@ impl KeyReleases {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "key_releases_tests.rs"]
 mod tests;
+}

@@ -150,5 +150,8 @@ pub(super) fn overlay_rect_on(at: crate::overlay::Placement, options: &OverlayOp
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "geometry_tests.rs"]
 mod tests;
+}

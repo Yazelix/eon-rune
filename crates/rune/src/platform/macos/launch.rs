@@ -258,5 +258,8 @@ fn interactive() {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "launch_tests.rs"]
 mod tests;
+}

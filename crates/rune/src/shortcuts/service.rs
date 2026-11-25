@@ -728,19 +728,43 @@ impl Drop for Guard {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod lifecycle_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod machine_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod routing_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod host_handler_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod generation_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod closed_wake_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, target_os = "linux"))]
 mod teardown_tests;
+}
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}

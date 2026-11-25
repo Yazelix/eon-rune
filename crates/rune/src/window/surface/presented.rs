@@ -119,5 +119,8 @@ impl Presented {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "presented_tests.rs"]
 mod tests;
+}

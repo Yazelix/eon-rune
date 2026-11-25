@@ -800,5 +800,8 @@ fn sync_layer_ime(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "draw_tests.rs"]
 mod tests;
+}

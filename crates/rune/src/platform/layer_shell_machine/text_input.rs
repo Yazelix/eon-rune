@@ -301,5 +301,8 @@ pub(crate) fn step(state: &mut State, event: Event) -> Effects<Effect> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "text_input_tests.rs"]
 mod tests;
+}

@@ -424,9 +424,15 @@ pub(in crate::tooling) fn step_window_frame(
     if moving.done(now) { *anim = None; }
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, feature = "frame-profile"))]
 #[path = "frame_tests.rs"]
 mod tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 #[path = "settle_tests.rs"]
 mod settle_tests;
+}

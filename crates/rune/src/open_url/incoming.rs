@@ -557,5 +557,8 @@ mod mac {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "incoming_tests.rs"]
 mod tests;
+}

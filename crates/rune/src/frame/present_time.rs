@@ -493,18 +493,27 @@ pub(crate) mod metal {
     }
 
     #[cfg(test)]
+    test_group! { core =>
+    #[cfg(test)]
     #[test]
     fn host_time_maps_onto_instants() {
         let now = crate::time::now();
         assert_eq!(instant_at(now, 100.0, 100.008), now + Duration::from_millis(8));
         assert_eq!(instant_at(now, 100.0, 99.992), now - Duration::from_millis(8));
     }
+    }
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "present_time_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "present_time_walk_tests.rs"]
 mod walk_tests;
+}

@@ -1104,13 +1104,22 @@ fn rescue(lost_tab_stop: bool, at: usize, scopes: &[(usize, usize)], item: &dyn 
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "focus_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 #[path = "focus_key_tests.rs"]
 mod key_tests;
+}
 
+#[cfg(test)]
+test_group! { input =>
 #[cfg(test)]
 #[path = "focus_change_tests.rs"]
 mod change_tests;
+}

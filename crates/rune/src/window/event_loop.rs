@@ -282,12 +282,17 @@ impl Windows {
     }
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn an_event_loop_that_cant_start_is_an_error_naming_the_event_loop() {
     let error = event_loop_error(winit::error::EventLoopError::RecreationAttempt);
     assert!(error.starts_with("event loop: ") && error.contains("recreated"), "{error}");
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn run_exit_failure_reports_captured_display_error() {
     let proto = format_run_error(
@@ -313,7 +318,10 @@ fn run_exit_failure_reports_captured_display_error() {
     );
     assert!(other.starts_with("run: ") && other.contains("recreated"), "{other}");
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn finish_run_returns_startup_window_error_when_the_loop_exits_cleanly() {
     assert_eq!(finish_run(Ok(()), None, None, None), Ok(()));
@@ -331,7 +339,10 @@ fn finish_run_returns_startup_window_error_when_the_loop_exits_cleanly() {
         Err("run: the display connection failed: Protocol error 2 on object wl_surface@7".into()),
     );
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[test]
 fn finish_run_resumes_a_captured_panic_ahead_of_exit_status_and_startup_errors() {
     let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -344,7 +355,10 @@ fn finish_run_resumes_a_captured_panic_ahead_of_exit_status_and_startup_errors()
     })).expect_err("captured panic must unwind out of finish_run");
     assert_eq!(err.downcast_ref::<&str>(), Some(&"original callback panic"));
 }
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn exit_action_returns_when_drained_and_ends_process_without_destructors_on_timeout() {
@@ -375,4 +389,5 @@ fn exit_action_returns_when_drained_and_ends_process_without_destructors_on_time
             message: "rune: run: display failed\nrune: 1 GPU warm-up thread(s) did not finish before exit; ending process without destructors".into(),
         },
     );
+}
 }

@@ -924,6 +924,9 @@ impl Renderer {
     }
 }
 
+#[cfg(test)]
+test_group! { paint =>
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "effect_warm_tests.rs"]
 mod tests;
+}

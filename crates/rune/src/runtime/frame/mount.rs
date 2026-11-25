@@ -180,5 +180,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "mount_tests.rs"]
 mod tests;
+}

@@ -186,5 +186,8 @@ impl GlLinkState {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "gl_links_tests.rs"]
 mod tests;
+}

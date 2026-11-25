@@ -262,6 +262,8 @@ impl Drop for Native {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use zbus::zvariant::Type;
@@ -424,4 +426,5 @@ mod tests {
         let toggled = dbus_menu.get_property(*hud_id, "toggle-state".into()).unwrap();
         assert_eq!(i32::try_from(&toggled).ok(), Some(1));
     }
+}
 }

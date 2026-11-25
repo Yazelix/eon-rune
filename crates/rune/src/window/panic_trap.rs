@@ -92,5 +92,8 @@ pub(super) fn nested_run_loop_mode() -> Option<String> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "panic_trap_tests.rs"]
 mod tests;
+}

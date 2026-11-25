@@ -836,11 +836,23 @@ pub(crate) mod connection {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "layer_shell_machine_tests.rs"]
 mod tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod configure_wait_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod connection_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod keyboard_tests;
+}

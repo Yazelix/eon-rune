@@ -648,5 +648,8 @@ fn reads_text_layout(action: &Action) -> bool {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "action_tests.rs"]
 mod tests;
+}

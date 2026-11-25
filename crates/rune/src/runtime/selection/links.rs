@@ -733,9 +733,15 @@ pub(crate) fn count_span_box_queries<R>(f: impl FnOnce() -> R) -> (R, usize) {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "links_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { selection =>
 #[cfg(test)]
 #[path = "pill_hit_tests.rs"]
 mod pill_hit_tests;
+}

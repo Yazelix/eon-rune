@@ -158,5 +158,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 #[path = "press_repeat_tests.rs"]
 mod tests;
+}

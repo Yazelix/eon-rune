@@ -798,5 +798,8 @@ fn last_seg(path: &str) -> &str {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "check_tests.rs"]
 mod tests;
+}

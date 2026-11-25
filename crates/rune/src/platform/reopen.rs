@@ -140,6 +140,8 @@ mod mac {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -194,4 +196,5 @@ mod tests {
         let (a, b) = (stamp(), stamp());
         assert!(b > a);
     }
+}
 }

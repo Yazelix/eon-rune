@@ -278,5 +278,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "touch_tests.rs"]
 mod tests;
+}

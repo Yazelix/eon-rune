@@ -169,5 +169,8 @@ pub(crate) fn frame(f: Frame) {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "live_log_tests.rs"]
 mod tests;
+}

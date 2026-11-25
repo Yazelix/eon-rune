@@ -472,20 +472,35 @@ impl Measurement<'_> {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "anchor_boundary_tests.rs"]
 mod boundary_tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "anchor_order_tests.rs"]
 mod order_tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "anchor_placement_tests.rs"]
 mod placement_tests;
+}
+#[cfg(test)]
+test_group! { motion =>
 #[cfg(test)]
 #[path = "anchor_zoom_tests.rs"]
 mod zoom_tests;
+}
+#[cfg(test)]
+test_group! { motion =>
 #[cfg(test)]
 #[path = "anchor_zoom_motion_tests.rs"]
 mod zoom_motion_tests;
+}
 
 /// The smallest zoom an anchored overlay is placed at, so placing it never divides by zero.
 const MIN_ZOOM: f32 = 1e-3;

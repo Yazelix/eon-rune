@@ -211,5 +211,8 @@ pub(crate) fn has_rtl_keyboard_layout() -> bool {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "ime_tests.rs"]
 mod tests;
+}

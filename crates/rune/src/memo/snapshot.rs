@@ -45,4 +45,7 @@ impl Drop for Guard {
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests;
+}

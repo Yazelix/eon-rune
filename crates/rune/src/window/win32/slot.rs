@@ -167,5 +167,8 @@ unsafe extern "system" fn came(context: *mut c_void, _timed_out: bool) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "slot_tests.rs"]
 mod tests;
+}

@@ -1089,5 +1089,8 @@ pub(crate) fn validate(windows: &[AnyWindowSpec]) -> Result<(), String> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "spec_tests.rs"]
 mod tests;
+}

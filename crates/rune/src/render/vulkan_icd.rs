@@ -617,5 +617,8 @@ pub(crate) fn create_linux_instance(
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "vulkan_icd_tests.rs"]
 mod tests;
+}

@@ -1145,4 +1145,7 @@ mod requests;
 pub(crate) use requests::{window_request_order, Activation, Shared, SharedCore, WindowRequest, WindowRequests};
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests;
+}

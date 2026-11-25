@@ -346,5 +346,8 @@ impl PatchState {
 }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 #[path = "patch_tests.rs"]
 mod tests;
+}

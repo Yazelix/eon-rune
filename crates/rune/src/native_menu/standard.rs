@@ -177,6 +177,8 @@ pub(crate) fn is_winit_default(tops: usize, app_menu: &[Option<&str>]) -> bool {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -313,4 +315,5 @@ mod tests {
         // Removing the custom ⌘Q item restores ⌘Q to built-in Quit even if its current key was cleared.
         assert_eq!(resolve_yields(&[builtin_quit(None), std_close]), ["q", "w"]);
     }
+}
 }

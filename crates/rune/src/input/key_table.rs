@@ -344,6 +344,8 @@ pub(crate) fn title_case(name: &str) -> String {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
@@ -434,4 +436,5 @@ mod tests {
         assert_eq!(title_case("SPACE"), "Space");
         assert_eq!(title_case(""), "");
     }
+}
 }

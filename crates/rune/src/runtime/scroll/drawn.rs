@@ -60,6 +60,8 @@ impl PixelHold {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -120,4 +122,5 @@ mod tests {
         assert_eq!(at, grid(100.02, 2.0), "past one quantum, it steps");
         assert_eq!(next, PixelHold::Stepping { drawn: grid(100.02, 2.0), dir: 1, pinned: true });
     }
+}
 }

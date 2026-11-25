@@ -100,5 +100,8 @@ pub(in crate::window) fn draw(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "corners_tests.rs"]
 mod tests;
+}

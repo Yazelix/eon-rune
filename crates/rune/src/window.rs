@@ -112,7 +112,10 @@ pub(crate) fn frame_presented() {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests;
+}
 
 pub(crate) enum WakeEvent {
     DisplayTick(usize),

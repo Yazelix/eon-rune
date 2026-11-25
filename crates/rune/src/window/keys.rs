@@ -237,9 +237,14 @@ pub(super) fn map_web_winit_key(
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "keys_tests.rs"]
 mod layout_tests;
+}
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,4 +315,5 @@ mod tests {
         let m = ModifiersState::CONTROL;
         assert_eq!(map_parts(false, NO_KEY, &ch("a"), Some("a"), m), map_key(&ch("a"), m));
     }
+}
 }

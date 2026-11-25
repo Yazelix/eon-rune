@@ -818,8 +818,13 @@ impl VirtualList {
 }
 
 #[cfg(test)]
+test_group! { input =>
+#[cfg(test)]
 mod rekey_tests;
+}
 
+#[cfg(test)]
+test_group! { app =>
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1009,4 +1014,5 @@ mod tests {
         assert_eq!(anchor, None);
         assert!(!v.replaced_view(), "visible rows survived even with list-level no_anchor");
     }
+}
 }

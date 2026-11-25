@@ -126,6 +126,8 @@ impl VirtualDesktop {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -181,4 +183,5 @@ mod tests {
         assert_eq!(on((3840 + 200, 1500)), (2, (2020.0, 750.0)));
         assert_eq!(on((100, 100)), (1, (100.0, 100.0)));
     }
+}
 }

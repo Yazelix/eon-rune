@@ -268,6 +268,8 @@ pub(super) fn keycode(key: &str) -> Option<u32> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     #[test]
     fn preference_modifiers_map_to_carbon_and_drop_fn() {
@@ -406,4 +408,5 @@ mod tests {
             assert_eq!(carbon_keycode(&shortcut), Err(ShortcutError::InvalidAccelerator(shortcut.to_string())), "{accel}");
         }
     }
+}
 }

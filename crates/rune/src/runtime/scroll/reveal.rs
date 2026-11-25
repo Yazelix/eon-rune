@@ -280,5 +280,8 @@ struct Was {
 }
 
 #[cfg(test)]
+test_group! { layout =>
+#[cfg(test)]
 #[path = "reveal_tests.rs"]
 mod tests;
+}

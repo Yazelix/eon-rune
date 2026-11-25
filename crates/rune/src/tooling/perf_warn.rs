@@ -387,7 +387,13 @@ pub(crate) fn handler_site(name: &str, path: &str) -> String {
     format!("{name} {}", path.chars().filter(|c| !c.is_ascii_digit()).collect::<String>())
 }
 
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, debug_assertions))]
 mod commits_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(all(test, debug_assertions))]
 mod tests;
+}

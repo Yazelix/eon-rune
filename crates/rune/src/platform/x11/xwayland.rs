@@ -270,5 +270,8 @@ fn xft_scale(connection: &XCBConnection, root: u32) -> f32 {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "xwayland_tests.rs"]
 mod tests;
+}

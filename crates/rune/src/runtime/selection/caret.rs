@@ -332,9 +332,15 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { selection =>
+#[cfg(test)]
 #[path = "caret_tests.rs"]
 mod tests;
+}
 
+#[cfg(test)]
+test_group! { selection =>
 #[cfg(test)]
 #[path = "focus_caret_tests.rs"]
 mod focus_tests;
+}

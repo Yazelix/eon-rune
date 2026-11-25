@@ -133,5 +133,8 @@ fn platform() -> Vec<String> {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "languages_tests.rs"]
 mod tests;
+}

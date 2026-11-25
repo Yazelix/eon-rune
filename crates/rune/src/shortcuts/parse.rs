@@ -109,6 +109,8 @@ impl Shortcut {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -152,4 +154,5 @@ mod tests {
             assert!(matches!(input.parse::<Shortcut>(), Err(ShortcutError::InvalidAccelerator(_))), "{input}");
         }
     }
+}
 }

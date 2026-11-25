@@ -401,5 +401,8 @@ static FIRST_PAINT: AtomicBool = AtomicBool::new(false);
 static NEEDS_GPU: AtomicBool = AtomicBool::new(false);
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "cpu_frame_tests.rs"]
 mod tests;
+}

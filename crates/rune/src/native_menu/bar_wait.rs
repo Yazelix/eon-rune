@@ -49,6 +49,8 @@ impl BarWait {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -88,4 +90,5 @@ mod tests {
         bar.standard(false);
         assert_eq!(bar.end(), Some(Owed { standard: Some(false) }));
     }
+}
 }

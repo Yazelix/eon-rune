@@ -60,7 +60,10 @@ mod reads;
 mod region;
 pub(crate) mod snapshot;
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests;
+}
 
 pub(crate) use built::Built;
 #[cfg(test)]

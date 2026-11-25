@@ -4,8 +4,11 @@ use super::*;
 use crate::machine::Effects;
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "cache_layer_tests.rs"]
 mod tests;
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(in crate::runtime) enum ScaleSettle {

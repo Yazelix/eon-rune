@@ -121,6 +121,7 @@ mod mac {
             *out.lock().unwrap() = Some(run.is_ok());
             main.quit();
         });
+        rune::orderly_exit();
         app.run();
         child.kill().ok();
         child.wait().ok();

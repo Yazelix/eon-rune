@@ -131,6 +131,8 @@ fn us_label(name: &str) -> &str {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -167,4 +169,5 @@ mod tests {
         assert_eq!(crate::input::key_table::capital_keycap("K"), "K");
         assert_eq!(crate::input::key_table::capital_keycap("/"), "/");
     }
+}
 }

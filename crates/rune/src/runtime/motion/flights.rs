@@ -554,5 +554,8 @@ impl tracks::MotionState {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 #[path = "flights_tests.rs"]
 mod tests;
+}

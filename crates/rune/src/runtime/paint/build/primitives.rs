@@ -470,5 +470,8 @@ impl RuntimeCore {
 }
 
 #[cfg(test)]
+test_group! { paint =>
+#[cfg(test)]
 #[path = "primitives_tests.rs"]
 mod tests;
+}

@@ -13,7 +13,10 @@ mod press;
 mod scroll;
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 mod tests;
+}
 
 /// What a handler may say about the commit it causes.
 #[derive(Clone, Debug, Default)]

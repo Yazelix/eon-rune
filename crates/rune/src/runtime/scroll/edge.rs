@@ -174,6 +174,8 @@ fn partial_linear(width: f32, strength: f32) -> (f32, f32) {
 }
 
 #[cfg(test)]
+test_group! { motion =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -201,4 +203,5 @@ mod tests {
         assert_eq!(reveal(400.0, 300.0, 500.0, 200.0, 24.0), 400.0, "a row filling the viewport: no move");
         assert_eq!(reveal(700.0, 300.0, 500.0, 200.0, 24.0), 300.0, "its end in view: its start");
     }
+}
 }

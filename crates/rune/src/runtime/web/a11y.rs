@@ -1241,8 +1241,14 @@ fn join_inline(prev: &mut A11yItem, rect: [f32; 4], mut runs: Vec<A11yRun>, gap:
 }
 
 #[cfg(test)]
+test_group! { app =>
+#[cfg(test)]
 #[path = "a11y_tests.rs"]
 mod tests;
+}
+#[cfg(test)]
+test_group! { core =>
 #[cfg(test)]
 #[path = "a11y/mirror_tests.rs"]
 mod mirror_tests;
+}

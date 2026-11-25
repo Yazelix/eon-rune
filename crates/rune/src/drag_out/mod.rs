@@ -416,4 +416,7 @@ fn picture(item: &DragItem, snapshot: Option<DragImage>) -> Option<DragImage> {
 fn path_text(path: &Path) -> String { path.to_string_lossy().into_owned() }
 
 #[cfg(test)]
+test_group! { core =>
+#[cfg(test)]
 mod tests;
+}

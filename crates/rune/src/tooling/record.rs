@@ -334,6 +334,8 @@ impl Drop for Writer {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -501,4 +503,5 @@ mod tests {
         rune_gpu::health::poll(&gpu.device, wgpu::PollType::wait_indefinitely()).unwrap();
         assert_eq!(completed.load(Ordering::Acquire), 12);
     }
+}
 }

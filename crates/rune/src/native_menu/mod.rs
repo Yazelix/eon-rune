@@ -16,9 +16,15 @@ mod default_macos;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod key_equivalent;
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 mod key_equivalent_tests;
+}
+#[cfg(test)]
+test_group! { native =>
 #[cfg(test)]
 mod tests;
+}
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod standard;
 #[cfg(target_os = "macos")]

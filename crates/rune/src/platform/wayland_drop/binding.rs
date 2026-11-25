@@ -216,5 +216,8 @@ pub(crate) fn step(seq: &mut Seq, state: &mut State, event: Event) -> Effects<Ef
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[path = "binding_tests.rs"]
 mod tests;
+}

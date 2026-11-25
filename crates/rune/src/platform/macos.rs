@@ -439,6 +439,8 @@ pub(crate) fn dock_badge(window: &winit::window::Window, count: u32) {
 }
 
 #[cfg(test)]
+test_group! { native =>
+#[cfg(test)]
 #[allow(unsafe_code)]
 pub(crate) mod test_pasteboard {
     use objc2::rc::Retained;
@@ -500,4 +502,5 @@ pub(crate) mod test_pasteboard {
         if !available() { return None; }
         create()
     }
+}
 }
