@@ -217,7 +217,7 @@ fn native_geometry_hidden_creation_keeps_applied_viewport() {
             let scale = window.scale_factor() as f32;
             let applied = (size.width as f32 / scale, size.height as f32 / scale);
             assert_eq!(h.app.rt().window_viewport(), applied, "hidden creation synchronizes current native viewport");
-            h.show(el);
+            h.show(el, crate::time::now());
             assert!(h.life.shown());
             assert_eq!(h.app.rt().window_viewport(), applied, "a later show retains applied geometry");
             println!("HIDDEN CREATION PASS viewport={applied:?}");
@@ -262,8 +262,8 @@ fn native_bound_focus_close_dispatch() {
         }
         fn user_event(&mut self, el: &ActiveEventLoop, event: WakeEvent) {
             let kind = match &event {
-                WakeEvent::Focus(_) => Some("focus-complete"),
-                WakeEvent::Window(_, WindowRequest::Close) => Some("close-complete"),
+                WakeEvent::Focus(..) => Some("focus-complete"),
+                WakeEvent::Window(_, WindowRequest::Close, _) => Some("close-complete"),
                 _ => None,
             };
             self.windows.user_event(el, event);
@@ -288,6 +288,7 @@ fn native_bound_focus_close_dispatch() {
     let handle = Arc::new(Mutex::new(None));
     let created = handle.clone();
     let app = crate::App::new(AppSpec::new("Bound FIFO", (300.0, 200.0), || Arc::new(Mutex::new(Vec::<&'static str>::new())), |_, _| crate::el()))
+        .attention_wait(std::time::Duration::from_secs(5))
         .init(move || state)
         .on_close(|s, _| s.lock().unwrap().push("close-hook"));
     let windows = Windows {

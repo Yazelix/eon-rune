@@ -493,10 +493,10 @@ impl Member for Window {
         let queued = self.handle.as_ref().map(WindowHandle::take_headless).unwrap_or_default();
         for event in queued {
             match event {
-                WakeEvent::Window(_, request) => self.request(request, &mut changes),
+                WakeEvent::Window(_, request, _) => self.request(request, &mut changes),
                 WakeEvent::Place(_, place) => self.place(desktop, &place, t),
                 WakeEvent::Position(_, p) => self.move_to(desktop.to_points(p)),
-                WakeEvent::Focus(_) if self.life.shown() => { changes.front = true; changes.keys = true; }
+                WakeEvent::Focus(..) if self.life.shown() => { changes.front = true; changes.keys = true; }
                 WakeEvent::Frame(_, mut request) => {
                     let rt = self.app.rt_mut();
                     request.spring = (request.animate && !rt.reduced_motion).then_some(crate::tok::motion::DEFAULT);

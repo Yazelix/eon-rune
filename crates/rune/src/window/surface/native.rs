@@ -75,7 +75,7 @@ mod tests;
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 #[derive(Default)]
 pub(in crate::window) struct Native {
-    pub(in crate::window) activator: Option<crate::platform::activation::Activator>,
+    pub(in crate::window) attention: crate::platform::activation::Attention,
     /// Whether the CPU renderer or the GPU draws its frames (`linux::cpu_frame`).
     #[cfg(target_os = "linux")]
     pub(in crate::window) mode: crate::window::linux::handover::SurfaceMode,

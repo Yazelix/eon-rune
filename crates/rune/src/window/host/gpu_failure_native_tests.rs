@@ -39,8 +39,9 @@ fn native_terminal_window_and_same_device_surface_control() {
             host.handle_window_event(active, id, WindowEvent::CursorEntered { device_id: DeviceId::dummy() });
             assert!(host.win.is_none() && host.gpu.is_none());
             assert_eq!(host.shared.window_error().as_deref(), Some("injected device failure"));
-            host.open(active, None);
-            host.show(active);
+            let now = crate::time::now();
+            host.open(active, None, now);
+            host.show(active, now);
             host.draw(false);
             assert!(host.sample_geometry(active, false));
             assert_eq!((host.typed::<Seen>().rt.state.raw, host.typed::<Seen>().rt.state.geometry), counts);

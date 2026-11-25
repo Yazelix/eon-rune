@@ -11,6 +11,7 @@ use winit::window::WindowLevel;
 use super::{Host, WindowApp};
 use crate::app::{Activation, WindowRequest};
 use crate::el::Shell;
+use crate::time::Instant;
 use crate::window::chrome::{self, sync_chrome_core};
 use crate::window::file_drop::FileDrop;
 use crate::window::handle::native_window_number;
@@ -70,10 +71,10 @@ pub(in crate::window) const fn reveal_focus(reveal: Reveal, open_inactive: bool,
 }
 
 impl Host {
-    pub(in crate::window) fn window_request(&mut self, event_loop: &ActiveEventLoop, request: WindowRequest) {
+    pub(in crate::window) fn window_request(&mut self, event_loop: &ActiveEventLoop, request: WindowRequest, at: Instant) {
         match request {
-            WindowRequest::Open(token) => self.open(event_loop, token),
-            WindowRequest::Show => self.show(event_loop),
+            WindowRequest::Open(token) => self.open(event_loop, token, at),
+            WindowRequest::Show => self.show(event_loop, at),
             WindowRequest::Hide => self.hide(event_loop),
             WindowRequest::Close => self.close(event_loop),
         }
@@ -156,16 +157,16 @@ impl Host {
         }
     }
 
-    pub(in crate::window) fn show(&mut self, event_loop: &ActiveEventLoop) {
+    pub(in crate::window) fn show(&mut self, event_loop: &ActiveEventLoop, at: Instant) {
         if self.launcher() { self.reveal_launcher(event_loop); return; }
-        self.reveal(event_loop, Reveal::Show, None);
+        self.reveal(event_loop, Reveal::Show, None, at);
     }
 
-    pub(in crate::window) fn open(&mut self, event_loop: &ActiveEventLoop, token: Option<String>) {
+    pub(in crate::window) fn open(&mut self, event_loop: &ActiveEventLoop, token: Option<String>, at: Instant) {
         if self.launcher() { self.reveal_launcher(event_loop); return; }
         // The launcher's startup token belongs to the first window only.
         let token = token.or_else(|| self.startup_token(event_loop));
-        self.reveal(event_loop, Reveal::Open, token);
+        self.reveal(event_loop, Reveal::Open, token, at);
     }
 
     /// The window shown, or not, so far: the shown one, and nothing while it's hidden.
@@ -182,7 +183,7 @@ impl Host {
     }
 
     /// Brings the window on screen (`Reveal`); a window closed for good stays closed.
-    pub(in crate::window) fn reveal(&mut self, event_loop: &ActiveEventLoop, reveal: Reveal, mut token: Option<String>) {
+    pub(in crate::window) fn reveal(&mut self, event_loop: &ActiveEventLoop, reveal: Reveal, mut token: Option<String>, at: Instant) {
         if self.life.finished() || self.gpu_failed() { return; }
         let mut built = false;
         for effect in reveal.effects(self.found()) {
@@ -229,7 +230,7 @@ impl Host {
                 RevealEffect::Number => if let Some(w) = &self.win {
                     self.native_handle.native.number.store(native_window_number(&w.window).unwrap_or(0), Ordering::Release);
                 },
-                RevealEffect::Focus => if !self.no_activate() { self.activate(event_loop, token.take()); },
+                RevealEffect::Focus => if !self.no_activate() { self.activate(event_loop, token.take(), at); },
                 RevealEffect::Redraw => if let Some(w) = &self.win { w.request_redraw() },
                 // No settle, frame, surface configure or acquisition on a cached reveal, unless
                 // the refreshed frame left motion running.
@@ -253,21 +254,16 @@ impl Host {
     }
 
     /// Focuses a shown window; Wayland and X11 use the open's startup token for that.
-    fn activate(&mut self, event_loop: &ActiveEventLoop, token: Option<String>) {
+    fn activate(&mut self, event_loop: &ActiveEventLoop, token: Option<String>, at: Instant) {
+        let wait = self.attention_wait;
         let Some(w) = self.win.as_mut() else { return };
         #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
         if is_wayland(event_loop) {
-            match token {
-                Some(token) => {
-                    if w.native.activator.is_none() {
-                        w.native.activator = crate::platform::activation::Activator::new(&w.window);
-                    }
-                    if let Some(a) = w.native.activator.as_mut() {
-                        a.activate(&token);
-                    }
-                }
-                // Without a token the compositor may only mark the window urgent.
-                None => w.window.request_user_attention(Some(winit::window::UserAttentionType::Informational)),
+            use crate::platform::activation;
+            match (wait, token.as_deref()) {
+                (Some(limit), token) => activation::request(&mut w.native.attention, &w.window, token, at, limit),
+                (None, Some(token)) => activation::forward(&mut w.native.attention, &w.window, token),
+                (None, None) => activation::urgent(&w.window),
             }
             return;
         } else if let Some(token) = token.as_deref()
@@ -275,7 +271,7 @@ impl Host {
         {
             return;
         }
-        let _ = (event_loop, token);
+        let _ = (event_loop, token, at, wait);
         w.focus();
     }
 
@@ -290,14 +286,11 @@ impl Host {
         true
     }
 
-    pub(in crate::window) fn focus(&self, event_loop: &ActiveEventLoop) {
+    pub(in crate::window) fn focus(&mut self, event_loop: &ActiveEventLoop, at: Instant) {
+        if self.gpu_failed() { return; }
         let Some(w) = self.shown_win() else { return };
         if w.is_minimized_native() { w.window.set_minimized(false); }
-        if is_wayland(event_loop) {
-            w.window.request_user_attention(Some(winit::window::UserAttentionType::Informational));
-            return;
-        }
-        w.focus();
+        self.activate(event_loop, None, at);
     }
 
     /// Applies everything other threads asked for since the last wake-up. A `wake` polls a
@@ -337,8 +330,9 @@ impl Host {
         let polled = wake && !quiet && self.poll_hidden(event_loop, shows);
         if let Some(position) = requests.position { self.set_position(event_loop, position); }
         if let Some(place) = requests.place { self.place(event_loop, place); }
-        if let Some(request) = requests.window { self.window_request(event_loop, request); }
-        if requests.activation == Some(Activation::Focus) { self.focus(event_loop); }
+        let drained = crate::time::now();
+        if let Some(request) = requests.window { self.window_request(event_loop, request, drained); }
+        if requests.activation == Some(Activation::Focus) { self.focus(event_loop, drained); }
         // After the show it may follow; `focus` and `minimize` are last-wins (`AppHandle`).
         if requests.activation == Some(Activation::Minimize) { self.app.rt_mut().minimize_step(MinimizeEvent::Asked); }
         self.shell(event_loop);

@@ -112,3 +112,10 @@ test_group! { native =>
 #[path = "gpu_failure_native_tests.rs"]
 mod gpu_failure_tests;
 }
+
+#[cfg(test)]
+test_group! { native =>
+#[cfg(target_os = "linux")]
+#[path = "attention_native_tests.rs"]
+mod attention_tests;
+}

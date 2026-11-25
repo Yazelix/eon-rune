@@ -90,6 +90,7 @@ pub(in crate::window) struct Host {
     pub(in crate::window) geometry: WindowGeometry,
     pub(in crate::window) args: Args,
     pub(in crate::window) keep_running: bool,
+    pub(super) attention_wait: Option<std::time::Duration>,
     /// What the window still owes after its first frame (`post_frame`).
     #[cfg(target_os = "windows")]
     pub(in crate::window) chores: super::win32::post_frame::Chores,
@@ -226,6 +227,7 @@ struct HostInit {
     geometry: WindowGeometry,
     args: Args,
     keep_running: bool,
+    attention_wait: Option<std::time::Duration>,
     release_gpu: bool,
     prewarm_effects: crate::PrewarmEffects,
     open_at_start: bool,
@@ -277,6 +279,7 @@ impl Host {
             app.open, app.keep_running, app.release_gpu, app.prewarm_effects, app.fit_content_height, app.float_on_open,
         );
         let (open_inactive, open_as, chrome, titlebar) = (app.open_inactive, app.open_as, app.chrome, app.titlebar);
+        let attention_wait = app.attention_wait;
         let window_hooks = std::mem::take(&mut app.window_hooks);
         let on_quit_request = app.on_quit_request.map(|hook| (hook, crate::quit::request::Registration::new()));
         let (on_close_request, on_close, on_rest, on_reopen, on_quit, turn_scope) = (
@@ -320,6 +323,7 @@ impl Host {
             geometry,
             args,
             keep_running,
+            attention_wait,
             release_gpu,
             prewarm_effects,
             open_at_start: open,
@@ -362,6 +366,7 @@ impl Host {
             mut geometry,
             mut args,
             keep_running,
+            attention_wait,
             release_gpu,
             prewarm_effects,
             open_at_start,
@@ -458,6 +463,7 @@ impl Host {
             geometry,
             args,
             keep_running,
+            attention_wait,
             #[cfg(target_os = "windows")]
             chores: Default::default(),
             ends_app: false,

@@ -95,6 +95,7 @@ pub struct App<S: 'static> {
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub(crate) standard_menus: bool,
     pub(crate) keep_running: bool,
+    pub(crate) attention_wait: Option<std::time::Duration>,
     pub(crate) window_hooks: WindowHooks<S>,
     pub(crate) on_close_request: Option<fn(&mut S, &mut Tx) -> CloseResponse>,
     pub(crate) on_close: Option<fn(&mut S, &mut Tx)>,
@@ -164,6 +165,7 @@ impl<S: 'static> App<S> {
             accessory: false,
             standard_menus: false,
             keep_running: false,
+            attention_wait: None,
             window_hooks: WindowHooks::default(),
             on_close_request: None,
             on_close: None,
@@ -536,6 +538,17 @@ impl<S: 'static> App<S> {
     /// until `AppHandle::quit` or `Tx::quit` (for tray apps and apps that retry on `window_error`).
     pub fn keep_running(mut self) -> Self {
         self.keep_running = true;
+        self
+    }
+
+    /// On Wayland, wait for the compositor to process attention requests on a shown window.
+    /// `WindowHandle` requests share a FIFO. A close sent after focus on the same handle waits
+    /// for attention or the deadline. The deadline starts when the handle sends the request,
+    /// or when the host drains a coalesced `AppHandle` request. The limit is capped at one day.
+    /// After a timeout the window stops waiting until the compositor answers or the window is
+    /// recreated. A new window's first configure remains owned by winit.
+    pub fn attention_wait(mut self, limit: std::time::Duration) -> Self {
+        self.attention_wait = Some(limit);
         self
     }
 
