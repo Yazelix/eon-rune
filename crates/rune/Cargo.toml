@@ -263,6 +263,9 @@ name = "integration"
 name = "alloc"
 
 [[test]]
+name = "layer_bucket_reuse"
+
+[[test]]
 name = "extra_args"
 
 [[test]]

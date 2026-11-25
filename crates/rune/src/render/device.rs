@@ -262,10 +262,7 @@ impl Gpu {
             required_features,
             required_limits,
             experimental_features: Default::default(),
-            // Defaults to `MemoryUsage` (`Performance` suballocates from 128 MB device and
-            // 64 MB host blocks, committing ~190 MB more than a few atlases use). Callers can
-            // override this at startup via `App::gpu_memory_policy` or `set_gpu_memory_policy`.
-            memory_hints: crate::gpu::memory::wgpu_hints(),
+            memory_hints: crate::gpu::memory::wgpu_hints_for(adapter.get_info().backend),
             trace: Default::default(),
         }))
         .map_err(|error| format!("no GPU device: {error}"));

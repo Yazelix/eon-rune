@@ -967,8 +967,9 @@ Staying fast afterwards is "Fast apps" (`site/src/FastApps.tsx`) and "Smooth scr
   if the MSL, flags or library hash changed, run `scripts/precompile-metal-shaders.sh` (needs
   Xcode's Metal toolchain) and commit the updated libraries and hash files. Metal binary archives on
   wgpu's backend would need `wgpu-hal` support.
-- **GPU memory policy (`GpuMemoryPolicy`).** By default Rune creates wgpu devices with
-  `GpuMemoryPolicy::MemoryUsage` (smaller suballocation blocks than wgpu's `Performance` default).
+- **GPU memory policy (`GpuMemoryPolicy`).** Linux Vulkan devices use a 16–64 MiB range for
+  allocation blocks and an 8–32 MiB range for host-visible blocks by default.
+  Other wgpu backends default to `GpuMemoryPolicy::MemoryUsage`.
   Apps can choose `MemoryUsage`, `Performance`, or `Manual { block_size }` at startup via
   `App::gpu_memory_policy` or `rune::set_gpu_memory_policy` (call before `prewarm_gpu`, `warm_gpu`,
   or `warm_gpu_cache`; changing it discards or restarts any prewarmed or parked device built under

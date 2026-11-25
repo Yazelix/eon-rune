@@ -15,8 +15,8 @@ use std::sync::Mutex;
 /// Windows and Vulkan on Linux). Rune's native Metal backend, wgpu's Metal backend, and browser
 /// backends (WebGPU and WebGL2) ignore it.
 ///
-/// The default is [`Self::MemoryUsage`], which favors smaller suballocation blocks over peak
-/// throughput.
+/// Rune uses [`Self::MemoryUsage`] by default except on Linux Vulkan, where devices start with
+/// 16 MiB allocation blocks and grow them up to 64 MiB. An explicit policy takes precedence.
 ///
 /// In [`Self::Manual`], `block_size` bounds the suballocator's block range in bytes, not the
 /// maximum size of a texture or buffer: resources larger than the block range still succeed via
@@ -35,7 +35,7 @@ use std::sync::Mutex;
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum GpuMemoryPolicy {
-    /// Favor lower reserved GPU memory (wgpu's `MemoryHints::MemoryUsage`, Rune's default).
+    /// Favor lower reserved GPU memory (wgpu's `MemoryHints::MemoryUsage`).
     #[default]
     MemoryUsage,
     /// Favor throughput with larger suballocation blocks (wgpu's `MemoryHints::Performance`).
@@ -52,8 +52,9 @@ pub enum GpuMemoryPolicy {
     },
 }
 
-/// Active process-wide startup policy; defaults to `MemoryUsage`.
-static POLICY: Mutex<GpuMemoryPolicy> = Mutex::new(GpuMemoryPolicy::MemoryUsage);
+/// Explicit startup policy, if the app chose one.
+static POLICY: Mutex<Option<GpuMemoryPolicy>> = Mutex::new(None);
+const LINUX_VULKAN: GpuMemoryPolicy = GpuMemoryPolicy::Manual { block_size: (16 << 20)..(64 << 20) };
 
 /// Clamps `range` so its lower bound is at least 1 byte and `end >= start`, preventing empty
 /// zero-byte or inverted bounds from reaching `wgpu` / `gpu-allocator`.
@@ -79,14 +80,18 @@ fn normalize(policy: &GpuMemoryPolicy) -> GpuMemoryPolicy {
 /// built under the previous policy can discard or restart it.
 pub fn choose(policy: GpuMemoryPolicy) -> bool {
     let mut current = POLICY.lock().unwrap_or_else(|e| e.into_inner());
-    let changed = normalize(&current) != normalize(&policy);
-    *current = policy;
+    let normalized = normalize(&policy);
+    let changed = match current.as_ref() {
+        Some(current) => normalize(current) != normalized,
+        None => cfg!(target_os = "linux") || normalized != GpuMemoryPolicy::MemoryUsage,
+    };
+    *current = Some(policy);
     changed
 }
 
-/// Returns the currently configured process-wide startup GPU memory policy.
+/// Returns the configured policy, or the generic default before an app chooses one.
 pub fn current() -> GpuMemoryPolicy {
-    POLICY.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    POLICY.lock().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_default()
 }
 
 /// Converts `policy` to `wgpu::MemoryHints`, clamping degenerate `Manual` ranges safely.
@@ -103,6 +108,19 @@ pub fn to_wgpu_hints(policy: &GpuMemoryPolicy) -> wgpu::MemoryHints {
 /// Returns `wgpu::MemoryHints` for the currently configured process-wide startup policy.
 pub fn wgpu_hints() -> wgpu::MemoryHints {
     to_wgpu_hints(&current())
+}
+
+/// Returns the startup memory hints for a particular backend.
+pub fn wgpu_hints_for(backend: wgpu::Backend) -> wgpu::MemoryHints {
+    let policy = POLICY.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(policy) = policy.as_ref() {
+        to_wgpu_hints(policy)
+    } else if cfg!(target_os = "linux") && backend == wgpu::Backend::Vulkan {
+        // Larger initial blocks avoid early growth on Intel. wgpu halves the range for host memory.
+        to_wgpu_hints(&LINUX_VULKAN)
+    } else {
+        wgpu::MemoryHints::MemoryUsage
+    }
 }
 
 #[cfg(test)]

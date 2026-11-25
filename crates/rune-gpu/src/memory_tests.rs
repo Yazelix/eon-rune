@@ -1,18 +1,18 @@
 use std::ops::Range;
 use std::sync::Mutex;
 
-use super::{GpuMemoryPolicy, choose, current, to_wgpu_hints, wgpu_hints};
+use super::{GpuMemoryPolicy, POLICY, choose, current, to_wgpu_hints, wgpu_hints, wgpu_hints_for};
 
 const MIB: u64 = 1024 * 1024;
 
 /// Serializes tests that touch the process-wide policy static.
 static TEST_LOCK: Mutex<()> = Mutex::new(());
 
-struct ResetGuard(GpuMemoryPolicy);
+struct ResetGuard(Option<GpuMemoryPolicy>);
 
 impl Drop for ResetGuard {
     fn drop(&mut self) {
-        let _ = choose(self.0.clone());
+        *POLICY.lock().unwrap_or_else(|e| e.into_inner()) = self.0.take();
     }
 }
 
@@ -71,7 +71,7 @@ fn manual_range_normalizes_zero_inverted_and_huge_bounds() {
 #[test]
 fn choose_updates_current_and_reports_effective_changes() {
     let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let _reset = ResetGuard(current());
+    let _reset = ResetGuard(POLICY.lock().unwrap_or_else(|e| e.into_inner()).take());
 
     let _ = choose(GpuMemoryPolicy::MemoryUsage);
     assert_eq!(current(), GpuMemoryPolicy::MemoryUsage);
@@ -92,4 +92,18 @@ fn choose_updates_current_and_reports_effective_changes() {
     // Degenerate ranges that normalize to the same effective hints do not report a change.
     assert!(choose(GpuMemoryPolicy::Manual { block_size: 0..0 }));
     assert!(!choose(GpuMemoryPolicy::Manual { block_size: 1..1 }));
+}
+
+#[test]
+fn backend_default_yields_to_an_explicit_policy() {
+    let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _reset = ResetGuard(POLICY.lock().unwrap_or_else(|e| e.into_inner()).take());
+    if cfg!(target_os = "linux") {
+        assert_manual_range(wgpu_hints_for(wgpu::Backend::Vulkan), (16 * MIB)..(64 * MIB));
+    } else {
+        assert!(matches!(wgpu_hints_for(wgpu::Backend::Vulkan), wgpu::MemoryHints::MemoryUsage));
+    }
+    assert!(matches!(wgpu_hints_for(wgpu::Backend::Dx12), wgpu::MemoryHints::MemoryUsage));
+    assert_eq!(choose(GpuMemoryPolicy::MemoryUsage), cfg!(target_os = "linux"));
+    assert!(matches!(wgpu_hints_for(wgpu::Backend::Vulkan), wgpu::MemoryHints::MemoryUsage));
 }

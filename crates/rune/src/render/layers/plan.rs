@@ -139,6 +139,13 @@ fn bucket_of(bounds: [f32; 4]) -> ([u32; 2], u32, u32) {
     ([width.div_ceil(64) * 64, height.div_ceil(64) * 64], width, height)
 }
 
+fn fits_target(size: [u32; 2], content: [u32; 2], bucket: [u32; 2], cached: bool) -> bool {
+    // Cached targets keep their content-area bound even when taken from the spare pool.
+    let limit = if cached { content } else { bucket };
+    size[0] >= content[0] && size[1] >= content[1] && (size == bucket
+        || u64::from(size[0]) * u64::from(size[1]) <= 2 * u64::from(limit[0]) * u64::from(limit[1]))
+}
+
 /// What a texel of a layer target costs.
 fn bpp() -> u64 {
     u64::from(FORMAT.block_copy_size(None).unwrap())
@@ -384,18 +391,12 @@ impl Planner {
             }
             self.dispositions[index] = Disposition::Render { rect: bounds, cache };
             let fits = self.slots[index].is_some_and(|source| {
-                let size = pools.held(source).size;
-                // The minimum bucket is unavoidable for tiny controls. Do not recreate that
-                // same bucket every frame when rounding alone exceeds the 2x area limit.
-                size[0] >= width && size[1] >= height && (size == bucket
-                    || u64::from(size[0]) * u64::from(size[1]) <= 2 * u64::from(width) * u64::from(height))
+                fits_target(pools.held(source).size, [width, height], bucket, cache.is_some())
             });
             if !fits {
                 self.park_slot(index, pools);
                 let spare = self.parked.position(pools, |t| {
-                    let size = t.size;
-                    size[0] >= width && size[1] >= height
-                        && u64::from(size[0]) * u64::from(size[1]) <= 2 * u64::from(width.max(64)) * u64::from(height.max(64))
+                    fits_target(t.size, [width, height], bucket, cache.is_some())
                 });
                 match spare {
                     Some(at) => {
