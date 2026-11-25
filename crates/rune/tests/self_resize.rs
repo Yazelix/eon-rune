@@ -2,7 +2,7 @@
 //! Run with RUNE_GUI_TESTS=1 on a private Wayland display.
 use rune::*;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 type Geometry = ((u32, u32), (f32, f32), f32);
 
@@ -31,7 +31,7 @@ fn matches((physical, viewport, scale): Geometry, size: (f32, f32)) -> bool {
 }
 
 fn wait_for(observed: &Mutex<Option<Geometry>>, size: (f32, f32)) {
-    let start = Instant::now();
+    let start = rune::time::now();
     loop {
         let got = *observed.lock().unwrap();
         if got.is_some_and(|got| matches(got, size)) {

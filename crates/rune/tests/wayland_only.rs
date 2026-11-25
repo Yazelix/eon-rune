@@ -15,7 +15,7 @@ fn main() { wayland::main() }
 mod wayland {
     use rune::{App, AppSpec, Cx, El, text};
     use std::process::{Command, Stdio};
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     const CHILD: &str = "RUNE_WAYLAND_ONLY_CHILD";
     const REFUSAL: &str = "event loop: no Wayland display (WAYLAND_DISPLAY and WAYLAND_SOCKET are unset); this build of Rune has no X11 support";
@@ -58,7 +58,7 @@ mod wayland {
         }
         command.envs(vars.iter().copied());
         let mut process = command.spawn().unwrap_or_else(|e| panic!("spawning the child: {e}"));
-        let start = Instant::now();
+        let start = rune::time::now();
         while process.try_wait().unwrap_or_else(|e| panic!("waiting for the child: {e}")).is_none() {
             if start.elapsed() > Duration::from_secs(20) {
                 drop(process.kill());

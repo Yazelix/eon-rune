@@ -62,7 +62,7 @@ mod native {
     }
 
     pub(super) fn run() {
-        let Ok(mode) = std::env::var("RUNE_CLOSE_REQUEST_CASE") else { return };
+        let Some(mode) = rune::env::var("RUNE_CLOSE_REQUEST_CASE") else { return };
         assert!(std::env::var_os("WAYLAND_DISPLAY").is_some());
         assert!(std::env::var_os("DISPLAY").is_none());
         rune::tooling::set_app_id("org.rune.CloseRequestProbe");
