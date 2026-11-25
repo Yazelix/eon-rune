@@ -110,13 +110,14 @@ fn webm_video_fails_at_once() {
     assert!(!a.is_playing(), "a failed clip doesn't play");
 }
 
-/// An audio clip no backend has seen, so nothing has changed before the test starts.
-fn bare_audio() -> Arc<Shared> {
+/// A clip no backend has seen, so nothing has changed before the test starts.
+fn bare_player(kind: Kind) -> Arc<Shared> {
+    let path = match kind { Kind::Audio => "missing.m4a", Kind::Video => "missing.mp4" };
     Arc::new(Shared {
-        source: MediaSource::from("missing.m4a"),
+        source: MediaSource::from(path),
         headers: Vec::new(),
-        kind: Kind::Audio,
-        ctl: Mutex::new(Control { muted: false, kind: Kind::Audio, ..Control::default() }),
+        kind,
+        ctl: Mutex::new(Control { muted: kind == Kind::Video, kind, ..Control::default() }),
         wakes: Mutex::new(Vec::new()),
         waker: WakerSlot::default(),
         notified: AtomicU64::new(0),
@@ -125,14 +126,14 @@ fn bare_audio() -> Arc<Shared> {
     })
 }
 
-fn quiet_audio() -> Player {
-    let shared = bare_audio();
+fn quiet_player(kind: Kind) -> Player {
+    let shared = bare_player(kind);
     Player { surface: NativeSurface::with_video(shared.clone()), shared }
 }
 
 #[test]
 fn the_waker_hears_each_state_change_once() {
-    let a = quiet_audio();
+    let a = quiet_player(Kind::Audio);
     assert_eq!(a.shared.snapshot().state, PlayerState::Loading);
     let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let seen = calls.clone();
@@ -181,7 +182,7 @@ fn a_seek_before_the_clip_opens_is_clamped_when_it_does() {
 
 #[test]
 fn seek_fast_records_keyframe_seek_clamps_inputs_and_preserves_state() {
-    let v = Video::file("missing.mp4");
+    let v = quiet_player(Kind::Video);
     let other = v.clone();
     // Before opening: records exact=false, clamps negative/non-finite to 0.
     v.seek_fast(-5.0);
@@ -244,7 +245,7 @@ fn frame_duration_and_presented_time_handle_unopened_unknown_audio_and_failure()
     assert_eq!(v.frame_duration(), Some(0.25));
 
     // Audio always returns None for both and ignores step().
-    let a = quiet_audio();
+    let a = quiet_player(Kind::Audio);
     a.shared.ctl.lock().unwrap().open(Ok(Meta { duration: 2.0, size: None, frame: Some(0.25), sound: true }));
     assert_eq!(a.frame_duration(), None);
     assert_eq!(a.presented_time(), None);
@@ -366,12 +367,12 @@ impl Drop for DroppedDuringParking {
 #[test]
 fn a_clip_dropped_during_a_parking_pass_is_destroyed_outside_the_lock() {
     let _only = PARKED_TESTS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    let target = bare_audio();
+    let target = bare_player(Kind::Audio);
     let probe = DroppedDuringParking;
     target.waker.set(Arc::new(move || {
         let _ = &probe;
     }));
-    let other = bare_audio();
+    let other = bare_player(Kind::Audio);
     // Nothing to release: the list holds one paused clip.
     assert!(backend::parked_with(&target).is_empty());
     // The pass over `other` drops the target's last owner while it holds the target's upgrade.

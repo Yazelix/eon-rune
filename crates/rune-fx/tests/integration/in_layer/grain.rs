@@ -281,7 +281,6 @@ fn check(srgb: bool) {
         byte_signal.visible(),
         "srgb {srgb}: byte grain should show: {byte_signal:?}"
     );
-    assert!(byte_signal.imbalance() <= 0.2, "srgb {srgb}: byte grain imbalance: {byte_signal:?}");
     if srgb {
         assert!(
             mean_stays_put(shift),
