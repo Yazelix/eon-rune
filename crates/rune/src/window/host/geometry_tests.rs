@@ -230,7 +230,7 @@ fn native_geometry_hidden_creation_keeps_applied_viewport() {
         .keep_running()
         .window_options(crate::WindowOptions { min_size: Some((0.0, 0.0)), ..Default::default() })
         .on_window(|handle| {
-            let _ = handle.window().unwrap().request_inner_size(winit::dpi::PhysicalSize::new(620, 360));
+            let _applied = handle.window().unwrap().request_inner_size(winit::dpi::PhysicalSize::new(620, 360));
         })
         .on_window_geometry(observe);
     let host = test_host(WindowSpec::from_app("hidden", app), &event_loop, false);

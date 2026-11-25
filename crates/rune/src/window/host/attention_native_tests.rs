@@ -47,7 +47,7 @@ fn live_tokens(h: &mut Host) -> usize {
 
 /// Runs `f` and says how long it took.
 fn timed(f: impl FnOnce()) -> Duration {
-    let start = std::time::Instant::now();
+    let start = crate::time::now();
     f();
     start.elapsed()
 }

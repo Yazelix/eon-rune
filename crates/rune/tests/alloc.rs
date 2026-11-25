@@ -79,7 +79,7 @@ fn cold_first_callback_with_explicit_warnings_allocates_nothing() {
         assert!(status.success(), "cold callback allocation child failed: {status}");
         return;
     }
-    assert_eq!(std::env::var("RUNE_PERF_WARN").as_deref(), Ok("1"));
+    assert_eq!(rune::env::var("RUNE_PERF_WARN").as_deref(), Some("1"));
     fn view(_: &(), _: &mut Cx<()>) -> El { rune::el() }
     let mut rt = Runtime::new((), view, (100.0, 100.0), Env::new(true, 1.0));
     let before = allocs();
