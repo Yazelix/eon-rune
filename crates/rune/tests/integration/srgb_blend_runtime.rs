@@ -98,9 +98,11 @@ fn a_headless_run_follows_a_live_switch() {
     use std::sync::Mutex;
 
     static SEEN: Mutex<Vec<(bool, wgpu::TextureFormat)>> = Mutex::new(Vec::new());
-    struct Watch;
+    let adapter = crate::support::ColorAdapter::default();
+    struct Watch(crate::support::ColorAdapter);
     impl Compositor<()> for Watch {
         fn render(&mut self, f: &mut Frame<'_, ()>) {
+            self.0.observe(f.device);
             SEEN.lock().unwrap().push((f.srgb_blend(), f.format));
             f.draw_ui();
         }
@@ -114,7 +116,7 @@ fn a_headless_run_follows_a_live_switch() {
             .child(el().size(40.0, 40.0).fill(Color::WHITE.alpha(0.5)))
             .on_press_tx(|_: &mut (), tx| tx.set_srgb_blend(true))
     };
-    App::new(AppSpec::new("srgb-live", (40.0, 40.0), || (), view)).srgb_blend(false).compositor(Watch)
+    App::new(AppSpec::new("srgb-live", (40.0, 40.0), || (), view)).srgb_blend(false).compositor(Watch(adapter.clone()))
         .args(["--snap", png.to_str().unwrap(), "--scale", "1", "--script", script.to_str().unwrap(), "--at", "0.5"].map(String::from))
         .try_run()
         .unwrap();
@@ -128,7 +130,7 @@ fn a_headless_run_follows_a_live_switch() {
     // Half white over red reads 128 blended in sRGB, 188 in linear light.
     // Premultiplied half-white can quantize to RGB 127 and alpha 128 on UNORM8 blenders, giving R = 254.
     assert!(
-        px[1].abs_diff(128) <= 1 && px[0].abs_diff(255) <= 1,
+        px[1].abs_diff(128) <= 1 && px[0].abs_diff(255) <= adapter.tolerance(),
         "gamma-blended after the switch, got {px:?}"
     );
     let seen = SEEN.lock().unwrap();

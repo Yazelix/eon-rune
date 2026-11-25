@@ -164,6 +164,29 @@ fn copy_select_all_and_the_context_menu() {
     tick(&mut rt);
     assert_eq!(clipboard.text().as_deref().map(String::as_str), Some(expected));
     assert_eq!(rt.selected_text().as_deref(), Some(expected), "picking Copy keeps the selection");
+    wait(&mut rt);
+    click(&mut rt, p[1]);
+    click(&mut rt, p[1]);
+    rt.secondary_down(p[1].0, p[1].1);
+    rt.secondary_up(p[1].0, p[1].1);
+    tick(&mut rt);
+    rt.resolve_popup(Some("copy")).unwrap();
+    tick(&mut rt);
+    assert_eq!(clipboard.text().as_deref().map(String::as_str), Some("first"));
+    assert_eq!(rt.selected_text().as_deref(), Some("first"));
+    wait(&mut rt);
+
+    let other = centre(&find(&rt, "other"));
+    click(&mut rt, other);
+    assert_eq!(rt.selected_text(), None);
+    rt.secondary_down(p[1].0, p[1].1);
+    rt.secondary_up(p[1].0, p[1].1);
+    tick(&mut rt);
+    let selects_word = cfg!(target_os = "macos");
+    assert_eq!(rt.selected_text().as_deref(), selects_word.then_some("first"));
+    let copy = rt.popup_menu().and_then(|m| m.find("copy")).expect("Copy is present");
+    assert_eq!(copy.is_enabled(), selects_word);
+    rt.resolve_popup(None).unwrap();
 }
 
 #[test]

@@ -24,6 +24,66 @@ fn pixel(pixels: &[u8], x: u32, y: u32) -> [u8; 4] {
     pixels[at..at + 4].try_into().unwrap()
 }
 
+#[test]
+fn a_small_managed_atlas_keeps_the_initial_texture_height() {
+    let Some(gpu) = Gpu::test_headless() else { return };
+    let mut renderer = Renderer::new_classic(&gpu.device, OFFSCREEN_FORMAT);
+    let mut text = crate::text::TextSystem::default();
+    assert_eq!(renderer.atlas.height(), ATLAS_START_ROWS);
+    renderer.prepare(&gpu.device, &gpu.queue, &mut text.atlas, &[], SIZE);
+    assert_eq!(renderer.atlas.height(), ATLAS_START_ROWS);
+    text.set_font_smoothing(crate::FontSmoothing::Off);
+    let mut quads = Vec::new();
+    text.glyphs("A", crate::TextStyle::new(12.0, 400.0), 1.0, [0.0; 2], &mut quads);
+    assert!(!quads.is_empty());
+    assert!((1..ATLAS_START_ROWS).contains(&text.atlas.page_rows(0)));
+    renderer.prepare(&gpu.device, &gpu.queue, &mut text.atlas, &[], SIZE);
+    assert_eq!(renderer.atlas.height(), ATLAS_START_ROWS);
+    renderer.submit(&gpu.queue, gpu.device.create_command_encoder(&Default::default()));
+    gpu.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+}
+
+#[test]
+fn explicit_atlas_pixels_survive_growth_and_windfoil_promotion() {
+    use crate::text::outline::{OutlineStore, WIDTH};
+
+    let Some(gpu) = Gpu::test_headless() else { return };
+    let target = Offscreen::new(&gpu.device, SIZE.0, SIZE.1);
+    let glyph = |x, row, fill| Instance {
+        params: [0.0, crate::render::KIND_GLYPH, 0.0, 1.0],
+        uv: [1.0, row, 8.0, 8.0],
+        fill,
+        ..square(x, 0.0)
+    };
+    let glyphs = [glyph(0.0, 300.0, [1.0, 0.0, 0.0, 1.0]), glyph(16.0, 312.0, [0.0, 1.0, 0.0, 1.0])];
+    for promotes in [false, true] {
+        let mut renderer = Renderer::new_classic(&gpu.device, OFFSCREEN_FORMAT);
+        let mut atlas = crate::text::Atlas::new();
+        let pitch = ATLAS_SIZE as usize;
+        atlas.data.resize(pitch * pitch, 0);
+        for origin in [300, 312] {
+            for y in origin..origin + 8 {
+                atlas.data[pitch * y + 1..pitch * y + 9].fill(255);
+            }
+        }
+        atlas.dirty = Some((300, 320));
+        if promotes {
+            atlas.outlines = OutlineStore::from_texels(vec![[0; 4]; WIDTH as usize]);
+        }
+        atlas.invalidate();
+        renderer.prepare(&gpu.device, &gpu.queue, &mut atlas, &glyphs, SIZE);
+        assert_eq!(renderer.atlas.height(), 512);
+        assert_eq!(renderer.uber.outlines().is_some(), promotes);
+        let mut encoder = gpu.device.create_command_encoder(&Default::default());
+        renderer.draw(&mut encoder, &target.view, [0.; 4]);
+        target.copy(&mut encoder);
+        renderer.submit(&gpu.queue, encoder);
+        let pixels = target.read(&gpu.device);
+        assert_eq!(pixel(&pixels, 4, 4), RED);
+        assert_eq!(pixel(&pixels, 20, 4), [0, 255, 0, 255]);
+    }
+}
+
 #[cfg(feature = "test-gpu-counters")]
 #[test]
 fn a_steady_animating_frame_creates_no_buffers_and_skips_unchanged_globals() {

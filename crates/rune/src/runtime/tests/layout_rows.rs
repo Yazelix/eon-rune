@@ -140,6 +140,7 @@ fn send_flight_follows_the_measured_bubble_while_earlier_rows_land() {
     let mut draft = crate::edit::TextEdit::new("héllo flight");
     draft.focused = true;
     let mut rt = Runtime::new(State { draft, sent: false, height: 80.0 }, view, (400.0, 300.0), Env::new(true, 2.0));
+    rt.set_font_smoothing(crate::FontSmoothing::Off);
     rt.frame(0.0);
     rt.state.height = 400.0;
     rt.invalidate();

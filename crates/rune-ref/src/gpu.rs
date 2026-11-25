@@ -1,4 +1,6 @@
 //! Adapter to the production renderer. No copied WGSL or substitute GPU pipeline.
+mod qualification;
+
 use crate::{Primitive, Scene};
 use rune::{
     render::{Gpu, Instance, OFFSCREEN_FORMAT, Offscreen, Renderer},
@@ -7,7 +9,14 @@ use rune::{
 
 impl Primitive {
     /// Capture an application's emitted primitive with its inspector metadata.
+    ///
+    /// # Panics
+    /// Glyph captures require a grayscale atlas mask on page zero.
     pub fn from_instance(p: &Instance, node: u32, source: String) -> Self {
+        assert!(
+            p.params[1] != 2.0 || (p.radii == [0.0; 4] && p.params[2] == 0.0 && p.params[3] > 0.0),
+            "unsupported glyph capture {node} ({source}): expected a grayscale atlas mask on page zero"
+        );
         let (fade, offset) = rune::render::unpack_fade(p.fade);
         Self {
             node,
@@ -96,6 +105,7 @@ impl Default for GpuRenderer {
             info.name, info.backend, info.vendor
         );
         let renderer = Renderer::new(&gpu.device, OFFSCREEN_FORMAT);
+        eprintln!("reference shader: {}", renderer.uber_shader());
         Self {
             gpu,
             renderer,

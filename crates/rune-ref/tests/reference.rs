@@ -89,6 +89,43 @@ fn canonical_hashes() {
 }
 
 #[test]
+fn glyph_legacy_payload_preserves_pixels_and_provenance() {
+    let original: Scene = serde_json::from_str(include_str!("../regressions/glyph-texel-boundary.json")).unwrap();
+    let before = render(&original);
+    let mut mask = original.clone();
+    let glyph = &mut mask.primitives[0];
+    assert_eq!(glyph.params[1], 2.0);
+    assert!(glyph.radii[3] > 0.0 && glyph.params[2] > 0.0);
+    glyph.radii = [0.0; 4];
+    glyph.border = [0.0; 4];
+    glyph.params[2] = 0.0;
+    let after = render(&mask);
+    assert_eq!(before.rgba, after.rgba);
+    assert_eq!(before.owners, after.owners);
+    assert_eq!(after.blame(&mask, 13, 34).unwrap().node, 4);
+    assert_eq!(after.blame(&mask, 13, 34).unwrap().source, "generated/3");
+    let mut bad = after.rgba.clone();
+    bad[(34 * 64 + 13) * 4] += 3;
+    let diff = rune_ref::compare(&mask, &after, &bad, 2);
+    assert_eq!(diff.outlier_pixels, 1);
+    assert_eq!(diff.first.unwrap().node, Some(4));
+}
+
+#[test]
+fn glyph_payload_keeps_derived_corpora_stable() {
+    let scene = generate::seeded(1, 8);
+    let glyph = &scene.primitives[7];
+    assert_eq!(glyph.params[1], 2.0);
+    assert_eq!(glyph.radii, [24.375, 22.375, 26.5, 13.25]);
+    assert_eq!(glyph.params[2], 0.3125);
+    for scene in [generate::dashed(1, 8), generate::radial(1, 8)] {
+        let shapes: Vec<_> = scene.primitives.iter().filter(|p| p.source == glyph.source).collect();
+        assert!(!shapes.is_empty());
+        assert!(shapes.iter().all(|p| p.radii == glyph.radii));
+    }
+}
+
+#[test]
 fn dashed_rings_translate_and_stay_inside_their_ring() {
     for seed in 0..32 {
         let scene = generate::dashed(seed, 8);

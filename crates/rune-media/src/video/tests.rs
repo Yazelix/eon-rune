@@ -133,6 +133,7 @@ fn quiet_audio() -> Player {
 #[test]
 fn the_waker_hears_each_state_change_once() {
     let a = quiet_audio();
+    assert_eq!(a.shared.snapshot().state, PlayerState::Loading);
     let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let seen = calls.clone();
     a.set_waker(Arc::new(move || {
@@ -141,10 +142,12 @@ fn the_waker_hears_each_state_change_once() {
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0, "nothing changed yet");
     a.shared.ctl.lock().unwrap().open(Ok(Meta { duration: 2.0, size: None, frame: None, sound: false }));
+    assert_eq!(a.shared.snapshot().state, PlayerState::Ready);
     a.shared.settle(false);
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
     a.shared.ctl.lock().unwrap().fail("gone".into());
+    assert_eq!(a.shared.snapshot().state, PlayerState::Failed("gone".into()));
     a.shared.settle(false);
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 2);
 }

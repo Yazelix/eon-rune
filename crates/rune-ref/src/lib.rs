@@ -18,8 +18,12 @@ use serde::{Deserialize, Serialize};
 
 pub const NO_CLIP: [f32; 4] = [-1e6, -1e6, 1e6, 1e6];
 
-/// Same payload as rune::render::Instance; independent so the CPU lane has no
+/// Device-pixel payload, independent so the CPU lane has no
 /// window, GPU, system-font or platform dependency. Source metadata is a sidecar.
+/// Kind 2 is a grayscale mask in [`Scene::atlas`]: `radii`, `border` and `params[2]`
+/// are unused legacy payload, not production outline/LCD flags or an atlas page.
+/// The GPU adapter lowers these glyphs to page-zero masks; production glyph captures
+/// must satisfy `Primitive::from_instance`'s mask contract (available with `gpu`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Primitive {
     pub node: u32,
@@ -73,6 +77,8 @@ const MAX_LAYER_DEPTH: usize = 16;
 
 impl Scene {
     /// Reject malformed replay files before CPU allocation or GPU upload.
+    /// Kind-2 glyphs are atlas masks; finite legacy radii/page payload remains accepted
+    /// for replay fidelity and never selects a production text representation.
     pub fn validate(&self) -> Result<(), String> {
         if self.width == 0 || self.height == 0 || self.width > 4096 || self.height > 4096 {
             return Err("viewport must be 1..=4096".into());

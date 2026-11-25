@@ -39,6 +39,10 @@ name = "differential"
 name = "fx_blend"
 
 [[test]]
+name = "glyph_abi"
+required-features = ["gpu"]
+
+[[test]]
 name = "parity"
 
 [[test]]

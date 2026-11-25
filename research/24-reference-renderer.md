@@ -134,6 +134,10 @@ test. These exclude scene construction, shaping/commit and GPU/driver allocation
 
 ## The glyph regression fixes a discontinuity
 
+The replay ABI treats kind 2 as a page-zero grayscale atlas mask. The GPU adapter
+clears legacy outline, LCD, and page bits when lowering those records. A production
+capture rejects glyphs that the replay format cannot represent.
+
 `regressions/glyph-texel-boundary.json` came from seed 15, primitive 4. Its glyph
 starts at x=10.5. At a pixel center x=13.5 the intended local coordinate is 3,
 but triangle interpolation can produce a value just below 3. `floor` then loads
@@ -151,6 +155,20 @@ bounds beyond the replay validator's coordinate limit; permit Rune's actual
 2048² atlas rather than the README's historical 1024² size. Neither was a
 production shader failure. The first compile also caught a mutable-array borrow
 in generator setup. All were corrected before the successful runs above.
+
+## Vulkan framebuffer qualification
+
+The canonical scalar renderer and raw comparison keep their existing output.
+The differential harness also checks each prefix of eligible 64×64 opaque scenes
+on the measured Intel and lavapipe Mesa 26.1.6 adapter fingerprints with the
+compiled Windfoil shader. The prefix checks bound each new blend error separately
+from the propagation of earlier quantization. A separate narrow angle-boundary
+check uses the frozen ownership fixture. Unmeasured configurations use the raw
+budget, including the measured NVIDIA D3D12 composite tolerance described above.
+
+The FX grain fixture measures the linear and gamma passes separately on
+`Rgba16Float`. The byte-target captures check visible grain, alpha, symmetry
+within their quantization allowance, and mean in gamma mode.
 
 ## A differing pixel names its last contributor
 
