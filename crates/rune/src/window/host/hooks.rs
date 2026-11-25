@@ -39,6 +39,14 @@ impl Host {
         self.finish_window_hook(event_loop, was_shown, stale)
     }
 
+    pub(super) fn native_quit_request(&mut self, event_loop: &ActiveEventLoop) {
+        if self.life.finished() { return; }
+        let was_shown = self.life.shown();
+        let Some((response, stale)) = self.app.run_on_quit_request() else { return };
+        crate::quit::request::answer(response);
+        self.finish_window_hook(event_loop, was_shown, stale);
+    }
+
     /// Notify before a first draw or focus. Even a hook that hides a retained window
     /// leaves it with a viewport matched to its native size.
     pub(in crate::window) fn finish_creation(&mut self, event_loop: &ActiveEventLoop) -> bool {

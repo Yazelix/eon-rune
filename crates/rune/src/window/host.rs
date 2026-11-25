@@ -39,6 +39,12 @@ test_group! { native =>
 mod frame_move_tests;
 }
 
+#[cfg(test)]
+test_group! { native =>
+#[path = "host/quit_request_tests.rs"]
+mod quit_request_tests;
+}
+
 pub(in crate::window) use app::{CompositorFrame, WindowApp};
 use app::TypedWindowApp;
 
@@ -266,6 +272,7 @@ impl Host {
         );
         let (open_inactive, open_as, chrome, titlebar) = (app.open_inactive, app.open_as, app.chrome, app.titlebar);
         let window_hooks = std::mem::take(&mut app.window_hooks);
+        let on_quit_request = app.on_quit_request.map(|hook| (hook, crate::quit::request::Registration::new()));
         let (on_close_request, on_close, on_rest, on_reopen, on_quit, turn_scope) = (
             app.on_close_request, app.on_close, app.on_rest, app.on_reopen, app.on_quit, app.turn_scope,
         );
@@ -286,7 +293,7 @@ impl Host {
         let shared_core = shared.core.clone();
         let geometry = WindowGeometry { title: spec.title, size: spec.size, min_size: spec.min_size };
         let typed = Box::new(TypedWindowApp {
-            rt, shared, comp, on_frame_drawn, window_hooks, on_close_request, on_close, on_rest, on_quit, on_reopen, turn_scope,
+            rt, shared, comp, on_frame_drawn, window_hooks, on_close_request, on_close, on_rest, on_quit_request, on_quit, on_reopen, turn_scope,
             keep_layout, kept_layout: layout_seed,
         });
         Self::from_app(typed, HostInit {

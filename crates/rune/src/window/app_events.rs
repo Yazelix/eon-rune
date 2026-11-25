@@ -154,7 +154,7 @@ impl Windows {
     /// first, so the quit looks done the moment it starts and the hooks run unseen.
     pub(super) fn quit(&mut self, event_loop: &ActiveEventLoop, ending: bool, hide: bool) {
         if quit_hosts(&mut self.hosts, ending, hide, event_loop.exiting(), crate::quit::send) {
-            event_loop.exit();
+            crate::quit::request::exit(event_loop);
         }
     }
 

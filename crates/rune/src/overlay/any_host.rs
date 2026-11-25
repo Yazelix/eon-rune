@@ -223,7 +223,7 @@ impl AnyHost for OverlayHost {
                 Some(shell @ (crate::el::Shell::Quit | crate::el::Shell::Relaunch)) => {
                     let after = shell.after().unwrap_or(crate::quit::After::Exit);
                     let _ = crate::quit::send(crate::quit::Event::Start { ending: false, after });
-                    event_loop.exit();
+                    crate::quit::request::exit(event_loop);
                 }
                 None => {}
             }

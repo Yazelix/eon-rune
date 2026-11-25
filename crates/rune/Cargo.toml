@@ -366,6 +366,10 @@ name = "self_resize"
 harness = false
 
 [[test]]
+name = "wayland_close_request"
+harness = false
+
+[[test]]
 name = "unit_layout_tests"
 path = "src/lib.rs"
 

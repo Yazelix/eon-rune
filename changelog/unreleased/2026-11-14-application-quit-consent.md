@@ -1,0 +1,1 @@
+- **`App::on_quit_request` lets macOS apps approve or defer application Quit before AppKit terminates.** `QuitResponse::Quit` permits the native request; `Defer` cancels that attempt so the app can ask for consent and quit programmatically later. `on_quit` remains notification, and apps without a handler keep the existing Quit behavior.

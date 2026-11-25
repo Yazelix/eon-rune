@@ -776,6 +776,9 @@ app.run();
   close as usual. Programmatic close (`Tx::close_window`, `AppHandle::close`, `WindowHandle::close`),
   quit/relaunch, teardown, and an already-exiting loop bypass `on_close_request`, and apps without
   the hook behave as before.
+- On macOS, `App::on_quit_request(|s, tx| -> QuitResponse)` intercepts a native application Quit.
+  `QuitResponse::Defer` cancels this attempt. The app can resolve the consent later with
+  `Tx::quit` or `AppHandle::quit`. `App::on_quit` still reports the actual quit.
 - `App::on_window_event(|s, window, event, tx| -> bool)` observes the original winit event before
   Rune's input dispatch. Return true to consume input. Lifecycle and modifier bookkeeping still run.
 - `App::on_window_geometry(|s, geometry, tx| -> bool)` reports the initial native physical size,

@@ -19,6 +19,7 @@ use std::sync::Mutex;
 #[cfg(target_os = "macos")]
 mod mac;
 pub(crate) mod relaunch;
+pub(crate) mod request;
 #[cfg(target_os = "windows")]
 mod win32;
 
@@ -251,16 +252,15 @@ pub fn quitting() -> bool {
     !matches!(state(), State::Running)
 }
 
-/// Hooks the system's quit requests into the loop: `send` delivers a quit (`true` when the
-/// session ends now and the windows must close) to `Windows`. Once per process, on the UI thread.
+/// Hooks native quit requests into `Windows` on the UI thread.
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-pub(crate) fn install(send: impl Fn(bool) -> bool + 'static) {
+pub(crate) fn install(proxy: winit::event_loop::EventLoopProxy<crate::window::WakeEvent>) {
     #[cfg(target_os = "windows")]
-    win32::install(send);
+    win32::install(move |ending| proxy.send_event(crate::window::WakeEvent::Quit(ending)).is_ok());
     #[cfg(target_os = "macos")]
-    { let _ = send; mac::install(); }
+    mac::install(move || proxy.send_event(crate::window::WakeEvent::QuitRequest).is_ok());
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    let _ = send;
+    let _ = proxy;
 }
 
 /// Whether the event loop is inside one of its handlers, on the UI thread: a session message
@@ -285,5 +285,12 @@ pub(crate) fn loop_state() -> Loop { LOOP.get() }
 pub(crate) struct Handling(Loop);
 
 impl Drop for Handling {
-    fn drop(&mut self) { LOOP.set(self.0); }
+    fn drop(&mut self) {
+        LOOP.set(self.0);
+        #[cfg(any(target_os = "macos", test))]
+        if self.0 == Loop::Idle {
+            // winit's callback borrow is still active until the handler actually returns.
+            request::handler_returned();
+        }
+    }
 }

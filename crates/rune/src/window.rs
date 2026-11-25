@@ -139,6 +139,9 @@ pub(crate) enum WakeEvent {
     /// with `true` the session ends now and the windows close.
     #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     Quit(bool),
+    /// AppKit is waiting for application Quit consent.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    QuitRequest,
     /// An assistive client asked something of a surface's accessibility tree (`crate::a11y`):
     /// the host answers at the end of the turn this wakes.
     #[cfg_attr(not(feature = "accessibility"), allow(dead_code))]
@@ -183,6 +186,7 @@ pub(crate) trait AnyHost {
     fn terminate(&mut self) {}
     /// The app starts to quit: runs `App::on_quit` (including in a window whose close ended the app).
     fn quit_hook(&mut self) {}
+    fn quit_request(&mut self, _event_loop: &ActiveEventLoop) {}
     /// The app quits: off the screen now, before any hook runs.
     fn vanish(&mut self) {}
     /// The close about to come ends the app (`Host::close`).
@@ -354,7 +358,7 @@ impl Windows {
             for host in self.hosts.iter_mut().flatten() { host.cancel_menus(); }
         }
         if should_exit {
-            event_loop.exit();
+            crate::quit::request::exit(event_loop);
         }
     }
 
@@ -486,8 +490,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
                 let proxy = this.proxy.clone();
                 crate::open_url::instance::on_relaunch(move || proxy.send_event(WakeEvent::Reopen).is_ok());
             }
-            let proxy = this.proxy.clone();
-            crate::quit::install(move |ending| proxy.send_event(WakeEvent::Quit(ending)).is_ok());
+            crate::quit::install(this.proxy.clone());
             crate::open_url::incoming::settle();
             // A window opened at launch took it; a GPU kept for a later one would sit idle until then.
             crate::render::discard_prewarm();
@@ -509,6 +512,13 @@ impl ApplicationHandler<WakeEvent> for Windows {
                 // A session query (`ending: false`) can still be cancelled: the windows stay up.
                 WakeEvent::Quit(ending) => {
                     this.quit(event_loop, *ending, *ending);
+                    this.cleanup(event_loop);
+                    return;
+                }
+                WakeEvent::QuitRequest => {
+                    crate::quit::request::dispatch(this.hosts.iter_mut().flatten(), |host| {
+                        host.quit_request(event_loop);
+                    });
                     this.cleanup(event_loop);
                     return;
                 }
@@ -623,7 +633,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
             crate::quit::send,
         );
         #[cfg(not(target_arch = "wasm32"))]
-        if step == app_events::ExitStep::FastExit && let Some(last) = fast_hook {
+        if step == app_events::ExitStep::FastExit && let Some(last) = fast_hook && !crate::quit::request::finish() {
             crate::quit::end_fast(last);
         }
         let effects = wayland_wake::step(&mut self.wayland_wake, wayland_wake::Event::Exiting);
