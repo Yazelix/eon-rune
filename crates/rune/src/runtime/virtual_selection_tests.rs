@@ -8,6 +8,10 @@ use std::cell::Cell;
 use crate::runtime::ElementInfo;
 use crate::{Cx, El, Env, GrowthSpec, Key, KeyEvent, Mods, PhysicalInput, Runtime, ScrollSpec, TextStyle, col, row, text};
 
+#[cfg(target_os = "linux")]
+#[path = "virtual_primary_tests.rs"]
+mod primary_tests;
+
 const ROWS: usize = 55;
 const ROW_H: f32 = 56.0;
 

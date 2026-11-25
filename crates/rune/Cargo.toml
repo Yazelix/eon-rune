@@ -201,6 +201,7 @@ futures-lite = { version = "2", default-features = false, features = ["std"], op
 libc = { workspace = true }
 libloading = "0.8"
 serde = { workspace = true, optional = true }
+wl-clipboard-rs = "0.9.3"
 zbus = { version = "5.19", default-features = false, features = ["async-io"], optional = true }
 
 # wgpu's Vulkan backend everywhere but Windows (D3D12 above) and Apple (Metal above).

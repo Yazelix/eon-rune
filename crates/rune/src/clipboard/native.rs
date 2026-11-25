@@ -10,8 +10,9 @@ impl Client {
         if rt.edit.has_clipboard() { return flush_memory(rt); }
         #[cfg(test)]
         if let Some(m) = &self.memory { return flush_to_memory(rt, m); }
-        #[cfg(target_os = "linux")]
-        self.flush_primary(rt);
+        let primary = rt.take_primary();
+        if let Some(copy) = primary.copy { worker().send(copy.into()).ok(); }
+        if let Some(target) = primary.paste { self.read_for(Purpose::PrimaryPaste(target)); }
         // Nothing to clear before the first write.
         if std::mem::take(&mut rt.edit.clear_secret_request) && let Some(w) = WORKER.get() { w.sender.send(Request::Clear(None)).ok(); }
         if let Some(copy) = rt.copy_request.take() {
@@ -50,7 +51,7 @@ impl Worker {
     }
 }
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
-fn worker() -> &'static mpsc::Sender<Request> {
+pub(super) fn worker() -> &'static mpsc::Sender<Request> {
     if cfg!(test) {
         panic!("unit test reached the OS clipboard; install a test clipboard (`rt.use_clipboard` or `Client::use_memory`)");
     }
@@ -58,7 +59,7 @@ fn worker() -> &'static mpsc::Sender<Request> {
 }
 
 #[cfg(any(target_os = "ios", target_os = "android"))]
-fn worker() -> &'static mpsc::Sender<Request> {
+pub(super) fn worker() -> &'static mpsc::Sender<Request> {
     &WORKER.get_or_init(|| Worker::spawn(|| None::<Board>)).sender
 }
 
@@ -75,6 +76,54 @@ pub(super) fn shutdown() {
 
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 impl Backend for arboard::Clipboard {
+    #[cfg(target_os = "linux")]
+    fn primary_text(&mut self) -> Option<String> {
+        use arboard::{GetExtLinux, LinuxClipboardKind};
+        self.get().clipboard(LinuxClipboardKind::Primary).text().ok()
+    }
+    #[cfg(target_os = "linux")]
+    fn write_primary(&mut self, text: String) -> Result<(), String> {
+        use arboard::{SetExtLinux, LinuxClipboardKind};
+        self.set().clipboard(LinuxClipboardKind::Primary).text(text).map_err(|e| e.to_string())
+    }
+    #[cfg(target_os = "linux")]
+    fn clear_primary(&mut self) -> Result<(), String> {
+        use arboard::{ClearExtLinux, LinuxClipboardKind};
+        self.clear_with().clipboard(LinuxClipboardKind::Primary).map_err(|e| e.to_string())
+    }
+    fn bounded_text(&mut self, primary: bool, cap: usize) -> plain::Outcome {
+        use plain::Outcome;
+        #[cfg(target_os = "linux")]
+        {
+            use wl_clipboard_rs::paste::{ClipboardType, Error, MimeType, Seat, get_contents, get_mime_types_ordered};
+            let selection = if primary { ClipboardType::Primary } else { ClipboardType::Regular };
+            let contents = get_mime_types_ordered(selection, Seat::Unspecified)
+                .and_then(|types| plain::text_mime(&types).ok_or(Error::NoMimeType))
+                .and_then(|mime| get_contents(selection, Seat::Unspecified, MimeType::Specific(mime)));
+            match contents {
+                Ok((pipe, _)) => plain::decode(pipe, cap),
+                Err(Error::ClipboardEmpty) => Outcome::Empty,
+                Err(Error::NoMimeType) => Outcome::NonText,
+                Err(Error::WaylandConnection(_) | Error::MissingProtocol { .. } | Error::PrimarySelectionUnsupported) => Outcome::Unsupported,
+                Err(_) => Outcome::HostFailure,
+            }
+        }
+        // shortcut: arboard allocates macOS text first, replace with a bounded native read after Mac qualification.
+        #[cfg(target_os = "macos")]
+        {
+            let _ = primary;
+            match self.get_text() {
+                Ok(text) => plain::decode(std::io::Cursor::new(text), cap),
+                Err(arboard::Error::ContentNotAvailable) => plain::missing_text(
+                    objc2_app_kit::NSPasteboard::generalPasteboard().pasteboardItems().map_or(0, |items| items.len()),
+                ),
+                Err(arboard::Error::ConversionFailure) => Outcome::InvalidUtf8,
+                Err(_) => Outcome::HostFailure,
+            }
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        { let _ = (primary, cap); Outcome::Unsupported }
+    }
     fn write(&mut self, copy: &ClipboardWrite) -> Result<(), String> { write(self, copy) }
     fn text(&mut self) -> Option<Zeroizing<String>> { self.get_text().ok().map(Zeroizing::new) }
     #[cfg(target_os = "macos")]

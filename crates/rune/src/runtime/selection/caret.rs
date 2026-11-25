@@ -68,9 +68,6 @@ pub(crate) struct TextInputState {
     pub(crate) ime_reset: bool,
     /// The focused spellchecked field's word at the caret (`spell::pause`).
     pub(in crate::runtime) spell_watch: Option<crate::spell::pause::Watch>,
-    /// Linux's primary selection (`runtime/input/primary_selection.rs`).
-    #[cfg(any(target_os = "linux", test))]
-    pub(crate) primary: primary_selection::PrimarySelection,
     // Outer None: no read; inner None: app-level paste rather than a focused editor.
     pub(crate) paste_request: Option<Option<String>>,
     /// `Tx::read_clipboard` reads for the shell to start, by id.
@@ -106,8 +103,6 @@ impl TextInputState {
             ime_option_as_alt: crate::OptionAsAlt::None,
             ime_reset: false,
             spell_watch: None,
-            #[cfg(any(target_os = "linux", test))]
-            primary: Default::default(),
             paste_request: None,
             read_requests: Vec::new(),
             clipboard_reads: Vec::new(),

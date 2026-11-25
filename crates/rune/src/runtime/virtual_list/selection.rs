@@ -16,6 +16,12 @@ use crate::runtime::RuntimeCore;
 pub(crate) mod pins;
 pub(crate) use pins::{OffscreenText, PinnedSelection, Pins, PinsEvent, Scope, Source};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(in crate::runtime) enum CopyRows {
+    Build,
+    Retained,
+}
+
 /// Maximum number of unbuilt virtual rows built on demand when copying or reading a selection.
 /// Past this cap, collection stops building further unbuilt rows and returns the prefix collected
 /// so far.

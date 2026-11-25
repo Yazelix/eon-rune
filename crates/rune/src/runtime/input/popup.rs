@@ -83,11 +83,13 @@ impl RuntimeCore {
             Some(id) => self.trace_event(format_args!("popup-menu:pick:{id}")),
             None => self.trace_event("popup-menu:cancel"),
         }
+        let before = cfg!(target_os = "linux").then(|| self.primary_selection(app)).flatten();
         let mut one = self.transaction(app);
         if let (Some(field), Some(id)) = (request.field, picked) {
             self.field_menu_pick(app, *field, id, &mut one);
         }
         (request.on_pick)(app.states(), picked, &mut one);
+        self.export_primary_selection(app, before, &mut one);
         self.latch_requests(app, &mut one);
         merge(&mut self.frame.pending, one);
         self.commit.dirty = true;

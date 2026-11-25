@@ -340,7 +340,7 @@ impl RuntimeCore {
             if matches!(action, Action::Key { stage: false, .. } | Action::Physical(crate::PhysicalInput::Key { pressed: true, .. }, _)) { crate::marks::input_handled(true); }
             pointer_hover |= matches!(action, Action::Hover(_));
             // The user's own key or press takes over from a `Tx::focus_when_shown` still waiting.
-            if matches!(action, Action::Key { stage: false, .. } | Action::Physical(crate::PhysicalInput::Key { pressed: true, .. }, _) | Action::Press(..) | Action::Focus(..)) {
+            if matches!(action, Action::Key { stage: false, .. } | Action::Physical(crate::PhysicalInput::Key { pressed: true, .. }, _) | Action::Press(..) | Action::Focus(..) | Action::PrimaryPaste(..)) {
                 self.kbd.focus_owed = None;
             }
             // State may have requested focus on a newly mounted field. Resolve the
@@ -431,8 +431,6 @@ impl RuntimeCore {
             if r { ran = true; why |= CommitWhy::DIRTY; }
             self.flush_cancel_pointer(app, &mut tx, &mut ran, &mut why, #[cfg(debug_assertions)] &mut ran_other);
         }
-        #[cfg(target_os = "linux")]
-        self.note_primary_selection(app);
         let mut open_urls = std::mem::take(&mut tx.open_urls);
         let mut open_paths = std::mem::take(&mut tx.open_paths);
         self.latch_requests(app, &mut tx);
@@ -542,6 +540,8 @@ impl RuntimeCore {
             let from_change = std::mem::take(&mut tx.select_from_change);
             self.apply_select_request(app, request, from_change);
         }
+        self.finish_primary_frame(app);
+        crate::clipboard::flush_memory(self);
         // What the commit or a `Tx::select_text` changed is heard next frame.
         let changes = self.selection_changes(app);
         self.frame.queue.extend(changes);

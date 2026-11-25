@@ -4,6 +4,7 @@ use super::*;
 
 impl Client {
     pub(super) fn read_for(&self, purpose: Purpose) {
+        if matches!(purpose, Purpose::PrimaryPaste(_)) { return; }
         // Start the permission-sensitive operation before yielding the input handler.
         let forms = purpose.forms();
         let promise = crate::platform::web::platform::read_clipboard(forms != Forms::Text, forms == Forms::All, MAX_IMAGE_BYTES as u32);
@@ -52,6 +53,7 @@ impl Client {
         if rt.edit.has_clipboard() { return flush_memory(rt); }
         #[cfg(test)]
         if let Some(m) = &self.memory { return flush_to_memory(rt, m); }
+        drop(rt.take_primary());
         rt.edit.clear_secret_request = false;
         if let Some(copy) = rt.copy_request.take() {
             if copy.is_secret() {

@@ -65,7 +65,7 @@ fn middle_click_on_textbox_wrapper_padding_focuses_queues_paste_and_stops_ancest
     assert!(rt.state.a.focused, "middle-clicking wrapper left padding must focus inner input");
     assert_eq!(rt.state.a.range(), (0, 0), "left padding places caret at start");
     assert_eq!(rt.state.middle_presses, 0, "ancestor on_middle_press must not fire");
-    let queued = rt.core_mut().edit.primary.paste.take();
+    let queued = rt.core_mut().take_primary().paste.flatten();
     assert_eq!(queued.as_deref(), Some(input_a_path.as_str()), "primary paste must target the resolved inner input");
 
     // Delivering the queued primary selection pastes at the caret placed by the middle click.
@@ -80,7 +80,7 @@ fn middle_click_on_textbox_wrapper_padding_focuses_queues_paste_and_stops_ancest
     assert!(rt.state.b.focused, "middle-clicking wrapper right padding must focus inner input");
     assert_eq!(rt.state.b.range(), (5, 5), "right padding places caret at end");
     assert_eq!(rt.state.button_presses, 0, "ancestor pointer_buttons([Middle]) handler must not fire");
-    assert_eq!(rt.core_mut().edit.primary.paste.take().as_deref(), Some(input_b_path.as_str()));
+    assert_eq!(rt.core_mut().take_primary().paste.flatten().as_deref(), Some(input_b_path.as_str()));
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn middle_click_on_textbox_wrapper_padding_does_not_start_autoscroll() {
     assert!(rt.core().autoscroll_cursor().is_none(), "middle-clicking wrapper padding must not start autoscroll");
     assert_eq!(rt.scroll.scrolls[&scroller_id].offset, 0.0, "scroll viewport must stay at 0");
     assert!(rt.state.edit.focused);
-    assert_eq!(rt.core_mut().edit.primary.paste.take().as_deref(), Some(input_path.as_str()));
+    assert_eq!(rt.core_mut().take_primary().paste.flatten().as_deref(), Some(input_path.as_str()));
 }
 
 #[test]
@@ -166,16 +166,15 @@ fn secure_textbox_wrapper_never_takes_or_gives_primary_selection() {
         let ir = rect_of(&rt, inp_key);
         for (x, y) in [(br[0] + 4.0, br[1] + 4.0), (ir[0] + 10.0, ir[1] + ir[3] * 0.5)] {
             linux_middle_click(&mut rt, x, y);
-            assert!(rt.core().edit.primary.paste.is_none(), "{box_key} must never queue primary paste");
+            assert!(rt.core().edit.input_click.primary.paste.is_none(), "{box_key} must never queue primary paste");
         }
     }
     assert!(!rt.state.masked.focused && !rt.state.revealed.focused && !rt.state.wrapped_secure.focused);
 
     // Selecting text inside any secure field never publishes it to the primary selection.
-    let note_release = |rt: &mut Runtime<State>| {
-        rt.core_mut().primary_released();
-        let (core, app) = rt.split_mut();
-        core.note_primary_selection(&app);
+    let primary_payload = |rt: &mut Runtime<State>| {
+        let (core, mut app) = rt.split_mut();
+        core.primary_selection_text(&mut app)
     };
     for (box_key, select_fn) in [
         ("masked-box", (|s: &mut State| s.masked.set_selection(0, s.masked.text.len())) as fn(&mut State)),
@@ -188,8 +187,7 @@ fn secure_textbox_wrapper_never_takes_or_gives_primary_selection() {
         rt.frame(1.0 / 60.0);
         rt.update(|s, _| select_fn(s));
         rt.frame(1.0 / 60.0);
-        note_release(&mut rt);
-        assert!(rt.core().edit.primary.write.is_none(), "{box_key} must never write to primary selection");
+        assert!(primary_payload(&mut rt).is_none(), "{box_key} must never write to primary selection");
     }
 
     // By contrast, selecting in the plain field writes to primary selection, and middle-clicking its padding queues paste.
@@ -199,10 +197,9 @@ fn secure_textbox_wrapper_never_takes_or_gives_primary_selection() {
     rt.frame(1.0 / 60.0);
     rt.update(|s, _| s.plain.set_selection(0, s.plain.text.len()));
     rt.frame(1.0 / 60.0);
-    note_release(&mut rt);
-    assert_eq!(rt.core_mut().edit.primary.write.take().as_deref(), Some("public"));
+    assert_eq!(primary_payload(&mut rt).as_deref(), Some("public"));
     linux_middle_click(&mut rt, pr[0] + 4.0, pr[1] + 4.0);
-    assert_eq!(rt.core_mut().edit.primary.paste.take(), Some(path_of(&rt, "plain")));
+    assert_eq!(rt.core_mut().take_primary().paste.flatten(), Some(path_of(&rt, "plain")));
 }
 
 #[test]
@@ -279,7 +276,7 @@ fn readonly_and_disabled_textbox_wrappers_never_paste_or_focus() {
     ] {
         let r = rect_of(&rt, key);
         linux_middle_click(&mut rt, r[0] + 4.0, r[1] + 4.0);
-        assert!(rt.core().edit.primary.paste.is_none(), "{key} must not queue primary paste");
+        assert!(rt.core().edit.input_click.primary.paste.is_none(), "{key} must not queue primary paste");
     }
     assert!(
         !rt.state.ro_plain.focused
@@ -331,11 +328,11 @@ fn middle_click_on_nested_button_or_ambiguous_textbox_does_not_paste() {
     linux_middle_click(&mut rt, btn[0] + btn[2] * 0.5, btn[1] + btn[3] * 0.5);
     assert_eq!(rt.state.btn_middle, 1, "button inside textbox keeps its own middle press");
     assert!(!rt.state.single.focused);
-    assert!(rt.core().edit.primary.paste.is_none());
+    assert!(rt.core().edit.input_click.primary.paste.is_none());
 
     // Middle-clicking padding of a wrapper with two reachable editors pastes into neither.
     let amb = rect_of(&rt, "ambiguous");
     linux_middle_click(&mut rt, amb[0] + 4.0, amb[1] + 4.0);
     assert!(!rt.state.first.focused && !rt.state.second.focused);
-    assert!(rt.core().edit.primary.paste.is_none());
+    assert!(rt.core().edit.input_click.primary.paste.is_none());
 }

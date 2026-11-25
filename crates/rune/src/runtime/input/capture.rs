@@ -389,7 +389,7 @@ impl PointerState {
     }
 
     #[inline]
-    pub(super) fn clear_press_clicks(&mut self) { self.press_clicks.clear(); }
+    pub(in crate::runtime) fn clear_press_clicks(&mut self) { self.press_clicks.clear(); }
 
     #[inline]
     pub(super) fn push_hover_gone(&mut self, path: String, f: crate::el::WindowFocusFn) {

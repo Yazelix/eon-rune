@@ -1,0 +1,1 @@
+- Linux primary selection no longer builds unmounted virtual rows during selection. Automatic export clears primary when complete text is unavailable from mounted or retained rows; explicit Copy still collects virtual text on demand.

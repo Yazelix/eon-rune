@@ -1,7 +1,7 @@
 //! On-demand unbuilt virtual-row building, copy collection, ⌘A span resolution, and programmatic
 //! selection requests on unbuilt rows.
 use super::{
-    EndRef, MAX_VIRTUAL_COPY_BYTES, MAX_VIRTUAL_COPY_ROWS, OffscreenText, PinsEvent, Source,
+    CopyRows, EndRef, MAX_VIRTUAL_COPY_BYTES, MAX_VIRTUAL_COPY_ROWS, OffscreenText, PinsEvent, Source,
     collect_virtual_row_selection, offscreen_piece,
 };
 use crate::el::{SelectRequest, SelectionCopy};
@@ -20,7 +20,7 @@ impl TreeState {
 }
 
 impl RuntimeCore {
-    pub(crate) fn copy_virtual_text(&self, app: &dyn ViewDriver) -> Option<String> {
+    pub(in crate::runtime) fn copy_virtual_text(&self, app: &dyn ViewDriver, rows: CopyRows) -> Option<String> {
         let h = self.selection_holder_end()?;
         let f = self.focus_holder_end(h)?;
         let node_for = |e: EndRef| match e {
@@ -28,14 +28,13 @@ impl RuntimeCore {
             EndRef::Offscreen(vi, ti) => self.live(&self.offscreen_text(vi, ti).list_path),
         };
         let (n0, n1) = (node_for(h)?, node_for(f)?);
-        if let Some((p, copy_fn)) = self.tree.selection_copy_provider(n0, n1) {
-            let sel = self.collect_virtual_selection(app, Some(p))?;
-            if let Some(text) = copy_fn(&sel) {
-                return Some(text);
-            }
-            return Some(sel.text);
+        let provider = self.tree.selection_copy_provider(n0, n1);
+        let selection = self.collect_virtual_selection_with(app, provider.as_ref().map(|(i, _)| *i), rows)?;
+        if rows == CopyRows::Retained && (selection.truncated || selection.text.len() > MAX_VIRTUAL_COPY_BYTES) {
+            return None;
         }
-        self.collect_virtual_selection(app, None).map(|s| s.text)
+        let text = provider.and_then(|(_, copy)| copy(&selection)).unwrap_or(selection.text);
+        (rows == CopyRows::Build || text.len() <= MAX_VIRTUAL_COPY_BYTES).then_some(text)
     }
 
     /// Builds an unmounted row `r` of `list_path` on demand (view only, no layout/mount/GPU) and
@@ -91,6 +90,10 @@ impl RuntimeCore {
     /// Collects the full [`TextSelection`] when the selection touches offscreen or unbuilt rows,
     /// bounded by [`MAX_VIRTUAL_COPY_ROWS`] and [`MAX_VIRTUAL_COPY_BYTES`].
     pub(crate) fn collect_virtual_selection(&self, app: &dyn ViewDriver, base: Option<usize>) -> Option<TextSelection> {
+        self.collect_virtual_selection_with(app, base, CopyRows::Build)
+    }
+
+    fn collect_virtual_selection_with(&self, app: &dyn ViewDriver, base: Option<usize>, rows: CopyRows) -> Option<TextSelection> {
         let h = self.selection_holder_end()?;
         let f = self.focus_holder_end(h)?;
         let sel = self.edit.selectable.phase.selection()?;
@@ -167,6 +170,11 @@ impl RuntimeCore {
         let list_node = self.live(&list_path)?;
         let v = self.commit.virtuals.get(&list_path)?;
         let g = self.live(g_path)?;
+        if rows == CopyRows::Retained && self.commit.virtuals.keys().filter_map(|path| self.live(path))
+            .any(|i| i != list_node && (first_ord.0..=last_ord.0).contains(&(i * 2 + 1)))
+        {
+            return None;
+        }
 
         let (mut texts, mut out) = (Vec::new(), CopyJoin::default());
         let (mut unbuilt_rows, mut prev_mounted, mut hit_cap) = (0usize, None, false);
@@ -211,7 +219,10 @@ impl RuntimeCore {
                 if v.range.contains(&r) {
                     let row_path = crate::runtime::flatten::node_path(&list_path, Some(&v.keys[r]), 0);
                     let Some(row_node) = self.tree.direct_child_by_path(list_node, list_end + 1, &row_path)
-                    else { continue };
+                    else {
+                        if rows == CopyRows::Retained { return None; }
+                        continue;
+                    };
                     for j in (row_node..=list_end).take_while(|&j| self.tree.is_descendant(j, row_node)).filter(|&j| self.member(j, g)) {
                         if append_mounted(j, &mut out, &mut texts, &mut prev_mounted) {
                             hit_cap = true;
@@ -226,6 +237,7 @@ impl RuntimeCore {
                     let row_texts: Vec<&OffscreenText> = if v.selection.pins.has_text_row(row_key) {
                         v.selection.pins.texts().iter().filter(|t| &t.row_key == row_key).collect()
                     } else {
+                        if rows == CopyRows::Retained { return None; }
                         if unbuilt_rows >= MAX_VIRTUAL_COPY_ROWS || out.text().len() >= MAX_VIRTUAL_COPY_BYTES {
                             hit_cap = true;
                             break;

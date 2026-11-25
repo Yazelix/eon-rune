@@ -102,6 +102,43 @@ fn held_still_past_the_bottom_the_list_and_the_selection_keep_going() {
     assert!(focus >= last_focus && copied.starts_with("row 00\nrow 01\n") && copied.ends_with(&format!("row {focus:02}")), "{copied:?}");
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn stationary_edge_scroll_exports_the_final_plain_selection_on_release() {
+    let mut rt = hold_below_in(PLAIN, 200.0);
+    let board = crate::clipboard::memory();
+    board.set_primary_text("external sentinel");
+    board.set_text("regular sentinel");
+    rt.use_clipboard(&board);
+    for _ in 0..30 { rt.frame(1.0 / 60.0); }
+    assert!(ends(&rt).1 >= 15, "a stationary pointer extended the selection");
+    assert_eq!(board.primary_text().as_deref(), Some("external sentinel"));
+    rt.pointer_up(150.0, BOTTOM + 200.0);
+    rt.frame(1.0 / 60.0);
+    let expected = rt.selected_text().expect("final selection");
+    assert_eq!(board.primary_text().as_deref(), Some(expected.as_str()));
+    assert_eq!(board.text().as_deref().map(String::as_str), Some("regular sentinel"));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn stationary_edge_scroll_clears_an_unretained_virtual_selection_on_release() {
+    let mut rt = hold_below_in(VIRTUAL, 200.0);
+    let board = crate::clipboard::memory();
+    board.set_primary_text("external sentinel");
+    board.set_text("regular sentinel");
+    rt.use_clipboard(&board);
+    for _ in 0..30 { rt.frame(1.0 / 60.0); }
+    assert!(ends(&rt).1 >= 15, "a stationary pointer extended the selection");
+    assert_eq!(board.primary_text().as_deref(), Some("external sentinel"));
+    rt.pointer_up(150.0, BOTTOM + 200.0);
+    rt.frame(1.0 / 60.0);
+    let (core, app) = rt.split();
+    assert!(core.copy_text_with(&app, virtual_selection::CopyRows::Retained).is_none(), "unmounted middle rows cannot be exported");
+    assert_eq!(board.primary_text(), None, "the stale short payload must be cleared");
+    assert_eq!(board.text().as_deref().map(String::as_str), Some("regular sentinel"));
+}
+
 #[test]
 fn the_step_grows_with_the_distance_past_the_edge() {
     let step = |past: f32| {

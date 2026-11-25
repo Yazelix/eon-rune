@@ -36,6 +36,8 @@ enum Capture {
 
 #[derive(Default)]
 pub(in crate::runtime) struct InputClick {
+    pub(in crate::runtime) primary: crate::clipboard::primary::Requests,
+    pub(in crate::runtime) primary_boundary: primary_selection::Boundary,
     /// The run of non-Shift presses on inputs.
     presses: press_run::PressRun,
     /// What the press that started the current selection selects by, and the unit range it
@@ -44,7 +46,7 @@ pub(in crate::runtime) struct InputClick {
     unit: Unit,
     origin: (usize, usize),
     capture: Capture,
-    /// Queued press/drag steps paired with `Action::Focus` entries in `Runtime::queue`.
+    /// Queued steps paired with `Action::Focus` and `Action::PrimaryPaste`.
     steps: VecDeque<(String, Step)>,
 }
 
@@ -235,14 +237,27 @@ impl RuntimeCore {
         );
     }
 
-    /// Focuses text field `ji` with its caret at (x, y), as a single click does, but holds no
-    /// press: nothing drags from it (Linux's middle-click paste, `primary_selection.rs`).
-    #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
-    pub(in crate::runtime) fn place_caret(&mut self, ji: usize, x: f32, y: f32) {
+    /// Queues a caret placement for a middle paste without taking a press capture.
+    pub(in crate::runtime) fn queue_primary_paste(&mut self, ji: usize, x: f32, y: f32) {
         let path = self.tree.nodes[ji].path.clone();
         self.edit.input_click.presses.clear();
+        self.pointer.clear_press_clicks();
         self.edit.input_click.steps.push_back((path.clone(), Step::Down { clicks: 1, shift: false, check_pill: false }));
-        self.frame.queue.push(Action::Focus(path, x, y));
+        self.frame.queue.push(Action::PrimaryPaste(path, x, y));
+    }
+
+    pub(in crate::runtime) fn primary_paste_action(&mut self, app: &mut dyn AppDriver, path: String, x: f32, y: f32, tx: &mut Tx) -> bool {
+        if !self.live(&path).is_some_and(|i| self.primary_paste_allowed(i)) {
+            let steps = &mut self.edit.input_click.steps;
+            if steps.front().is_some_and(|(p, _)| *p == path) { steps.pop_front(); }
+            return false;
+        }
+        let target = path.clone();
+        let changed = self.focus_input(app, path, x, y, tx);
+        if changed && self.kbd.focus.path() == Some(target.as_str()) && !tx.blur {
+            tx.primary.paste = Some(None);
+        }
+        changed
     }
 
     pub(in crate::runtime) fn input_drag(&mut self, x: f32, y: f32, drag_move: bool) {

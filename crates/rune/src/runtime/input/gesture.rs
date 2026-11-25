@@ -316,11 +316,6 @@ impl RuntimeCore {
         if self.pointer.press.is_held() { return; }
         self.pointer.pos = Some((x, y));
         if button == PointerButton::Middle { self.tint_down(x, y, button); }
-        // On Linux a middle click in a text field pastes the primary selection there.
-        #[cfg(any(target_os = "linux", test))]
-        if primary_paste && button == PointerButton::Middle && self.primary_paste_down(x, y) { return; }
-        #[cfg(not(any(target_os = "linux", test)))]
-        let _ = primary_paste;
         self.dismiss_help();
         let hit = self.hit.top_hit(|id, r| self.hit_contains(id, r, x, y)).and_then(|id| self.tree.node_index.get(&id).copied());
         let middle = button == PointerButton::Middle;
@@ -333,6 +328,15 @@ impl RuntimeCore {
                 if let Some(k) = self.middle_link_at(i, x, y) { return Some((i, Some(k))); }
                 h.on_middle_press.is_some().then_some((i, None))
             });
+        // A textbox owns its padding. An explicit handler on a direct hit or inside that
+        // textbox still takes priority over the clipboard fallback.
+        if cfg!(any(target_os = "linux", test)) && primary_paste && middle
+            && let Some((area, input)) = self.primary_paste_target(x, y)
+            && target.as_ref().is_none_or(|(i, _)| area != input && !self.tree.is_descendant(*i, area))
+        {
+            self.queue_primary_paste(input, x, y);
+            return;
+        }
         let Some((i, link)) = target else {
             let chain = self.gesture_chain(x, y, |g| g.button.is_some());
             if !chain.is_empty() {

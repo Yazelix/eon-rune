@@ -503,8 +503,12 @@ impl RuntimeCore {
     /// What copying the selection puts on the clipboard: the nearest [`El::selection_copy`]
     /// around it says, else the text as drawn.
     pub(crate) fn copy_text(&self, app: &dyn ViewDriver) -> Option<String> {
+        self.copy_text_with(app, virtual_selection::CopyRows::Build)
+    }
+
+    pub(in crate::runtime) fn copy_text_with(&self, app: &dyn ViewDriver, rows: virtual_selection::CopyRows) -> Option<String> {
         if self.selection_spans_unmounted() {
-            return self.copy_virtual_text(app);
+            return self.copy_virtual_text(app, rows);
         }
         let ranges = self.selection_ranges();
         let (&(first, ..), &(last, ..)) = (ranges.first()?, ranges.last()?);

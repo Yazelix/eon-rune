@@ -64,6 +64,7 @@ pub(in crate::runtime) enum Action {
     /// and the dialog's answer.
     FileDialog(u64, crate::file_dialog::DialogOutcome),
     Focus(String, f32, f32),
+    PrimaryPaste(String, f32, f32),
     /// A text field's menu: the field, the window point it opens at, and the window point where a
     /// press asked for it (none from the keyboard).
     FieldMenu(String, (f32, f32), Option<(f32, f32)>),
@@ -217,7 +218,7 @@ fn handler_name(action: &Action) -> &'static str {
         Action::ScreenLayout(..) => "on_screen_layout",
         Action::Files(_) => "on_drop_files",
         Action::Ime(_) | Action::FinishIme => "a text input's edit",
-        Action::Paste(..) => "on_paste",
+        Action::Paste(..) | Action::PrimaryPaste(..) => "on_paste",
         Action::ClipboardRead(..) => "a `read_clipboard` callback",
         Action::FileDialog(..) => "a file dialog callback",
         _ => "a handler",
@@ -236,6 +237,8 @@ fn stall_path(action: &Action) -> Option<&str> {
 pub(crate) fn merge(tx: &mut Tx, one: Tx) {
     tx.pick_reads.extend(one.pick_reads);
     tx.paste |= one.paste;
+    if one.primary.copy.is_some() { tx.primary.copy = one.primary.copy; }
+    if one.primary.paste.is_some() { tx.primary.paste = one.primary.paste; }
     tx.clipboard_reads.extend(one.clipboard_reads);
     if let Some(one) = one.trace {
         let trace = tx.trace.get_or_insert_with(Default::default);
@@ -324,11 +327,16 @@ pub(in crate::runtime) fn order_drag_ends(queue: ActionQueue, ended: Vec<(String
 impl RuntimeCore {
     /// Runs `action`'s handlers; debug builds warn when they block the main thread.
     pub(in crate::runtime) fn run_action(&mut self, app: &mut dyn AppDriver, action: Action, tx: &mut Tx) -> bool {
+        let selects = cfg!(target_os = "linux") && matches!(action, Action::Key { .. } | Action::Physical(..) | Action::Focus(..) | Action::A11y(..));
+        let before = selects.then(|| self.primary_selection(app));
+        let previous_primary = tx.primary.copy.take();
         #[cfg(debug_assertions)]
         let (name, path, at) = (handler_name(&action), stall_path(&action).map(str::to_owned), self.handler_location(&action));
         let stall = crate::tooling::perf_warn::Stall::start();
         let timed = self.interaction_note(&action).map(|note| (note, crate::time::now()));
         let ran = self.dispatch_action(app, action, tx);
+        if let Some(before) = before { self.export_primary_selection(app, before, tx); }
+        if tx.primary.copy.is_none() { tx.primary.copy = previous_primary; }
         if ran && let Some((note, started)) = timed { self.interaction_ran(note, started); }
         #[cfg(debug_assertions)]
         if ran && name.starts_with("on_") { self.commit.watch.meter.handler(name, path.as_deref(), at); }
@@ -587,6 +595,7 @@ impl RuntimeCore {
             }
             Action::FileDialog(id, result) => self.run_file_dialog(app, id, result, &mut one),
             Action::Focus(path, x, y) => self.focus_input(app, path, x, y, &mut one),
+            Action::PrimaryPaste(path, x, y) => self.primary_paste_action(app, path, x, y, &mut one),
             Action::FieldMenu(path, at, local) => self.field_menu(app, path, at, local, &mut one),
             Action::Blur => {
                 if self.kbd.focus.path().is_none() { return false; }
