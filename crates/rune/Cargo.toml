@@ -109,7 +109,8 @@ rune-text = { workspace = true }
 # Allow backend patch fixes; headless pixel equivalence guards the precompiled Metal path.
 wgpu = { workspace = true, features = ["std", "parking_lot", "wgsl"] }
 # Keep Wayland client-side frames/buttons without the title font's ab_glyph/ttf-parser.
-winit = { workspace = true, features = ["rwh_06", "x11", "wayland", "wayland-dlopen", "wayland-csd-adwaita-notitle"] }
+# Eon supplies its own window chrome. Avoid a second tiny-skia-path source in its vendor graph.
+winit = { workspace = true, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
 taffy = { workspace = true, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size"] }
 parley = { workspace = true, features = ["std"] }
 bytemuck = { workspace = true }
