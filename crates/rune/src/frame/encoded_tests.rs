@@ -23,7 +23,7 @@ fn reports_number_each_frame_of_their_window() {
     assert!(encoded.is_some(), "a hook takes the encode time");
     reports.drawn(encoded, Some(target), started, 0.0);
     reports.unchanged(Some(target));
-    reports.skipped();
+    reports.skipped(FrameSkip::Covered);
     let log = log.borrow();
     let seen: Vec<_> = log.iter().map(|f| (f.seq(), f.outcome(), f.window(), f.presents_at())).collect();
     assert_eq!(seen, vec![
@@ -45,7 +45,7 @@ fn a_drawn_frame_splits_its_work_into_update_and_encode() {
     // A clock step can put the stamp before the update ended: encode time is never negative.
     reports.drawn(Some(started), None, started, 2.0);
     reports.unchanged(None);
-    reports.skipped();
+    reports.skipped(FrameSkip::Covered);
     let log = log.borrow();
     assert_eq!(log[0].update_ms(), Some(2.0));
     assert!((log[0].encode_ms().unwrap() - 3.0).abs() < 1e-9, "{:?}", log[0].encode_ms());
@@ -61,12 +61,12 @@ fn reports_carry_the_display_refresh_the_host_last_set() {
     let (log, hook) = logging();
     let mut reports = FrameReports::new(Some(hook), Some("main"));
     assert!(reports.wanted());
-    reports.skipped();
+    reports.skipped(FrameSkip::Covered);
     reports.set_refresh(Some(120.0));
     reports.unchanged(None);
     reports.drawn(reports.stamp(), None, crate::time::now(), 0.0);
     reports.set_refresh(Some(0.0));
-    reports.skipped();
+    reports.skipped(FrameSkip::Covered);
     let hz: Vec<_> = log.borrow().iter().map(FrameEncoded::refresh_hz).collect();
     assert_eq!(hz, vec![None, Some(120.0), Some(120.0), None], "a rate that isn't one reads as unknown");
 }
@@ -77,7 +77,7 @@ fn without_a_hook_nothing_is_timed_or_counted() {
     assert_eq!(reports.stamp(), None);
     reports.drawn(None, None, crate::time::now(), 1.0);
     reports.unchanged(None);
-    reports.skipped();
+    reports.skipped(FrameSkip::Covered);
     reports.set_refresh(Some(60.0));
     assert!(!reports.wanted());
     assert!(reports.0.is_none());
@@ -90,11 +90,11 @@ fn a_window_spec_keeps_its_app_s_hook_until_it_sets_its_own() {
     let (app_calls, window_calls) = (calls.clone(), calls.clone());
     let window = WindowSpec::from_app("main", App::new(spec()).on_frame_encoded(move |_| app_calls.borrow_mut().push("app")));
     let mut reports = FrameReports::new(window.app.on_frame_encoded, Some("main"));
-    reports.skipped();
+    reports.skipped(FrameSkip::Covered);
     let window = WindowSpec::from_app("main", App::new(spec()).on_frame_encoded(|_| unreachable!()))
         .on_frame_encoded(move |_| window_calls.borrow_mut().push("window"));
     let mut reports = FrameReports::new(window.app.on_frame_encoded, Some("main"));
-    reports.skipped();
+    reports.skipped(FrameSkip::Covered);
     assert!(WindowSpec::new("plain", spec()).app.on_frame_encoded.is_none());
     assert_eq!(*calls.borrow(), vec!["app", "window"]);
 }
@@ -112,4 +112,26 @@ fn a_drawn_frame_s_inspector_reads_the_runtime_it_presented() {
     if let Some(hook) = window.app.on_frame_drawn.as_mut() { hook(&rt); }
     assert_eq!(*seen.borrow(), vec![(7, true)]);
     assert!(WindowSpec::new("plain", spec()).app.on_frame_drawn.is_none(), "without one, inspecting is an Option check");
+}
+
+/// A skipped frame says why; a drawn or unchanged one has no reason, so `skipped` is `Some`
+/// exactly when the outcome is `Skipped`.
+#[test]
+fn a_skipped_frame_carries_its_reason_and_only_a_skipped_one_does() {
+    let (log, hook) = logging();
+    let mut reports = FrameReports::new(Some(hook), Some("main"));
+    reports.drawn(reports.stamp(), None, crate::time::now(), 0.0);
+    for why in [FrameSkip::Covered, FrameSkip::Timeout, FrameSkip::Surface] { reports.skipped(why); }
+    reports.unchanged(None);
+    let seen: Vec<_> = log.borrow().iter().map(|f| (f.seq(), f.outcome(), f.skipped())).collect();
+    assert_eq!(seen, vec![
+        (0, FrameOutcome::Drawn, None),
+        (1, FrameOutcome::Skipped, Some(FrameSkip::Covered)),
+        (2, FrameOutcome::Skipped, Some(FrameSkip::Timeout)),
+        (3, FrameOutcome::Skipped, Some(FrameSkip::Surface)),
+        (4, FrameOutcome::Unchanged, None),
+    ]);
+    for f in log.borrow().iter() {
+        assert_eq!(f.skipped().is_some(), f.outcome() == FrameOutcome::Skipped, "{:?}", f.outcome());
+    }
 }

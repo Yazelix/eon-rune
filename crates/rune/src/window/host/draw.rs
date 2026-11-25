@@ -64,7 +64,7 @@ fn apply_missed_core(
     // come at the retry's pace, not the display's.
     if !stepped { state.app.covered_wake(); }
     state.clipboard.flush_core(state.app.rt_mut());
-    state.reports.skipped();
+    state.reports.skipped(missed.skip());
     effects
 }
 
@@ -93,7 +93,7 @@ fn apply_lost_present_core(
     *surface_ok = false;
     *presented = None;
     *idle = true;
-    reports.skipped();
+    reports.skipped(crate::FrameSkip::Surface);
     match surface_retries.loss_retry(now, policy, software_available) {
         Some(at) => {
             let _ = backoff.step(BackoffEvent::At(at));
@@ -151,10 +151,22 @@ impl Host {
         if occluded { self.app.set_live_visible(false); }
     }
 
+    pub(super) fn hidden_missed(&mut self, missed: Missed) {
+        if self.gpu_failed() { return; }
+        let Some(l) = self.win.as_mut() else { return };
+        l.first_frame.missed();
+        l.backoff_step(BackoffEvent::HiddenMissed {
+            preparing: l.first_frame.deadline().is_some(),
+            now: crate::time::now(),
+        });
+        self.frame_reports.skipped(missed.skip());
+    }
+
     /// A frame for a window that's hidden, covered, asleep or minimised: while shown, what it
     /// would have run runs without drawing (`covered_step`). It isn't live: a minimize X11
     /// reports with no event lands here first, and the frame that next draws settles.
     pub(in crate::window) fn covered_frame(&mut self) {
+        if self.gpu_failed() { return; }
         let Some(l) = self.win.as_mut() else { return };
         l.timer_frame.drawn();
         l.presented = None;
@@ -169,7 +181,7 @@ impl Host {
             self.app.set_live_visible(false);
             self.app.covered_wake();
             self.clipboard.flush_core(self.app.rt_mut());
-            self.frame_reports.skipped();
+            self.frame_reports.skipped(crate::FrameSkip::Covered);
         }
     }
 
@@ -614,14 +626,7 @@ impl FrameHost for WindowFrame<'_> {
             return;
         }
         if self.state.hidden {
-            if let Some(l) = self.host.win.as_mut() {
-                l.first_frame.missed();
-                l.backoff_step(BackoffEvent::HiddenMissed {
-                    preparing: l.first_frame.deadline().is_some(),
-                    now: crate::time::now(),
-                });
-            }
-            self.host.frame_reports.skipped();
+            self.host.hidden_missed(missed);
             return;
         }
         self.host.missed_frame(missed, stepped);
@@ -678,7 +683,7 @@ impl FrameHost for WindowFrame<'_> {
                 )
             } else {
                 self.host.idle = true;
-                self.host.frame_reports.skipped();
+                self.host.frame_reports.skipped(crate::FrameSkip::Surface);
                 LostPresent::Retry
             };
             if outcome == LostPresent::GiveUp {

@@ -16,6 +16,7 @@ pub(crate) type OnFrameDrawn<S> = Box<dyn FnMut(&crate::Runtime<S>)>;
 pub struct FrameEncoded {
     at: Instant,
     outcome: FrameOutcome,
+    skip: Option<FrameSkip>,
     window: Option<Rc<str>>,
     seq: u64,
     presents_at: Option<Instant>,
@@ -36,8 +37,27 @@ pub enum FrameOutcome {
     /// no drawable and encoded nothing.
     Unchanged,
     /// Due but not drawn: the window is covered, minimised or occluded, or no drawable came in
-    /// time. The runtime may still have stepped.
+    /// time, or its surface needs fixing first. The runtime may still have stepped.
+    /// [`FrameEncoded::skipped`] says which.
     Skipped,
+}
+
+/// Why a window skipped a frame: [`FrameEncoded::skipped`]. It says why this frame drew
+/// nothing, not whether the surface changed since the last frame drawn.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FrameSkip {
+    /// The window isn't on screen: covered, minimised or occluded, or its displays asleep.
+    Covered,
+    /// No drawable came in time, or acquiring one failed in a way Rune retries (a validation
+    /// error under the default GPU-loss policy). A later frame tries again.
+    Timeout,
+    /// The surface was out of date or lost and reconfiguring didn't bring it back, refused its
+    /// configuration, or its device is gone. Rune reconfigures or replaces it before a later
+    /// frame draws: under the default policy that may replace the device too; under
+    /// `App::terminal_gpu_loss` it keeps the device or gives the window up. Until a frame is
+    /// `Drawn`, what is on screen may not match the window.
+    Surface,
 }
 
 impl FrameEncoded {
@@ -46,6 +66,9 @@ impl FrameEncoded {
     pub fn at(&self) -> Instant { self.at }
 
     pub fn outcome(&self) -> FrameOutcome { self.outcome }
+
+    /// For `Skipped`, why the window drew nothing.
+    pub fn skipped(&self) -> Option<FrameSkip> { self.skip }
 
     /// The window's key (`WindowSpec::new`; `"main"` for `App::run`).
     pub fn window(&self) -> Option<&str> { self.window.as_deref() }
@@ -112,21 +135,21 @@ impl FrameReports {
     pub(crate) fn drawn(&mut self, at: Option<Instant>, presents_at: Option<Instant>, started: Instant, update_ms: f64) {
         let Some(at) = at else { return };
         let encode_ms = (at.saturating_duration_since(started).as_secs_f64() * 1000.0 - update_ms).max(0.0);
-        self.report(FrameOutcome::Drawn, at, presents_at, Some((started, update_ms, encode_ms)));
+        self.report(FrameOutcome::Drawn, None, at, presents_at, Some((started, update_ms, encode_ms)));
     }
 
     pub(crate) fn unchanged(&mut self, presents_at: Option<Instant>) {
-        if self.0.is_some() { self.report(FrameOutcome::Unchanged, crate::time::now(), presents_at, None); }
+        if self.0.is_some() { self.report(FrameOutcome::Unchanged, None, crate::time::now(), presents_at, None); }
     }
 
-    pub(crate) fn skipped(&mut self) {
-        if self.0.is_some() { self.report(FrameOutcome::Skipped, crate::time::now(), None, None); }
+    pub(crate) fn skipped(&mut self, why: FrameSkip) {
+        if self.0.is_some() { self.report(FrameOutcome::Skipped, Some(why), crate::time::now(), None, None); }
     }
 
-    fn report(&mut self, outcome: FrameOutcome, at: Instant, presents_at: Option<Instant>, work: Option<(Instant, f64, f64)>) {
+    fn report(&mut self, outcome: FrameOutcome, skip: Option<FrameSkip>, at: Instant, presents_at: Option<Instant>, work: Option<(Instant, f64, f64)>) {
         let Some(r) = &mut self.0 else { return };
         let (started, update_ms, encode_ms) = (work.map(|w| w.0), work.map(|w| w.1), work.map(|w| w.2));
-        let frame = FrameEncoded { at, outcome, window: r.window.clone(), seq: r.seq, presents_at, started, refresh_hz: r.refresh_hz, update_ms, encode_ms };
+        let frame = FrameEncoded { at, outcome, skip, window: r.window.clone(), seq: r.seq, presents_at, started, refresh_hz: r.refresh_hz, update_ms, encode_ms };
         r.seq += 1;
         (r.hook)(&frame);
     }

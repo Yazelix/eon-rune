@@ -119,3 +119,10 @@ test_group! { native =>
 #[path = "attention_native_tests.rs"]
 mod attention_tests;
 }
+
+#[cfg(test)]
+test_group! { native =>
+#[cfg(target_os = "linux")]
+#[path = "skip_reason_native_tests.rs"]
+mod skip_reason_native;
+}

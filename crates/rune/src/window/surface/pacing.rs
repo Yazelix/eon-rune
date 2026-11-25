@@ -234,6 +234,14 @@ pub(crate) const TIMEOUT_RETRY: Duration = Duration::from_millis(16);
 pub(crate) const TIMER_FRAME: Duration = Duration::from_micros(16_667);
 
 impl Missed {
+    /// What an app's frame report says about this miss (`FrameEncoded::skipped`).
+    pub(crate) fn skip(self) -> crate::FrameSkip {
+        match self {
+            Missed::Occluded => crate::FrameSkip::Covered,
+            Missed::Timeout => crate::FrameSkip::Timeout,
+            Missed::Outdated | Missed::Unconfigured => crate::FrameSkip::Surface,
+        }
+    }
     pub(in crate::window) fn of(status: wgpu::CurrentSurfaceTexture) -> Result<wgpu::SurfaceTexture, Missed> {
         use wgpu::CurrentSurfaceTexture as S;
         match status {

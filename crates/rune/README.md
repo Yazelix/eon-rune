@@ -1252,7 +1252,8 @@ For an app's own perf log, with nothing changed about how its windows draw:
 - **`App::on_frame_encoded(|f: &FrameEncoded| ..)`** (or `WindowSpec::on_frame_encoded`) runs on the UI thread
   after each frame of a desktop window. `f.outcome()` is `Drawn` (encoded, submitted and presented; the first frame
   and a hidden launcher's count), `Unchanged` (a timer's frame that drew what was on screen, so no drawable was
-  taken) or `Skipped` (covered, minimised, occluded or no drawable). `f.at()` is when encoding finished,
+  taken) or `Skipped`. `f.skipped()` identifies a covered window, a late drawable or a surface that needs fixing.
+  `f.at()` is when encoding finished,
   `f.seq()` numbers the window's reports and `f.presents_at()` is the display link's target refresh when it paced
   the frame (macOS; `None` for a frame drawn at once after the window rested, such as the first after a key
   press). Headless runs, overlays and the web don't call it.

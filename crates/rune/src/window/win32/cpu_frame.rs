@@ -373,6 +373,7 @@ impl FrameHost for CpuWindowFrame<'_> {
         let Some(dib) = ready(buffer, painter, (width, height)) else {
             eprintln!("rune: no memory for a {width} x {height} frame buffer");
             l.backoff_step(BackoffEvent::At(crate::time::now() + TIMER_FRAME));
+            if !self.host.gpu_failed() { self.host.frame_reports.skipped(crate::FrameSkip::Timeout); }
             return RenderPrep::Abort;
         };
         let stride = dib.stride();
@@ -389,6 +390,7 @@ impl FrameHost for CpuWindowFrame<'_> {
                     self.host.start_gpu(false);
                     self.host.idle = false;
                     if let Some(l) = self.host.win.as_mut() { l.backoff_step(BackoffEvent::At(crate::time::now() + TIMER_FRAME)); }
+                    if !self.host.gpu_failed() { self.host.frame_reports.skipped(crate::FrameSkip::Surface); }
                     return RenderPrep::Abort;
                 }
                 RenderPrep::Ready(None)

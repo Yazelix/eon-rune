@@ -275,6 +275,7 @@ impl FrameHost for CpuWindowFrame<'_> {
         let Some(canvas) = frames.begin((width, height)) else {
             // The compositor holds every buffer, or there's no memory for one: tried again soon.
             l.backoff_step(BackoffEvent::At(crate::time::now() + TIMER_FRAME));
+            if !self.host.gpu_failed() { self.host.frame_reports.skipped(crate::FrameSkip::Timeout); }
             return RenderPrep::Abort;
         };
         if !canvas.kept { painter.forget(); }
@@ -295,6 +296,7 @@ impl FrameHost for CpuWindowFrame<'_> {
                 self.host.start_gpu();
                 self.host.idle = false;
                 if let Some(l) = self.host.win.as_mut() { l.backoff_step(BackoffEvent::At(crate::time::now() + TIMER_FRAME)); }
+                if !self.host.gpu_failed() { self.host.frame_reports.skipped(crate::FrameSkip::Surface); }
                 RenderPrep::Abort
             }
         }
