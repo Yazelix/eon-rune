@@ -351,12 +351,28 @@ pub fn warm_gpu_with(features: wgpu::Features, prepare: impl FnOnce(&wgpu::Devic
     let _ = (features, prepare);
 }
 
+impl<S: 'static> crate::AppHandle<S> {
+    /// Prepare resources on the GPU worker and attribute device failures to this app.
+    /// Available on Windows and Linux. A waiting warm-up keeps its original owner.
+    pub fn warm_gpu_with(&self, features: wgpu::Features, prepare: impl FnOnce(&wgpu::Device) + Send + 'static) {
+        #[cfg(not(any(target_os = "macos", target_arch = "wasm32")))]
+        {
+            let owner = self.shared.core.gpu_failure.get().cloned()
+                .map_or(Default::default(), crate::window::gpu_failure::Policy::Terminal);
+            super::prewarm::warm_for(features, Some(Box::new(prepare)), owner);
+        }
+        #[cfg(any(target_os = "macos", target_arch = "wasm32"))]
+        let _ = (features, prepare);
+    }
+}
+
 /// `warm_gpu` for a window that opened on the CPU: on a thread, once the device and renderer
 /// wait for the window's surface, `frame` draws with them, then `done` runs; with no device,
 /// only `done` (`window::linux::handover`).
 #[cfg(target_os = "linux")]
-pub(crate) fn warm_gpu_then(features: wgpu::Features, frame: impl FnOnce(&super::Gpu, &mut Renderer) + Send + 'static, done: impl FnOnce() + Send + 'static) -> std::io::Result<()> {
-    super::prewarm::warm_then(features, frame, done)
+pub(crate) fn warm_gpu_then(features: wgpu::Features, owner: crate::window::gpu_failure::Policy,
+    frame: impl FnOnce(&super::Gpu, &mut Renderer) + Send + 'static, done: impl FnOnce() + Send + 'static) -> std::io::Result<()> {
+    super::prewarm::warm_then(features, owner, frame, done)
 }
 
 /// Whether `warm_gpu_then` left a device for the window's surface (or another surface's lives).

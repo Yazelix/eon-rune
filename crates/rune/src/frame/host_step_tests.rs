@@ -38,6 +38,7 @@ struct FakeHost {
     post_checks: VecDeque<PostStepCheck>,
     reacquire_ok: VecDeque<bool>,
     prepare_abort: bool,
+    submit_abort: bool,
     compositor_animating: bool,
     settled_info: Option<StepInfo>,
 }
@@ -67,6 +68,7 @@ impl FakeHost {
             post_checks: VecDeque::new(),
             reacquire_ok: VecDeque::new(),
             prepare_abort: false,
+            submit_abort: false,
             compositor_animating: false,
             settled_info: None,
         }
@@ -192,9 +194,9 @@ impl FrameHost for FakeHost {
         self.compositor_animating
     }
 
-    fn submit_and_present(&mut self, prepared: Self::Prepared, _info: &StepInfo) -> Instant {
+    fn submit_and_present(&mut self, prepared: Self::Prepared, _info: &StepInfo) -> Option<Instant> {
         self.record(format!("submit_and_present:{prepared}"));
-        self.submit_at
+        (!self.submit_abort).then_some(self.submit_at)
     }
 
     fn present_targets(&mut self) -> (Option<&mut FrameClock>, &mut RuntimeCore) {
@@ -523,6 +525,15 @@ fn prepare_abort_stops_before_render_or_present() {
             "prepare_render:abort:1",
         ]
     );
+}
+
+#[test]
+fn submit_abort_skips_presentation_accounting() {
+    let mut host = FakeHost::new(crate::time::now());
+    host.submit_abort = true;
+    assert_eq!(run(&mut host), Outcome::Aborted);
+    assert_eq!(host.events().last().map(String::as_str), Some("submit_and_present:1"));
+    assert!(host.settled_info.is_none());
 }
 
 #[test]

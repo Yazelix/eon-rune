@@ -33,10 +33,13 @@ impl Gpu {
         draws_surfaces: bool) -> Gpu {
         let lost = Arc::new(AtomicBool::new(false));
         let lost_by_callback = lost.clone();
+        let failure = Arc::new(super::failure::Failure::default());
+        let failure_by_callback = failure.clone();
         device.set_device_lost_callback(move |reason, message| {
             // Before anything reads it: a lost device's surface can't be configured, and wgpu
             // reports that failure nowhere (`is_lost`).
             lost_by_callback.store(true, Ordering::Release);
+            failure_by_callback.record(format!("the GPU device was lost ({reason:?}): {message}"));
             // No panic here, in tests either: wgpu calls this inside its own work (a submission,
             // a queue's drop) and a panic there could abort the process. A test fails at its
             // next wait instead (`rune_gpu::health::poll` returns `Lost`).
@@ -52,6 +55,7 @@ impl Gpu {
             device,
             queue,
             lost,
+            failure,
             removal,
             uncaptured_logged: AtomicBool::new(false),
         };
@@ -76,7 +80,7 @@ impl Gpu {
         // where `eprintln!` is silent).
         #[cfg(not(target_arch = "wasm32"))]
         if should_log_uncaptured() {
-            log_uncaptured(&self.device);
+            log_uncaptured(&self.device, self.failure.clone());
         }
     }
 
@@ -105,10 +109,11 @@ struct Printed {
 /// further ones are not shown. A scoped error (a `push_error_scope`, as `window::configure`
 /// uses) still goes to its scope first; this is the fallback for errors nothing else caught.
 #[cfg(not(target_arch = "wasm32"))]
-fn log_uncaptured(device: &wgpu::Device) {
+fn log_uncaptured(device: &wgpu::Device, failure: Arc<super::failure::Failure>) {
     let printed: Arc<Mutex<Printed>> = Arc::default();
     device.on_uncaptured_error(Arc::new(move |error: wgpu::Error| {
         let message = error.to_string();
+        failure.record(message.clone());
         let line = {
             let mut printed = printed.lock().unwrap_or_else(|e| e.into_inner());
             if printed.silenced || printed.seen.contains(&message) {

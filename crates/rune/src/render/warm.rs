@@ -10,6 +10,7 @@
 //! for every warm-up worker (`rune-gpu-warm`, `rune-gpu-window`, `rune-gpu-parked`) to exit.
 
 use super::{Gpu, Renderer, warm_machine::{ShutdownOutcome, SystemClock, WarmSlot}, warmup::WarmRenderer};
+use crate::window::gpu_failure::Policy;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
@@ -23,7 +24,7 @@ pub(crate) const PARKED: Duration = Duration::from_secs(5 * 60);
 /// `srgb_blend` drops the sRGB suffix); a surface in another one rebuilds the pipeline.
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
 
-struct Warmed(Gpu, WarmRenderer);
+struct Warmed(Gpu, WarmRenderer, Policy);
 
 static SLOT: WarmSlot<Warmed, SystemClock> = WarmSlot::new(SystemClock);
 /// The device a window's or overlay's surface draws with, while one does.
@@ -49,16 +50,29 @@ pub(super) fn live() -> Option<Arc<Gpu>> {
 /// waits `LINGER` from now. `prepare` runs on the warming thread with the new device, or the
 /// live one, so an app can make its own pipelines off the UI thread.
 pub(super) fn warm(features: wgpu::Features, prepare: Option<Box<dyn FnOnce(&wgpu::Device) + Send>>) {
+    warm_for(features, prepare, Policy::Recover);
+}
+
+pub(super) fn warm_for(features: wgpu::Features, prepare: Option<Box<dyn FnOnce(&wgpu::Device) + Send>>, owner: Policy) {
+    if owner.observe(None).is_err() { return; }
     if let Some(gpu) = live() {
         if let Some(prepare) = prepare {
-            WarmSlot::spawn_attached(&SLOT, "rune-gpu-warm", move || prepare(&gpu.device)).ok();
+            WarmSlot::spawn_attached(&SLOT, "rune-gpu-warm", move || {
+                if owner.observe(Some(&gpu)).is_ok() {
+                    prepare(&gpu.device);
+                    let _ = owner.observe(Some(&gpu));
+                }
+            }).ok();
         }
         return;
     }
-    let prepare = prepare.map(|prepare| -> Box<dyn FnOnce(&Warmed) + Send> {
-        Box::new(move |warmed: &Warmed| prepare(&warmed.0.device))
-    });
-    WarmSlot::start_warm(&SLOT, LINGER, move || make(features), prepare);
+    WarmSlot::start_warm(&SLOT, LINGER, move || {
+        let warmed = make(features, owner)?;
+        if SLOT.is_stopped() { return None; }
+        if let Some(prepare) = prepare { prepare(&warmed.0.device); }
+        warmed.2.observe(Some(&warmed.0)).ok()?;
+        Some(warmed)
+    }, None);
 }
 
 /// `warm`, then `frame`, then `done`, on a thread of its own, once a device waits in the slot
@@ -72,18 +86,25 @@ pub(super) fn warm(features: wgpu::Features, prepare: Option<Box<dyn FnOnce(&wgp
 #[cfg(target_os = "linux")]
 pub(super) fn warm_then(
     features: wgpu::Features,
+    owner: Policy,
     frame: impl FnOnce(&Gpu, &mut Renderer) + Send + 'static,
     done: impl FnOnce() + Send + 'static,
 ) -> std::io::Result<()> {
+    let maker = owner.clone();
     WarmSlot::warm_then(
         &SLOT,
         LINGER,
-        move || make(features),
-        move |Warmed(gpu, renderer)| {
+        move || make(features, maker),
+        move |Warmed(gpu, renderer, previous)| {
+            previous.observe(Some(&gpu)).ok()?;
+            owner.observe(Some(&gpu)).ok()?;
             let mut renderer = Renderer::from_warm(renderer);
             frame(&gpu, &mut renderer);
+            previous.observe(Some(&gpu)).ok()?;
+            owner.observe(Some(&gpu)).ok()?;
             let warm = renderer.into_warm()?;
-            (!gpu.is_lost()).then_some(Warmed(gpu, warm))
+            let owner = if matches!(owner, Policy::Recover) { previous } else { owner };
+            (!gpu.is_lost()).then_some(Warmed(gpu, warm, owner))
         },
         done,
     )
@@ -107,16 +128,21 @@ pub(crate) fn park(gpu: Gpu, mut renderer: Renderer, linger: Duration) {
     gpu.queue.submit(std::iter::empty());
     rune_gpu::health::poll(&gpu.device, wgpu::PollType::wait_indefinitely()).ok();
     let Some(renderer) = renderer.into_warm() else { return };
-    SLOT.park(&SLOT, Warmed(gpu, renderer), linger);
+    SLOT.park(&SLOT, Warmed(gpu, renderer, Policy::Recover), linger);
 }
 
 /// A device for a future surface on a GPU that drives a display, with the renderer, and one
 /// pass run offscreen, so the device has drawn (`GpuEvent::Drew`).
-fn make(features: wgpu::Features) -> Option<Warmed> {
+fn make(features: wgpu::Features, owner: Policy) -> Option<Warmed> {
+    owner.observe(None).ok()?;
     super::gpu_events::starting();
-    let gpu = Gpu::try_for_display(Gpu::instance_for(features), features).ok()?;
+    let gpu = Gpu::try_for_display(Gpu::instance_for(features), features)
+        .inspect_err(|error| owner.record(error)).ok()?;
+    owner.observe(Some(&gpu)).ok()?;
     if SLOT.is_stopped() { return None; }
-    let renderer = Renderer::try_new_warm(&gpu.device, FORMAT).ok()?;
+    let renderer = Renderer::try_new_warm(&gpu.device, FORMAT)
+        .inspect_err(|error| owner.record(&error.message)).ok()?;
+    owner.observe(Some(&gpu)).ok()?;
     if SLOT.is_stopped() { return None; }
     let target = super::Offscreen::with_format(&gpu.device, 8, 8, FORMAT);
     let mut encoder = gpu.device.create_command_encoder(&Default::default());
@@ -128,18 +154,22 @@ fn make(features: wgpu::Features) -> Option<Warmed> {
         })],
         ..Default::default()
     }));
-    gpu.queue.submit([encoder.finish()]);
+    let commands = encoder.finish();
+    owner.observe(Some(&gpu)).ok()?;
+    gpu.queue.submit([commands]);
     rune_gpu::health::poll(&gpu.device, wgpu::PollType::wait_indefinitely()).ok();
+    owner.observe(Some(&gpu)).ok()?;
     if !SLOT.is_stopped() {
         super::gpu_events::presented();
     }
-    Some(Warmed(gpu, renderer))
+    Some(Warmed(gpu, renderer, owner))
 }
 
 /// What `warm` made, waiting for it if it's still making it. A device that died while it waited
 /// is dropped: its surface's owner makes a new one.
 pub(super) fn take() -> Option<(Gpu, Renderer)> {
-    let Warmed(gpu, renderer) = SLOT.take()?;
+    let Warmed(gpu, renderer, owner) = SLOT.take()?;
+    owner.observe(Some(&gpu)).ok()?;
     if gpu.is_lost() { return None; }
     Some((gpu, Renderer::from_warm(renderer)))
 }

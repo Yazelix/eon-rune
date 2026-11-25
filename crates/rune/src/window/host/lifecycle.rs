@@ -183,7 +183,7 @@ impl Host {
 
     /// Brings the window on screen (`Reveal`); a window closed for good stays closed.
     pub(in crate::window) fn reveal(&mut self, event_loop: &ActiveEventLoop, reveal: Reveal, mut token: Option<String>) {
-        if self.life.finished() { return; }
+        if self.life.finished() || self.gpu_failed() { return; }
         let mut built = false;
         for effect in reveal.effects(self.found()) {
             match effect {
@@ -197,7 +197,10 @@ impl Host {
                         rt.double_click_interval = crate::platform::preferences::double_click_interval();
                     }
                 }
-                RevealEffect::Build => built = self.build_for_show(),
+                RevealEffect::Build => {
+                    built = self.build_for_show();
+                    if self.gpu_failed() { return; }
+                }
                 RevealEffect::ApplyFrame => {
                     if self.take_frame_request(self.frame_secs(crate::time::now()), false) {
                         self.idle = false;
@@ -679,6 +682,7 @@ impl Host {
         match result {
             Ok(()) => self.shared.set_window_error(None),
             Err(error) => {
+                self.fail_terminal_gpu(error.clone());
                 let key = self.native_handle.key();
                 self.shared.set_window_error(Some(error.clone()));
                 if self.life.fail_create(self.keep_running, self.shown) {

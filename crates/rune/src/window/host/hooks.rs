@@ -5,6 +5,7 @@ use crate::window::{chrome::sync_chrome_core, keys::map_mods, sync_screen_origin
 
 impl Host {
     fn finish_window_hook(&mut self, event_loop: &ActiveEventLoop, was_shown: bool, stale: bool) -> bool {
+        self.gpu_failed();
         self.app.rt_mut().schedule_pending_wakes();
         self.clipboard.flush_core(self.app.rt_mut());
         self.shell(event_loop);
@@ -33,6 +34,7 @@ impl Host {
     }
 
     pub(super) fn sample_geometry(&mut self, event_loop: &ActiveEventLoop, initial: bool) -> bool {
+        if self.gpu_failed() { return true; }
         let Some(w) = &self.win else { return false };
         let was_shown = self.life.shown();
         let Some(stale) = self.app.run_window_geometry(&w.window, initial) else { return false };
@@ -50,6 +52,7 @@ impl Host {
     /// Notify before a first draw or focus. Even a hook that hides a retained window
     /// leaves it with a viewport matched to its native size.
     pub(in crate::window) fn finish_creation(&mut self, event_loop: &ActiveEventLoop) -> bool {
+        if self.gpu_failed() { return true; }
         crate::marks::mark("window.created");
         if let Some(created) = self.on_created.take() { created(self.native_handle.clone()); }
         if let Some(on_window) = self.on_window.as_mut() { on_window(&self.native_handle); }
@@ -101,4 +104,11 @@ mod tests;
 test_group! { native =>
 #[path = "geometry_tests.rs"]
 mod geometry_tests;
+}
+
+#[cfg(test)]
+test_group! { native =>
+#[cfg(target_os = "linux")]
+#[path = "gpu_failure_native_tests.rs"]
+mod gpu_failure_tests;
 }

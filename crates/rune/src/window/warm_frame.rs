@@ -12,7 +12,9 @@ use crate::render::{Gpu, Renderer};
 /// frame's, or nearly), the staging space and the instance buffer. Its own target goes as soon as
 /// the GPU is done with it. The atlas is an empty one: the glyphs land with the hand-over frame's
 /// own prepare.
-pub(in crate::window) fn warm_frame(gpu: &Gpu, renderer: &mut Renderer, format: wgpu::TextureFormat, srgb: bool, size: (u32, u32), instances: &[crate::render::Instance]) {
+pub(in crate::window) fn warm_frame(gpu: &Gpu, renderer: &mut Renderer, format: wgpu::TextureFormat, srgb: bool,
+    size: (u32, u32), instances: &[crate::render::Instance], allowed: impl Fn() -> bool) {
+    if !allowed() { return; }
     renderer.set_format(&gpu.device, format);
     renderer.set_srgb_blend(srgb);
     debug_assert_eq!(renderer.format(), format);
@@ -31,7 +33,7 @@ pub(in crate::window) fn warm_frame(gpu: &Gpu, renderer: &mut Renderer, format: 
     let mut enc = gpu.device.create_command_encoder(&Default::default());
     renderer.prepare_ui(&gpu.device, &gpu.queue, &mut atlas, instances, size);
     renderer.draw(&mut enc, &view, [0.0; 4]);
-    renderer.submit(&gpu.queue, enc);
+    if renderer.submit_if(&gpu.queue, enc, allowed).is_none() { return; }
     rune_gpu::health::poll(&gpu.device, wgpu::PollType::wait_indefinitely()).ok();
     target.destroy();
     rune_gpu::health::poll(&gpu.device, wgpu::PollType::Poll).ok();

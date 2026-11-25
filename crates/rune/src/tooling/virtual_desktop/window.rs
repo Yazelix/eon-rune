@@ -733,11 +733,11 @@ impl FrameHost for DesktopFrame<'_> {
     }
 
     #[inline]
-    fn submit_and_present(&mut self, encoder: wgpu::CommandEncoder, _info: &StepInfo) -> Instant {
+    fn submit_and_present(&mut self, encoder: wgpu::CommandEncoder, _info: &StepInfo) -> Option<Instant> {
         let renderer = self.window.renderer.as_mut().expect("renderer ensured by pre-reblend");
         renderer.submit(&self.gpu.queue, encoder);
         self.encoded_stamp = self.window.reports.stamp();
-        crate::time::now()
+        Some(crate::time::now())
     }
 
     #[inline]

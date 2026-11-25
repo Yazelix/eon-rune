@@ -150,6 +150,7 @@ impl OverlayCore {
     /// Creates the wgpu surface (and the GPU device, if this is the first surface).
     #[allow(unsafe_code)]
     pub(super) fn attach(&mut self, app: &mut dyn OverlayApp, backing: Backing, scale: f32) -> Option<Live> {
+        if self.gpu_failed(app) { return None; }
         // First, before the surface binds the view (macOS may observe it).
         let a11y = self.shared.wake.lock().unwrap().clone().and_then(|wake| match &backing {
             Backing::Window(window) => crate::a11y::Adapter::new(window, wake),
@@ -220,8 +221,14 @@ impl OverlayCore {
         let (w, h) = ((self.at.size.0 * scale).round() as u32, (self.at.size.1 * scale).round() as u32);
         let srgb_blend = app.rt().srgb_blend();
         let prewarm_effects = self.prewarm_effects;
+        let policy = self.gpu_failure.clone();
+        let shared = self.shared.clone();
         let make_surface = |instance: &wgpu::Instance| make(instance).ok_or_else(|| "could not create its GPU surface".to_owned());
         let setup_surface = |gpu: &Gpu, surface: &wgpu::Surface<'_>, existing: Option<Renderer>| -> Result<_, crate::render::SurfaceSetupError> {
+            policy.watch_setup(gpu, || {
+                let weak = Arc::downgrade(&shared);
+                Arc::new(move || { if let Some(shared) = weak.upgrade() { shared.wake(); } })
+            })?;
             let (mut config, translucent) = crate::window::surface_config(surface, &gpu.adapter, (w, h), srgb_blend)
                 .ok_or_else(|| crate::render::SurfaceSetupError::unsupported("the GPU adapter can't present to this overlay"))?;
             let info = gpu.adapter.get_info();
@@ -242,7 +249,7 @@ impl OverlayCore {
             // adapter before giving up.
             let prefix = format!("could not configure its GPU surface on {:?} {}", info.backend, info.name);
             crate::window::configure_checked(surface, gpu, &config)
-                .map_err(|error| crate::render::SurfaceSetupError::from_configure(&prefix, error))?;
+                .map_err(|error| policy.configure_failed(crate::render::SurfaceSetupError::from_configure(&prefix, error)))?;
             let target_format = if srgb_blend { config.format.remove_srgb_suffix() } else { config.format };
             let mut renderer = match existing {
                 Some(mut renderer) => {
@@ -252,6 +259,7 @@ impl OverlayCore {
                 None => Renderer::try_new_classified(&gpu.device, target_format).map_err(crate::render::SurfaceSetupError::from_shader)?,
             };
             renderer.set_prewarm_effects(prewarm_effects);
+            policy.observe_setup(Some(gpu))?;
             Ok((config, translucent.is_none(), renderer))
         };
         let (surface, (config, opaque_fallback, mut renderer), reused_renderer) = match reused {
@@ -272,7 +280,7 @@ impl OverlayCore {
                                 app.release_compositor_gpu();
                                 *self.gpu_pool.borrow_mut() = Weak::default();
                             }
-                            self.fail(app, err.message);
+                            self.setup_failed(app, err);
                             return None;
                         }
                         let instance = gpu.instance.clone();
@@ -289,7 +297,7 @@ impl OverlayCore {
                         ) {
                             Ok(made) => made,
                             Err(err) => {
-                                self.fail(app, err.message);
+                                self.setup_failed(app, err);
                                 return None;
                             }
                         };
@@ -308,6 +316,7 @@ impl OverlayCore {
                     app.release_compositor_gpu();
                 }
                 let made = Gpu::for_surface_setup(
+                    &policy,
                     features,
                     true,
                     make_surface,
@@ -316,7 +325,7 @@ impl OverlayCore {
                 let (gpu, surface, configured) = match made {
                     Ok(made) => made,
                     Err(err) => {
-                        self.fail(app, err.message);
+                        self.setup_failed(app, err);
                         return None;
                     }
                 };
@@ -380,6 +389,7 @@ impl OverlayCore {
     }
 
     pub(super) fn rescale(&mut self, app: &mut dyn OverlayApp, gpu: &Gpu, scale: f32) {
+        if self.gpu_failed(app) { return; }
         let Some(live) = self.surface.live_mut() else { return };
         if (live.scale - scale).abs() < f32::EPSILON {
             return;
@@ -428,9 +438,23 @@ impl Drop for OverlayCore {
 }
 
 impl OverlayCore {
+    fn setup_failed(&mut self, app: &mut dyn OverlayApp, error: crate::render::SurfaceSetupError) {
+        if !matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Recover)
+            && matches!(error.kind, crate::gpu::fallback::Failure::DeviceLost | crate::gpu::fallback::Failure::SurfaceRefused)
+        {
+            self.fail_gpu(app, error.message);
+        } else {
+            self.fail(app, error.message);
+        }
+    }
+
     /// Its surface refused a new configuration: the overlay hides and drops it, so wgpu never
     /// panics on its next drawable. The next show tries a new one.
     pub(super) fn surface_refused(&mut self, app: &mut dyn OverlayApp, reason: String) {
+        if !matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Recover) {
+            self.fail_gpu(app, reason);
+            return;
+        }
         self.hide(app);
         self.release();
         self.fail(app, reason);

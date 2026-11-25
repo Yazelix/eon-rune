@@ -5,6 +5,7 @@ use super::*;
 
 impl OverlayCore {
     pub(super) fn show_fading(&mut self, app: &mut dyn OverlayApp, event_loop: &ActiveEventLoop, fade: Duration) {
+        if self.gpu_failed(app) { return; }
         if self.presence.shown() { return; }
         // Hidden, it missed the redraws a new accent or portal preference asks for.
         app.rt_mut().set_system_dark(crate::platform::preferences::dark().unwrap_or(self.dark));
@@ -40,6 +41,7 @@ impl OverlayCore {
             // Retained alpha-zero hosts already have pixels. A hidden update must reach
             // the surface before exposing it, rather than flashing the old frame.
             if !fading { self.refresh_for_reveal_at(app, crate::time::now()); }
+            if self.gpu_failed(app) { return; }
             self.show_window(app, &window, fade);
             // A retained macOS panel drew while hidden during prewarm and does not mark itself
             // dirty on reveal, so exposing its retained pixels is the first visible present.
@@ -74,6 +76,7 @@ impl OverlayCore {
     /// only its window at startup and parks it; its surface, and the GPU device for the first,
     /// wait for the show.
     pub(super) fn prepare(&mut self, app: &mut dyn OverlayApp, event_loop: &ActiveEventLoop, showing: bool) {
+        if self.gpu_failed(app) { return; }
         if self.surface.live().is_some() { return; }
         let surface = showing || !self.defers_gpu();
         let wayland = crate::window::is_wayland(event_loop);
@@ -84,7 +87,7 @@ impl OverlayCore {
         if !surface && !parks { return; }
         self.resolve_size(event_loop);
         let made = if wayland {
-            self.layer(app, event_loop).or_else(|| self.xwayland(app))
+            self.layer(app, event_loop).or_else(|| if self.gpu_failed(app) { None } else { self.xwayland(app) })
         } else if self.surface.parked().is_some() || self.window(app, event_loop).is_some() {
             // macOS made the surface with its panel; elsewhere the window waits parked.
             match self.surface.take_live() {
@@ -98,6 +101,7 @@ impl OverlayCore {
         match made {
             Some(live) => {
                 self.surface.made(live);
+                if self.gpu_failed(app) { return; }
                 // An earlier attempt's failure no longer holds.
                 self.shared.failure.lock().unwrap().take();
                 // The surface was made before the panel was adopted and placed; its display's
@@ -110,6 +114,7 @@ impl OverlayCore {
                 self.ready(app, showing);
             }
             None => {
+                if self.gpu_failed(app) { return; }
                 let has_failure = self.shared.failure.lock().unwrap().is_some();
                 if !has_failure {
                     self.fail(app, "the platform could not create its window or surface".into());
@@ -153,13 +158,16 @@ impl OverlayCore {
     )]
     pub(super) fn layer_closed(&mut self, app: &mut dyn OverlayApp, reason: Option<&str>) {
         let reason = reason.unwrap_or("compositor closed layer surface").to_owned();
-        self.surface_refused(app, reason);
+        self.hide(app);
+        self.release();
+        self.fail(app, reason);
     }
 
     /// The window exists, with its surface or parked: the overlay can show. A prewarmed one
     /// warms what it has (parked, only the view); one that makes its surface for each show
     /// draws its own first frame instead.
     pub(super) fn ready(&mut self, app: &mut dyn OverlayApp, showing: bool) {
+        if self.gpu_failed(app) { return; }
         self.shared.failure.lock().unwrap().take();
         self.set_availability_notify(app, Availability::Available);
         if !self.animate_reveal { app.rt_mut().settle_all(); }

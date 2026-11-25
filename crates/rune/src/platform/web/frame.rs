@@ -405,7 +405,7 @@ impl FrameHost for WebFrameHost<'_> {
         }
     }
 
-    fn submit_and_present(&mut self, prepared: PreparedWeb, _info: &StepInfo) -> Instant {
+    fn submit_and_present(&mut self, prepared: PreparedWeb, _info: &StepInfo) -> Option<Instant> {
         match (&mut self.r.draw, prepared) {
             (Draw::Cpu { .. }, PreparedWeb::Cpu) => {}
             (Draw::HandingOver { cpu, side, done, since, .. }, PreparedWeb::HandingOver { gpu }) => {
@@ -434,7 +434,7 @@ impl FrameHost for WebFrameHost<'_> {
             }
             _ => {}
         }
-        Instant::now()
+        Some(Instant::now())
     }
 
     fn present_targets(&mut self) -> (Option<&mut FrameClock>, &mut RuntimeCore) {

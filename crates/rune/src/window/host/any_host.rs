@@ -222,6 +222,7 @@ impl Host {
     }
 
     fn new_events_in_turn(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        self.gpu_failed();
         #[cfg(target_os = "macos")]
         if let Some(shadow) = self.win.as_ref().and_then(|w| w.native.shadow.as_ref()) { shadow.turn(); }
         self.meter.turn(matches!(cause, StartCause::ResumeTimeReached { .. } | StartCause::Poll), crate::frame::surface_stats::slept(cause));

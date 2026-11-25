@@ -31,7 +31,7 @@ fn warm_frame_rebuilds_renderer_for_target_format() {
     ] {
         let mut renderer = Renderer::new(&gpu.device, initial);
         let scope = gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
-        warm_frame(&gpu, &mut renderer, target, srgb, (32, 32), &instances);
+        warm_frame(&gpu, &mut renderer, target, srgb, (32, 32), &instances, || true);
         let error = pollster::block_on(scope.pop());
         assert!(error.is_none(), "warm_frame({initial:?} -> {target:?}, srgb={srgb}) hit validation error: {error:?}");
         assert_eq!(renderer.format(), target);

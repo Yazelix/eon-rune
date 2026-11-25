@@ -433,7 +433,8 @@ impl FrameHost for CpuWindowFrame<'_> {
         false
     }
 
-    fn submit_and_present(&mut self, prepared: Option<Vec<[u32; 4]>>, info: &StepInfo) -> Instant {
+    fn submit_and_present(&mut self, prepared: Option<Vec<[u32; 4]>>, info: &StepInfo) -> Option<Instant> {
+        if self.host.gpu_failed() { return None; }
         self.encoded = self.host.frame_reports.stamp();
         crate::window::frame_presented();
         if prepared.is_some() && let Some(l) = self.host.win.as_mut() {
@@ -441,6 +442,7 @@ impl FrameHost for CpuWindowFrame<'_> {
             if !l.first_frame.ready() { l.first_frame.gpu_done(); }
         }
         self.host.gpu_draws_same_frame();
+        if self.host.gpu_failed() { return None; }
         // The input the hand-over paused for is drawn: the next frame at rest hands over.
         if let Some(l) = self.host.win.as_mut()
             && let SurfaceMode::HandingOver { paused, since, .. } = &mut l.native.mode
@@ -448,7 +450,7 @@ impl FrameHost for CpuWindowFrame<'_> {
         {
             (*paused, *since) = (false, crate::time::now());
         }
-        crate::time::now()
+        Some(crate::time::now())
     }
 
     fn present_targets(&mut self) -> (Option<&mut FrameClock>, &mut RuntimeCore) {

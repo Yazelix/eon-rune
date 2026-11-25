@@ -668,10 +668,10 @@ mod web_frame_host_tests {
             false
         }
 
-        fn submit_and_present(&mut self, _prepared: MockPrepared, _info: &StepInfo) -> Instant {
+        fn submit_and_present(&mut self, _prepared: MockPrepared, _info: &StepInfo) -> Option<Instant> {
             self.log.push("present");
             self.frames_drawn += 1;
-            self.submit_at
+            Some(self.submit_at)
         }
 
         fn present_targets(&mut self) -> (Option<&mut FrameClock>, &mut RuntimeCore) {

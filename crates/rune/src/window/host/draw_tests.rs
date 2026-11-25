@@ -184,7 +184,7 @@ impl FrameHost for MockWindowFrame {
 
     fn render(&mut self, _prepared: &mut (), _info: &StepInfo) -> bool { false }
 
-    fn submit_and_present(&mut self, _prepared: (), _info: &StepInfo) -> Instant { self.now }
+    fn submit_and_present(&mut self, _prepared: (), _info: &StepInfo) -> Option<Instant> { Some(self.now) }
 
     fn present_targets(&mut self) -> (Option<&mut FrameClock>, &mut RuntimeCore) {
         (Some(&mut self.clock), self.app.rt_mut())

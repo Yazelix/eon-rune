@@ -109,6 +109,7 @@ impl Host {
     /// (`Backoff`), with its display link stopped so no tick redraws sooner. `stepped` when this
     /// frame already ran the runtime.
     pub(in crate::window) fn missed_frame(&mut self, missed: Missed, stepped: bool) {
+        if self.gpu_failed() { return; }
         #[cfg(feature = "frame-profile")]
         crate::frame::live_log::missed(match missed { Missed::Occluded => 0, Missed::Timeout => 1, Missed::Outdated => 2, Missed::Unconfigured => 3 });
         let Some(l) = self.win.as_mut() else { return };
@@ -177,11 +178,13 @@ impl Host {
     /// Draws a frame. `resizing` draws one for a size the user just dragged the window to, at
     /// once: AppKit shows the new size when the event returns, with or without it.
     pub(in crate::window) fn draw(&mut self, resizing: bool) {
+        if self.gpu_failed() { return; }
         // Windows: a window still on the CPU renderer draws there (`cpu_frame`).
         #[cfg(target_os = "windows")]
         {
             self.look();
             self.hand_over_if_done();
+            if self.gpu_failed() { return; }
             if self.win.as_ref().is_some_and(|w| w.native.mode.cpu_draws()) { return self.draw_cpu(resizing); }
         }
         // Linux: so does one there (`linux::cpu_frame`).
@@ -189,6 +192,7 @@ impl Host {
         if self.win.as_ref().is_some_and(|w| w.native.mode.cpu_draws()) { return self.draw_cpu(resizing); }
         let mut frame = WindowFrame { host: self, resizing, state: FrameState::default() };
         host_step::run(&mut frame);
+        self.gpu_failed();
     }
 }
 
@@ -496,6 +500,10 @@ impl FrameHost for WindowFrame<'_> {
             Ok(frame) => frame,
             Err(missed) => return Acquire::Missed(missed),
         };
+        if self.host.gpu_failure.failed_on(gpu) {
+            drop(frame);
+            return Acquire::Missed(Missed::Unconfigured);
+        }
         self.state.profile.mark_acquired();
         if !self.state.post_acquire_done {
             self.state.post_acquire_done = true;
@@ -554,6 +562,9 @@ impl FrameHost for WindowFrame<'_> {
     }
 
     fn post_step_check(&mut self, _info: &mut StepInfo) -> PostStepCheck {
+        if self.host.gpu.as_ref().is_some_and(|(gpu, _)| self.host.gpu_failure.failed_on(gpu)) {
+            return PostStepCheck::Missed(Missed::Unconfigured);
+        }
         // frame-profile, `RUNE_MISS_LOOP_FRAMES=<n>`: every nth loop-only frame ends here as if its
         // drawable never came, after the step: what the next frame redraws (with
         // `RUNE_LOOP_CHECK=2`, whether its picture is right).
@@ -638,7 +649,7 @@ impl FrameHost for WindowFrame<'_> {
         render_window_frame(self.host, prepared, self.state.corners, &mut self.state.profile, info)
     }
 
-    fn submit_and_present(&mut self, prepared: PreparedWindowFrame, info: &StepInfo) -> Instant {
+    fn submit_and_present(&mut self, prepared: PreparedWindowFrame, info: &StepInfo) -> Option<Instant> {
         submit_and_present_window(self.host, prepared, self.state.looped.as_ref(), &mut self.state.profile, &mut self.state.encoded, info)
     }
 

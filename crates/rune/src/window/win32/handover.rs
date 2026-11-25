@@ -153,11 +153,16 @@ impl Host {
     /// Starts making the GPU for this window on a thread (`below`: at below-normal priority, as
     /// after the first frame; a frame that needs the GPU makes it at normal priority).
     pub(super) fn start_gpu(&mut self, below: bool) {
+        if self.gpu_failed() { return; }
         let Some(w) = self.win.as_mut() else { return };
         let SurfaceMode::Cpu { job, .. } = &mut w.native.mode else { return };
         let GpuJob::Waiting { tries, retry_at } = *job else { return };
         if retry_at.is_some() { crate::marks::mark("gpu.window.retry"); }
-        let Some(hwnd) = crate::platform::win32::hwnd(&w.window) else { *job = GpuJob::Failed; return };
+        let Some(hwnd) = crate::platform::win32::hwnd(&w.window) else {
+            *job = GpuJob::Failed;
+            self.fail_terminal_gpu("the CPU window has no native handle for GPU handover".into());
+            return;
+        };
         let slot = Arc::new(Mutex::new(None));
         let (out, handle, srgb, size) = (slot.clone(), self.native_handle.clone(), self.app.rt().srgb_blend(), (w.config.width, w.config.height));
         // What the window draws, for the GPU thread's first frame of its own (`warm_frame`): each CPU
@@ -165,10 +170,12 @@ impl Host {
         let latest = Arc::new(Mutex::new(warm_instances(&self.app.rt().instances)));
         let instances = latest.clone();
         let features = self.app.compositor_features();
+        let owner = self.gpu_failure.clone();
         let hwnd = hwnd as isize;
         let spawned = std::thread::Builder::new().name("rune-gpu-window".into()).spawn(move || {
             if below { lower_priority(); }
-            let made = prepare(hwnd, size, srgb, features, &instances);
+            let made = prepare(hwnd, size, srgb, features, &instances, &owner);
+            if let Err(error) = &made { owner.record(error); }
             *out.lock().unwrap_or_else(|e| e.into_inner()) = Some(made);
             handle.send(WakeEvent::GpuReady);
         });
@@ -181,6 +188,7 @@ impl Host {
     /// The GPU thread finished: attach its device, renderer and surface and start handing over,
     /// or stay on the CPU if it failed. While handing over: the GPU finished a frame.
     pub(in crate::window) fn gpu_ready(&mut self) {
+        if self.gpu_failed() { return; }
         if self.win.as_ref().is_some_and(|w| matches!(w.native.mode, SurfaceMode::HandingOver { .. })) { return self.hand_over_if_done(); }
         let Some(w) = self.win.as_mut() else { return };
         let SurfaceMode::Cpu { job: GpuJob::Building { slot, tries, animating, ready, .. }, .. } = &mut w.native.mode else { return };
@@ -203,6 +211,10 @@ impl Host {
         crate::marks::mark("gpu.window.ready");
         let Prepared { gpu, mut renderer, surface, mut config, handover } = prepared;
         let gpu = Arc::new(gpu);
+        if let Err(error) = self.gpu_failure.watch_setup(&gpu, || crate::window::host::setup_waker(&self.shared)) {
+            drop(surface);
+            return self.fail_gpu(error.message, tries);
+        }
         if renderer.srgb_blend() != self.app.rt().srgb_blend() {
             if !reblend_core(&surface, &gpu, &mut config, &mut renderer, &mut w.alpha, self.app.rt_mut()) {
                 return self.fail_gpu("couldn't reconfigure the surface for the window's blend mode".into(), tries);
@@ -257,6 +269,7 @@ impl Host {
     /// While handing over: the GPU draws the instances the CPU just painted, into its swap chain
     /// on the uncommitted visual.
     pub(super) fn gpu_draws_same_frame(&mut self) {
+        if self.gpu_failed() { return; }
         let (Some(l), Some((gpu, renderer))) = (self.win.as_mut(), self.gpu.as_mut()) else { return };
         if !matches!(l.native.mode, SurfaceMode::HandingOver { paused: false, .. }) { return; }
         if renderer.srgb_blend() != self.app.rt().srgb_blend() {
@@ -313,8 +326,10 @@ impl Host {
                 wgpu::Extent3d { width, height, depth_or_array_layers: 1 });
             Readback { buffer, row, size: (width, height) }
         });
-        renderer.submit(&gpu.queue, enc);
+        let allowed = || !self.gpu_failure.failed_on(gpu);
+        if renderer.submit_if(&gpu.queue, enc, allowed).is_none() || !allowed() { return; }
         gpu.queue.present(frame);
+        if !allowed() { return; }
         l.native.slot.presented();
         let flag = Arc::new(AtomicBool::new(false));
         let set = flag.clone();
@@ -336,11 +351,13 @@ impl Host {
     /// visual (DWM shows the GPU from its next composition) and leave the CPU behind; the CPU's
     /// buffer goes on a worker after counting the frame's drift.
     pub(in crate::window) fn hand_over_if_done(&mut self) {
+        if self.gpu_failed() { return; }
         let (Some(w), Some((gpu, renderer))) = (self.win.as_mut(), self.gpu.as_mut()) else { return };
         match &mut w.native.mode {
             SurfaceMode::HandingOver { done: Some((done, _)), tries, .. } => {
                 let tries = *tries;
                 rune_gpu::health::poll(&gpu.device, wgpu::PollType::Poll).ok();
+                if self.gpu_failure.failed_on(gpu) { return; }
                 let lost = gpu.is_lost();
                 if !lost && !done.load(Ordering::Acquire) { return; }
                 let committed = if lost { Err("its device was lost".to_owned()) } else if let SurfaceMode::HandingOver { handover, .. } = &w.native.mode { handover.commit() } else { unreachable!() };
@@ -381,6 +398,10 @@ impl Host {
     /// The GPU couldn't take over (`why`), on its `tries`th try: the window goes on, or back, to
     /// the CPU renderer, and tries again after `RETRY_AFTER`, or stays there after `TRIES` tries.
     fn fail_gpu(&mut self, why: String, tries: u8) {
+        if !matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Recover) {
+            self.fail_terminal_gpu(why);
+            return;
+        }
         eprintln!("rune: the window stays on the CPU renderer for now (try {tries} of {TRIES}): {why}");
         crate::marks::mark("gpu.window.failed");
         if !crate::marks::noted("gpu.window.why") { crate::marks::note("gpu.window.why", Box::leak(why.into_boxed_str())); }
@@ -395,6 +416,15 @@ impl Host {
         self.gpu = None;
         self.app.release_compositor_gpu();
         w.request_redraw();
+    }
+
+    pub(in crate::window) fn pending_gpu_failure(&self) -> Option<String> {
+        if !matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Terminal(_)) { return None; }
+        let SurfaceMode::Cpu { job: GpuJob::Building { slot, .. }, .. } = &self.win.as_ref()?.native.mode else { return None };
+        match slot.lock().unwrap_or_else(|e| e.into_inner()).as_ref()? {
+            Ok(prepared) => self.gpu_failure.reason(Some(&prepared.gpu)),
+            Err(reason) => Some(reason.clone()),
+        }
     }
 
     /// The hand-over's deadlines, at the start of a turn (`Win::handover_deadline` wakes the loop
@@ -488,12 +518,15 @@ fn create_hwnd_surface(instance: &wgpu::Instance, hwnd: isize) -> Result<wgpu::S
 /// uncommitted DirectComposition visual (when DirectComposition is active) and a swap chain
 /// configured for `size`.
 #[allow(unsafe_code)]
-fn prepare(hwnd: isize, size: (u32, u32), srgb: bool, features: wgpu::Features, latest: &Mutex<Vec<crate::render::Instance>>) -> Result<Prepared, String> {
+fn prepare(hwnd: isize, size: (u32, u32), srgb: bool, features: wgpu::Features,
+    latest: &Mutex<Vec<crate::render::Instance>>, owner: &crate::window::gpu_failure::Policy) -> Result<Prepared, String> {
+    owner.observe(None)?;
     let handover = match Gpu::dx12_swapchain_kind() {
         wgpu::Dx12SwapchainKind::DxgiFromHwnd => None,
         wgpu::Dx12SwapchainKind::DxgiFromVisual => Some(Handover::new(hwnd).map_err(with_wine_hwnd_hint)?),
     };
     let (gpu, surface, (config, mut renderer)) = Gpu::for_surface_setup(
+        owner,
         features,
         false,
         |instance| match &handover {
@@ -506,10 +539,12 @@ fn prepare(hwnd: isize, size: (u32, u32), srgb: bool, features: wgpu::Features, 
             None => create_hwnd_surface(instance, hwnd),
         },
         |gpu, surface, prewarmed| {
+            owner.observe_setup(Some(gpu))?;
             let size = drawable_size(None, size, max_surface_dim(Some(gpu)));
             let (config, _) = surface_config(surface, &gpu.adapter, size, srgb)
                 .ok_or_else(|| SurfaceSetupError::unsupported("the GPU can't present to this window"))?;
-            configure_checked(surface, gpu, &config).map_err(|error| SurfaceSetupError::from_configure("", error))?;
+            configure_checked(surface, gpu, &config)
+                .map_err(|error| owner.configure_failed(SurfaceSetupError::from_configure("", error)))?;
             let target_format = if srgb { config.format.remove_srgb_suffix() } else { config.format };
             let renderer = match prewarmed {
                 Some(mut renderer) => {
@@ -518,12 +553,15 @@ fn prepare(hwnd: isize, size: (u32, u32), srgb: bool, features: wgpu::Features, 
                 }
                 None => Renderer::try_new_classified(&gpu.device, target_format).map_err(SurfaceSetupError::from_shader)?,
             };
+            owner.observe_setup(Some(gpu))?;
             Ok((config, renderer))
         },
     ).map_err(format_window_setup_error)?;
     let target_format = if srgb { config.format.remove_srgb_suffix() } else { config.format };
     let instances = std::mem::take(&mut *latest.lock().unwrap_or_else(|e| e.into_inner()));
-    warm_frame(&gpu, &mut renderer, target_format, srgb, (config.width, config.height), &instances);
+    owner.observe(Some(&gpu))?;
+    warm_frame(&gpu, &mut renderer, target_format, srgb, (config.width, config.height), &instances, || !owner.failed_on(&gpu));
+    owner.observe(Some(&gpu))?;
     crate::marks::mark("gpu.window.warmed");
     Ok(Prepared { gpu, renderer, surface, config, handover })
 }

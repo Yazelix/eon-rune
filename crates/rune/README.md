@@ -977,6 +977,12 @@ Staying fast afterwards is "Fast apps" (`site/src/FastApps.tsx`) and "Smooth scr
   ignored by Rune's native Metal backend, wgpu's Metal backend, and browser backends (WebGPU/WebGL2).
   In `Manual`, `block_size` bounds suballocator block sizes rather than texture or buffer sizes:
   larger resources still succeed via dedicated allocations.
+- **Terminal GPU loss.** `App::terminal_gpu_loss()` makes device loss, uncaptured GPU errors
+  and refused surface configuration permanent for the app's native window and its overlays.
+  `AppHandle::window_error()` and `OverlayHandle::failure()` report the first failure.
+  A recoverable surface replacement uses the existing device. State updates and programmatic
+  close and quit remain available after drawing stops. Use `AppHandle::warm_gpu_with` on Windows
+  or Linux to associate preparation on the GPU worker with the app.
 - **Opt-in effect pipeline warming, per effect (`App::prewarm_effects(PrewarmEffects::BACKDROP_BLUR)`,
   `WindowSpec::prewarm_effects`, `Renderer::set_prewarm_effects`).** Off by default, so apps pay
   no background compilation CPU, driver memory, or worker thread for effects they never draw, and

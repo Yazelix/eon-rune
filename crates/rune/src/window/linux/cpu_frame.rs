@@ -314,14 +314,15 @@ impl FrameHost for CpuWindowFrame<'_> {
         false
     }
 
-    fn submit_and_present(&mut self, prepared: Option<Vec<[u32; 4]>>, _info: &StepInfo) -> Instant {
+    fn submit_and_present(&mut self, prepared: Option<Vec<[u32; 4]>>, _info: &StepInfo) -> Option<Instant> {
+        if self.host.gpu_failed() { return None; }
         self.encoded = self.host.frame_reports.stamp();
         crate::window::frame_presented();
         if prepared.is_some() && let Some(l) = self.host.win.as_mut() {
             crate::marks::mark_once(&FIRST_CPU, "frame.first.cpu");
             if !l.first_frame.ready() { l.first_frame.gpu_done(); }
         }
-        crate::time::now()
+        Some(crate::time::now())
     }
 
     fn present_targets(&mut self) -> (Option<&mut FrameClock>, &mut RuntimeCore) {

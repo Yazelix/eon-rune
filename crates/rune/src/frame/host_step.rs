@@ -28,7 +28,6 @@ pub(crate) enum Outcome {
     /// Rendering could not prepare its target (e.g. a CPU-boot frame needs the GPU or lacked a
     /// buffer, or the web host rejected unsupported native surfaces) and deferred to the host's
     /// recovery path.
-    #[cfg(any(test, target_os = "windows", target_os = "linux", target_arch = "wasm32"))]
     Aborted,
     /// A frame was drawn, submitted/presented, recorded on the clock and interaction tracker, and
     /// settled.
@@ -97,8 +96,7 @@ pub(crate) enum PostStepCheck {
     Keep,
     /// Drop the current drawable, reconfigure for `ReacquireReason`, and acquire a replacement.
     Reacquire(ReacquireReason),
-    /// Drop the current drawable and treat the frame as missed (used by diagnostic miss hooks).
-    #[cfg(any(test, feature = "frame-profile"))]
+    /// Drop the current drawable and treat the frame as missed.
     Missed(Missed),
 }
 
@@ -106,7 +104,6 @@ pub(crate) enum PostStepCheck {
 #[derive(Debug)]
 pub(crate) enum RenderPrep<P> {
     Ready(P),
-    #[cfg(any(test, target_os = "windows", target_os = "linux", target_arch = "wasm32"))]
     Abort,
 }
 
@@ -171,16 +168,15 @@ pub(crate) enum Event {
     Stepped,
     PostStepKeep,
     PostStepReacquire(ReacquireReason),
-    #[cfg(any(test, feature = "frame-profile"))]
     PostStepMissed(Missed),
     Reacquired,
     ReacquireMissed(Missed),
     Synced,
     Prepared,
-    #[cfg(any(test, target_os = "windows", target_os = "linux", target_arch = "wasm32"))]
     PrepareAborted,
     Rendered,
     Presented,
+    PresentAborted,
     Recorded,
     Settled,
 }
@@ -197,7 +193,6 @@ pub(crate) enum Effect {
     Step,
     PostStepCheck,
     DropAndReacquire(ReacquireReason),
-    #[cfg(any(test, feature = "frame-profile"))]
     DropAndMiss(Missed),
     Missed { missed: Missed, stepped: bool },
     Sync,
@@ -284,7 +279,6 @@ pub(crate) fn step(phase: &mut Phase, event: Event) -> Effects<Effect> {
             *phase = Phase::Syncing;
             Effects::one(Effect::Sync)
         }
-        #[cfg(any(test, feature = "frame-profile"))]
         (Phase::PostStepChecking { .. }, Event::PostStepMissed(missed)) => {
             *phase = Phase::Done(Outcome::Missed);
             Effects::one(Effect::DropAndMiss(missed))
@@ -305,7 +299,6 @@ pub(crate) fn step(phase: &mut Phase, event: Event) -> Effects<Effect> {
             *phase = Phase::Rendering;
             Effects::one(Effect::Render)
         }
-        #[cfg(any(test, target_os = "windows", target_os = "linux", target_arch = "wasm32"))]
         (Phase::Preparing, Event::PrepareAborted) => {
             *phase = Phase::Done(Outcome::Aborted);
             Effects::none()
@@ -317,6 +310,10 @@ pub(crate) fn step(phase: &mut Phase, event: Event) -> Effects<Effect> {
         (Phase::Presenting, Event::Presented) => {
             *phase = Phase::RecordingPresented;
             Effects::one(Effect::RecordPresented)
+        }
+        (Phase::Presenting, Event::PresentAborted) => {
+            *phase = Phase::Done(Outcome::Aborted);
+            Effects::none()
         }
         (Phase::RecordingPresented, Event::Recorded) => {
             *phase = Phase::Settling;
@@ -410,8 +407,8 @@ pub(crate) trait FrameHost {
     fn render(&mut self, prepared: &mut Self::Prepared, info: &StepInfo) -> bool;
 
     /// Submits GPU work, presents the drawable, performs any post-present GPU sync, and returns
-    /// the submission timestamp recorded on the frame clock and interaction tracker.
-    fn submit_and_present(&mut self, prepared: Self::Prepared, info: &StepInfo) -> Instant;
+    /// the submission timestamp when the drawable was presented.
+    fn submit_and_present(&mut self, prepared: Self::Prepared, info: &StepInfo) -> Option<Instant>;
 
     /// Supplies the wall-clock [`FrameClock`] (when the host has one) and [`RuntimeCore`] so
     /// [`run`] itself records presentation on both the clock and interaction latency tracker.
@@ -508,7 +505,6 @@ pub(crate) fn run<H: FrameHost>(host: &mut H) -> Outcome {
         let event = match host.post_step_check(&mut info) {
             PostStepCheck::Keep => Event::PostStepKeep,
             PostStepCheck::Reacquire(reason) => Event::PostStepReacquire(reason),
-            #[cfg(any(test, feature = "frame-profile"))]
             PostStepCheck::Missed(missed) => Event::PostStepMissed(missed),
         };
         match step(&mut phase, event) {
@@ -532,7 +528,6 @@ pub(crate) fn run<H: FrameHost>(host: &mut H) -> Outcome {
                     }
                 }
             }
-            #[cfg(any(test, feature = "frame-profile"))]
             Effects::One(Effect::DropAndMiss(missed)) => {
                 drop(drawable);
                 host.on_missed(missed, true);
@@ -549,7 +544,6 @@ pub(crate) fn run<H: FrameHost>(host: &mut H) -> Outcome {
             let Effects::One(Effect::Render) = step(&mut phase, Event::Prepared) else { unreachable!() };
             prepared
         }
-        #[cfg(any(test, target_os = "windows", target_os = "linux", target_arch = "wasm32"))]
         RenderPrep::Abort => {
             let Effects::None = step(&mut phase, Event::PrepareAborted) else { unreachable!() };
             return phase.outcome();
@@ -558,7 +552,10 @@ pub(crate) fn run<H: FrameHost>(host: &mut H) -> Outcome {
     let comp_animating = host.render(&mut prepared, &info);
     info.animating |= comp_animating;
     let Effects::One(Effect::Present) = step(&mut phase, Event::Rendered) else { unreachable!() };
-    let submitted = host.submit_and_present(prepared, &info);
+    let Some(submitted) = host.submit_and_present(prepared, &info) else {
+        let Effects::None = step(&mut phase, Event::PresentAborted) else { unreachable!() };
+        return phase.outcome();
+    };
     let Effects::One(Effect::RecordPresented) = step(&mut phase, Event::Presented) else { unreachable!() };
     {
         let (clock, rt) = host.present_targets();

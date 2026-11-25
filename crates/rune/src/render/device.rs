@@ -15,6 +15,7 @@ pub struct Gpu {
     /// Windows' Modern Standby) can't configure a surface, and wgpu drops that error, so nothing
     /// else would report it. See `is_lost`.
     pub(super) lost: Arc<AtomicBool>,
+    pub(crate) failure: Arc<super::failure::Failure>,
     /// D3D12 removes a device before wgpu hears of it (`Gpu::is_lost`).
     pub(super) removal: rune_gpu::health::Removal,
     /// Whether Rune's surface uncaptured-error policy has been installed on this device.

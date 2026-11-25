@@ -31,6 +31,7 @@ mod chrome;
 mod color_scheme;
 mod event_loop;
 mod file_drop;
+pub(crate) mod gpu_failure;
 mod handle;
 mod host;
 mod keys;

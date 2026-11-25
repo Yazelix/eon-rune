@@ -448,11 +448,11 @@ fn web_frame_host_invokes_on_frame_drawn_only_on_drawn_frames() {
             false
         }
 
-        fn submit_and_present(&mut self, _: (), _: &StepInfo) -> Instant {
+        fn submit_and_present(&mut self, _: (), _: &StepInfo) -> Option<Instant> {
             if self.draw == WebDrawKind::Gpu {
                 self.drawn = true;
             }
-            self.step_at
+            Some(self.step_at)
         }
 
         fn present_targets(&mut self) -> (Option<&mut FrameClock>, &mut RuntimeCore) {

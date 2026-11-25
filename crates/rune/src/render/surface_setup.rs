@@ -97,12 +97,16 @@ impl Gpu {
     /// are enumerated, `make_surface` is called once, and no fallback instance is created.
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn for_surface_setup<'w, T>(
+        owner: &crate::window::gpu_failure::Policy,
         wanted: wgpu::Features,
         translucent: bool,
         make_surface: impl FnMut(&wgpu::Instance) -> Result<wgpu::Surface<'w>, String>,
         setup: impl FnMut(&Gpu, &wgpu::Surface<'w>, Option<Renderer>) -> Result<T, SurfaceSetupError>,
     ) -> Result<(Gpu, wgpu::Surface<'w>, T), SurfaceSetupError> {
-        Self::for_surface_setup_from(prewarm::take(), wanted, translucent, make_surface, setup)
+        owner.observe_setup(None)?;
+        let early = prewarm::take();
+        owner.observe_setup(None)?;
+        Self::for_surface_setup_from(early, wanted, translucent, make_surface, setup)
     }
 
     /// Picks a headless GPU and runs `setup` (typically building a `Renderer`), walking remaining
@@ -599,6 +603,7 @@ impl Gpu {
     #[cfg(target_arch = "wasm32")]
     #[allow(dead_code)]
     pub(crate) fn for_surface_setup<'w, T>(
+        _: &crate::window::gpu_failure::Policy,
         _: wgpu::Features,
         _: bool,
         _: impl FnMut(&wgpu::Instance) -> Result<wgpu::Surface<'w>, String>,

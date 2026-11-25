@@ -248,7 +248,8 @@ impl FrameHost for OverlayFrame<'_> {
             &mut self.core.meter,
             !self.read_occlusion,
         ) {
-            Ok(frame) => Acquire::Ready(frame),
+            Ok(frame) if !self.core.gpu_failure.failed_on(gpu) => Acquire::Ready(frame),
+            Ok(_) => Acquire::Missed(crate::window::Missed::Unconfigured),
             Err(missed) => Acquire::Missed(missed),
         }
     }
@@ -277,6 +278,9 @@ impl FrameHost for OverlayFrame<'_> {
     }
 
     fn post_step_check(&mut self, _info: &mut StepInfo) -> PostStepCheck {
+        if self.core.gpu.as_ref().is_some_and(|gpu| self.core.gpu_failure.failed_on(gpu)) {
+            return PostStepCheck::Missed(crate::window::Missed::Unconfigured);
+        }
         #[cfg(target_os = "macos")]
         if !self.materials_checked {
             self.materials_checked = true;
@@ -335,6 +339,7 @@ impl FrameHost for OverlayFrame<'_> {
         ) else {
             unreachable!("overlay surface, renderer and gpu live across frame");
         };
+        if self.core.gpu_failure.failed_on(gpu) { return RenderPrep::Abort; }
         let target_format = if self.app.rt().srgb_blend() { live.config.format.remove_srgb_suffix() } else { live.config.format };
         let view = drawable.texture.create_view(&wgpu::TextureViewDescriptor {
             format: (target_format != live.config.format).then_some(target_format),
@@ -342,6 +347,7 @@ impl FrameHost for OverlayFrame<'_> {
         });
         let size = (live.config.width, live.config.height);
         prepare_gpu_resources(renderer, gpu, self.app.rt_mut(), size, true);
+        if self.core.gpu_failure.failed_on(gpu) { return RenderPrep::Abort; }
         let encoder = gpu.device.create_command_encoder(&Default::default());
         RenderPrep::Ready(PreparedOverlayFrame { frame: drawable, view, encoder, target_format, size })
     }
@@ -354,6 +360,7 @@ impl FrameHost for OverlayFrame<'_> {
         ) else {
             return false;
         };
+        if self.core.gpu_failure.failed_on(gpu) { return false; }
         let target = live.alpha.as_ref().map_or(&prepared.view, |a| &a.view);
         let comp_animating = if self.app.has_compositor() {
             self.app.render_compositor(OverlayRenderArgs {
@@ -371,21 +378,23 @@ impl FrameHost for OverlayFrame<'_> {
             draw_ui(renderer, gpu, &mut prepared.encoder, target, self.app.rt_mut(), prepared.size, [0.0; 4]);
             false
         };
-        if let Some(alpha) = &live.alpha {
+        if !self.core.gpu_failure.failed_on(gpu) && let Some(alpha) = &live.alpha {
             alpha.draw(&mut prepared.encoder, &prepared.view);
         }
         comp_animating
     }
 
-    fn submit_and_present(&mut self, prepared: PreparedOverlayFrame, _info: &StepInfo) -> Instant {
+    fn submit_and_present(&mut self, prepared: PreparedOverlayFrame, _info: &StepInfo) -> Option<Instant> {
         let (Some(live), Some(renderer), Some(gpu)) = (
             self.core.surface.live_mut(),
             self.core.renderer.as_mut(),
             self.core.gpu.as_ref(),
         ) else {
-            return crate::time::now();
+            return None;
         };
-        frame::submit_and_present(live, renderer, gpu, self.app.rt(), prepared.encoder, prepared.frame, self.prewarm);
+        if !frame::submit_and_present(live, renderer, gpu, self.app.rt(), prepared.encoder, prepared.frame, self.prewarm, &self.core.gpu_failure) {
+            return None;
+        }
         // The next frame waits for the room this one took (`slot`).
         #[cfg(target_os = "windows")]
         live.slot.presented();
@@ -394,7 +403,7 @@ impl FrameHost for OverlayFrame<'_> {
         if !self.prewarm && !gpu.is_lost() {
             renderer.warm_effects(&gpu.device);
         }
-        crate::time::now()
+        Some(crate::time::now())
     }
 
     fn present_targets(&mut self) -> (Option<&mut FrameClock>, &mut RuntimeCore) {
@@ -467,6 +476,7 @@ impl FrameHost for OverlayFrame<'_> {
 impl OverlayCore {
     /// Draws a frame if one is due; true while it needs more (animating).
     pub(super) fn draw(&mut self, app: &mut dyn OverlayApp) -> bool {
+        if self.gpu_failed(app) { return false; }
         self.presence_due(app, crate::time::now());
         if !self.presence.drawing() {
             self.drain_hidden(app);
@@ -594,6 +604,7 @@ impl OverlayCore {
     }
 
     pub(super) fn draw_frame(&mut self, app: &mut dyn OverlayApp, prewarm: bool) -> bool {
+        if self.gpu_failed(app) { return false; }
         let mut frame = OverlayFrame {
             core: self,
             app,
@@ -610,11 +621,12 @@ impl OverlayCore {
             more: false,
         };
         host_step::run(&mut frame);
-        frame.more
+        !frame.core.gpu_failed(frame.app) && frame.more
     }
 
     /// Handles a failed drawable acquisition during `draw_frame`.
     pub(super) fn acquire_missed(&mut self, app: &mut dyn OverlayApp, missed: crate::window::Missed, paced: bool, prewarm: bool, built: bool) {
+        if self.gpu_failed(app) { return; }
         if missed == crate::window::Missed::Unconfigured {
             if built {
                 super::input::drop_window_requests(app.rt_mut());
@@ -732,6 +744,7 @@ impl OverlayCore {
     }
 
     pub(super) fn warm_offscreen(&mut self, app: &mut dyn OverlayApp, size: (u32, u32)) {
+        if self.gpu_failed(app) { return; }
         let (Some(renderer), Some(gpu)) = (&mut self.renderer, &self.gpu) else { return };
         let target = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("overlay prewarm"), size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
@@ -745,8 +758,10 @@ impl OverlayCore {
             target: &view, format: renderer.format(), size,
             dt: 0.0, update_ms: 0.0, ui: renderer,
         });
-        renderer.submit(&gpu.queue, enc);
-        rune_gpu::health::poll(&gpu.device, wgpu::PollType::wait_indefinitely()).ok();
+        if renderer.submit_if(&gpu.queue, enc, || !self.gpu_failure.failed_on(gpu)).is_some() {
+            rune_gpu::health::poll(&gpu.device, wgpu::PollType::wait_indefinitely()).ok();
+        }
+        self.gpu_failed(app);
     }
 }
 

@@ -143,6 +143,7 @@ impl Host {
 
     /// Starts making the GPU for this window on a thread.
     pub(super) fn start_gpu(&mut self) {
+        if self.gpu_failed() { return; }
         let Some(w) = self.win.as_ref() else { return };
         let SurfaceMode::Cpu { job: GpuJob::Waiting { tries, retry_at }, .. } = &w.native.mode else { return };
         let (tries, retried) = (*tries, retry_at.is_some());
@@ -156,15 +157,16 @@ impl Host {
         let srgb = self.app.rt().srgb_blend();
         let latest = Arc::new(Mutex::new(Latest { instances: warm_instances(&self.app.rt().instances), size: (w.config.width, w.config.height) }));
         let drawn = latest.clone();
+        let owner = self.gpu_failure.clone();
         let frame = move |gpu: &Gpu, renderer: &mut Renderer| {
             let Latest { instances, size } = std::mem::take(&mut *drawn.lock().unwrap_or_else(|e| e.into_inner()));
             // The format a window's swap chain has here (`surface_config`); in another one the
             // hand-over frame makes its pipelines itself, as it did.
             let format = if srgb { wgpu::TextureFormat::Bgra8Unorm } else { wgpu::TextureFormat::Bgra8UnormSrgb };
-            warm_frame(gpu, renderer, format, srgb, size, &instances);
+            warm_frame(gpu, renderer, format, srgb, size, &instances, || !owner.failed_on(gpu));
             crate::marks::mark("gpu.window.warmed");
         };
-        let started = crate::render::warm_gpu_then(self.app.compositor_features(), frame, move || handle.send(WakeEvent::GpuReady));
+        let started = crate::render::warm_gpu_then(self.app.compositor_features(), self.gpu_failure.clone(), frame, move || handle.send(WakeEvent::GpuReady));
         let Some(w) = self.win.as_mut() else { return };
         let SurfaceMode::Cpu { job, .. } = &mut w.native.mode else { return };
         match started {
@@ -180,6 +182,7 @@ impl Host {
     /// its surface and swap chain are made with that device, and the next frame is the GPU's.
     /// With none, the window's surface is left alone and the CPU goes on drawing.
     pub(in crate::window) fn gpu_ready(&mut self) {
+        if self.gpu_failed() { return; }
         let Some(w) = self.win.as_mut() else { return };
         let SurfaceMode::Cpu { job: GpuJob::Building { tries, .. }, .. } = &w.native.mode else { return };
         let tries = *tries;
@@ -207,6 +210,10 @@ impl Host {
     /// its surface is made again as a lost one is, with that path's tries and its end
     /// (`replace_lost_surface`: the window is given up and the app told why).
     fn fail_surface(&mut self, why: String, tries: u8) {
+        if !matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Recover) {
+            self.fail_terminal_gpu(why);
+            return;
+        }
         let Some(w) = self.win.as_mut() else { return };
         if w.native.mode.switch_back(GpuJob::Waiting { tries, retry_at: None }) { return self.fail_gpu(why, tries); }
         eprintln!("rune: the window's GPU surface couldn't be made; it is tried again (the compositor takes no CPU frame once a GPU surface was tried): {why}");
@@ -222,6 +229,10 @@ impl Host {
     /// The GPU couldn't take over (`why`), on its `tries`th try: the window goes on with the CPU
     /// renderer, and tries again after `RETRY_AFTER`, or stays there after `TRIES` tries.
     fn fail_gpu(&mut self, why: String, tries: u8) {
+        if !matches!(self.gpu_failure, crate::window::gpu_failure::Policy::Recover) {
+            self.fail_terminal_gpu(why);
+            return;
+        }
         eprintln!("rune: the window stays on the CPU renderer for now (try {tries} of {TRIES}): {why}");
         crate::marks::mark("gpu.window.failed");
         if !crate::marks::noted("gpu.window.why") { crate::marks::note("gpu.window.why", Box::leak(why.into_boxed_str())); }

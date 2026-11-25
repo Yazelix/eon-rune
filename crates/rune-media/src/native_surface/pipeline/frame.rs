@@ -319,14 +319,22 @@ impl SurfaceRenderer {
         pass.set_bind_group(0, &self.draws[index].bind, &[]);
         pass.draw(0..4, 0..1);
     }
-    #[cfg(target_arch = "wasm32")]
     pub fn submit(&self, queue: &wgpu::Queue, encoder: wgpu::CommandEncoder) -> wgpu::SubmissionIndex {
+        self.submit_if(queue, encoder, || true).expect("unconditional submission")
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn submit_if(&self, queue: &wgpu::Queue, encoder: wgpu::CommandEncoder,
+        allowed: impl Fn() -> bool) -> Option<wgpu::SubmissionIndex> {
         assert!(self.draws.is_empty(), "native video surfaces are unsupported on web");
-        queue.submit([encoder.finish()])
+        let commands = encoder.finish();
+        allowed().then(|| queue.submit([commands]))
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn submit(&self, queue: &wgpu::Queue, encoder: wgpu::CommandEncoder) -> wgpu::SubmissionIndex {
+    pub fn submit_if(&self, queue: &wgpu::Queue, encoder: wgpu::CommandEncoder,
+        allowed: impl Fn() -> bool) -> Option<wgpu::SubmissionIndex> {
+        if !allowed() { return None; }
         let submitted_at = rune_core::time::now();
         let frames: Vec<_> = self
             .draws
@@ -347,12 +355,10 @@ impl SurfaceRenderer {
             })
             .collect();
         if frames.is_empty() {
-            return queue.submit([encoder.finish()]);
+            let commands = encoder.finish();
+            return allowed().then(|| queue.submit([commands]));
         }
-        // Notify before installing the GPU handler: completion may race queue.submit returning.
-        for (surface, _, t) in &frames {
-            surface.report(t.clone());
-        }
+        let reports: Vec<_> = frames.iter().map(|(surface, _, t)| (surface.clone(), t.clone())).collect();
         // A caller may use Renderer::draw_timed with its own query set. Never resolve our
         // unwritten counters in that case; CPU submission/completion notifications still work.
         if let Some(queries) =
@@ -435,10 +441,15 @@ impl SurfaceRenderer {
                 }
             });
         }
-        let index = queue.submit([encoder.finish()]);
+        let commands = encoder.finish();
+        if !allowed() { return None; }
+        // Report submission before completion can race it.
+        for (surface, timing) in reports { surface.report(timing); }
+        if !allowed() { return None; }
+        let index = queue.submit([commands]);
         self.release_decoded(queue);
         self.completion.wake();
-        index
+        Some(index)
     }
 
     /// Decoded video pictures this submission drew may be written again once it's done.

@@ -215,6 +215,7 @@ pub(super) fn prepare_window_render(
     let (Some(l), Some((gpu, renderer))) = (host.win.as_mut(), host.gpu.as_mut()) else {
         unreachable!("window and gpu live across frame");
     };
+    if host.gpu_failure.failed_on(gpu) { return RenderPrep::Abort; }
     let target_format = if host.app.rt().srgb_blend() { l.config.format.remove_srgb_suffix() } else { l.config.format };
     let view = drawable.texture.create_view(&wgpu::TextureViewDescriptor {
         format: (target_format != l.config.format).then_some(target_format),
@@ -255,6 +256,7 @@ pub(super) fn prepare_window_render(
         renderer.next_instances(rt.paint_count(), looped.cloned());
     }
     profile.mark_uploaded();
+    if host.gpu_failure.failed_on(gpu) { return RenderPrep::Abort; }
     let encoder = gpu.device.create_command_encoder(&Default::default());
     // Only what changed is redrawn and presented (`damage`): the renderer's `draw` takes the
     // armed rectangles when nothing but the instances draws there, a compositor's
@@ -313,6 +315,7 @@ pub(super) fn render_window_frame(
     info: &StepInfo,
 ) -> bool {
     let (Some(l), Some((gpu, renderer))) = (host.win.as_mut(), host.gpu.as_mut()) else { return false };
+    if host.gpu_failure.failed_on(gpu) { return false; }
     let target = l.alpha.as_ref().map_or(&prepared.view, |a| &a.view);
     let comp_animating = if host.app.has_compositor() {
         host.app.render_compositor(CompositorFrame {
@@ -332,6 +335,7 @@ pub(super) fn render_window_frame(
         draw_ui(renderer, gpu, &mut prepared.encoder, target, rt, prepared.size, clear);
         false
     };
+    if host.gpu_failure.failed_on(gpu) { return false; }
     // Every frame, so a frame drawn whole leaves the renderer's kept frame behind.
     #[cfg(target_os = "windows")]
     match (renderer.damage_drawn(), prepared.part.take()) {
@@ -355,7 +359,7 @@ pub(super) fn submit_and_present_window(
     profile: &mut FrameProfile,
     encoded: &mut Option<Instant>,
     info: &StepInfo,
-) -> Instant {
+) -> Option<Instant> {
     // macOS: the first frame of a window already on screen is taken as finished when it is
     // presented. The GPU takes 9,000 to 18,000 µs over it (an M4's, by the command buffer's own
     // GPU times), and the UI thread has AppKit's launch work, the next frame and input to get
@@ -364,12 +368,13 @@ pub(super) fn submit_and_present_window(
     let waits = host.launcher() || !host.life.shown() || std::env::var_os("RUNE_FIRST_FRAME_WAITS").is_some();
     #[cfg(not(target_os = "macos"))]
     let waits = true;
-    let (Some(l), Some((gpu, renderer))) = (host.win.as_mut(), host.gpu.as_mut()) else {
-        return crate::time::now();
-    };
+    let (l, (gpu, renderer)) = (host.win.as_mut()?, host.gpu.as_mut()?);
+    let allowed = || !host.gpu_failure.failed_on(gpu);
+    if !allowed() { return None; }
     #[cfg(target_os = "linux")]
     let readback = crate::window::linux::handover::readback(l, gpu, &mut prepared.encoder, &prepared.frame);
-    renderer.submit(&gpu.queue, prepared.encoder);
+    renderer.submit_if(&gpu.queue, prepared.encoder, allowed)?;
+    if !allowed() { return None; }
     profile.mark_submitted();
     crate::marks::mark_once(&FIRST_ENCODED, "frame.first.encoded");
     *encoded = host.frame_reports.stamp();
@@ -388,6 +393,7 @@ pub(super) fn submit_and_present_window(
     }
     #[cfg(not(target_os = "macos"))]
     gpu.queue.present(prepared.frame);
+    if !allowed() { return None; }
     // A window that opened on the CPU is the GPU's from this frame (`linux::handover`).
     #[cfg(target_os = "linux")]
     crate::window::linux::handover::handed(l, gpu, readback);
@@ -397,6 +403,7 @@ pub(super) fn submit_and_present_window(
     #[cfg(target_os = "windows")]
     if matches!(l.native.mode, handover::SurfaceMode::Rebinding { .. }) {
         let polled = rune_gpu::health::poll(&gpu.device, wgpu::PollType::wait_indefinitely());
+        if !allowed() { return None; }
         if should_commit_rebind(&polled, gpu.is_lost())
             && let handover::SurfaceMode::Rebinding { handover } = std::mem::take(&mut l.native.mode)
         {
@@ -431,6 +438,7 @@ pub(super) fn submit_and_present_window(
     }
     // The frame reached the screen only if the device stayed alive through submit, present, and
     // any synchronous wait above; a lost frame must keep `surface_retries` moving toward GiveUp.
+    if !allowed() { return None; }
     if finalize_present_retries(gpu.is_lost(), &mut l.surface_retries) {
         #[cfg(target_os = "windows")]
         l.native.video_layers.drawn(|key| renderer.surface_drew_isolated(key));
@@ -450,7 +458,7 @@ pub(super) fn submit_and_present_window(
     );
     #[cfg(not(feature = "frame-profile"))]
     let _ = (looped, info);
-    crate::time::now()
+    Some(crate::time::now())
 }
 
 /// Whether a rebinding DirectComposition swap chain's first frame finished on a live device and

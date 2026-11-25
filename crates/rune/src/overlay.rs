@@ -49,6 +49,7 @@ mod app;
 mod draw;
 #[path = "overlay/frame.rs"]
 mod frame;
+mod gpu_failure;
 use frame::{OverlayRenderArgs, idle_after, render_frame, step};
 #[path = "overlay/input.rs"]
 mod input;
@@ -347,6 +348,7 @@ impl<T: 'static> OverlayHandle<T> {
 
 /// An overlay before the event loop runs: the shell gives it a wake-up and the GPU pool.
 pub(crate) trait PendingOverlay: AnyHost {
+    fn gpu_failure(&mut self, failure: Arc<crate::render::failure::Failure>);
     fn connect(&mut self, wake: Waker, frame_wake: Waker, slot_wake: Waker, gpu: Rc<RefCell<Weak<Gpu>>>);
     fn inherit_font_smoothing(&mut self, mode: crate::FontSmoothing);
     fn set_prewarm_effects(&mut self, effects: crate::PrewarmEffects);
@@ -439,6 +441,7 @@ pub(in crate::overlay) struct OverlayCore {
     ime: crate::input::host_events::ImeSync,
     renderer: Option<Renderer>,
     gpu: Option<Arc<Gpu>>,
+    gpu_failure: crate::window::gpu_failure::Policy,
     gpu_pool: Rc<RefCell<Weak<Gpu>>>,
     rest: crate::window::Rest,
     retire: Retire,
@@ -538,6 +541,7 @@ impl OverlayCore {
             ime: Default::default(),
             renderer: None,
             gpu: None,
+            gpu_failure: Default::default(),
             gpu_pool: Rc::default(),
             rest: Default::default(),
             retire: Default::default(),

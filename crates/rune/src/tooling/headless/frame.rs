@@ -300,13 +300,13 @@ impl<F: FnMut(FrameShot, Vec<u8>)> FrameHost for HeadlessFrame<'_, '_, F> {
     }
 
     #[inline]
-    fn submit_and_present(&mut self, prepared: PreparedHeadlessFrame, _info: &StepInfo) -> Instant {
+    fn submit_and_present(&mut self, prepared: PreparedHeadlessFrame, _info: &StepInfo) -> Option<Instant> {
         let s = &mut *self.state;
         let submission = s.renderer.submit(&s.gpu.queue, prepared.encoder);
         s.in_flight.push(submission);
         self.encoded_stamp = s.reports.stamp();
         if self.want_pixels { s.readback.submitted(); }
-        crate::time::now()
+        Some(crate::time::now())
     }
 
     #[inline]

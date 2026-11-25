@@ -8,6 +8,7 @@ mod breaker;
 #[cfg(any(target_os = "windows", target_arch = "wasm32"))]
 mod damaged;
 mod device;
+pub(crate) mod failure;
 mod dxbc;
 mod effect_warm;
 mod fill;
@@ -653,11 +654,22 @@ impl Renderer {
     /// premultiplied values, encoded by the `*Srgb` target on write.
     pub fn srgb_blend(&self) -> bool { self.srgb_blend }
 
-    pub fn submit(&self, queue: &wgpu::Queue, mut encoder: wgpu::CommandEncoder) -> wgpu::SubmissionIndex {
+    pub fn submit(&self, queue: &wgpu::Queue, encoder: wgpu::CommandEncoder) -> wgpu::SubmissionIndex {
+        self.submit_if(queue, encoder, || true).expect("unconditional submission")
+    }
+
+    pub(crate) fn submit_if(&self, queue: &wgpu::Queue, mut encoder: wgpu::CommandEncoder,
+        allowed: impl Fn() -> bool) -> Option<wgpu::SubmissionIndex> {
+        if !allowed() { return None; }
         self.before_submit(&mut encoder);
-        let index = if let Some(s) = &self.surfaces { s.submit(queue, encoder) } else { queue.submit([encoder.finish()]) };
+        let index = if let Some(s) = &self.surfaces {
+            s.submit_if(queue, encoder, allowed)?
+        } else {
+            let commands = encoder.finish();
+            allowed().then(|| queue.submit([commands]))?
+        };
         self.first_frame_submitted.store(true, std::sync::atomic::Ordering::Release);
-        index
+        Some(index)
     }
 
     /// Whether `submit` is `queue.submit` after `before_submit` and nothing more: no native video

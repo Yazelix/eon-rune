@@ -125,6 +125,7 @@ pub(in crate::window) struct Host {
     pub(in crate::window) meter: SurfaceMeter,
     pub(in crate::window) win: Option<Win>,
     pub(in crate::window) gpu: Option<(Arc<Gpu>, Renderer)>,
+    pub(in crate::window) gpu_failure: super::gpu_failure::Policy,
     pub(in crate::window) gpu_pool: Rc<RefCell<Weak<Gpu>>>,
     /// A window has shown before: the next one opens settled.
     pub(in crate::window) shown: bool,
@@ -254,6 +255,11 @@ impl Host {
         let args = app.resolve_args(args);
         if let Some(hook) = app.on_display_close.take() {
             cx.on_display_close.push(hook);
+        }
+        if let Some(failure) = app.shared.core.gpu_failure.get() {
+            for overlay in &mut app.overlays {
+                overlay.gpu_failure(failure.clone());
+            }
         }
         let (prepared, native_handle, slot, gpu_pool, wayland) =
             HostWaker::prepare(&key, handle, &mut app.overlays, cx, app.standard_menus);
@@ -463,6 +469,8 @@ impl Host {
             float_on_open,
             open_inactive,
             reopen: ReopenState::new(open_as),
+            gpu_failure: shared.gpu_failure.get().cloned()
+                .map_or(Default::default(), super::gpu_failure::Policy::Terminal),
             shared,
             shortcuts,
             menus,

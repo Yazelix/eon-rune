@@ -293,7 +293,11 @@ pub(crate) fn acquire_checked(surface: &wgpu::Surface, gpu: &Gpu, config: &wgpu:
         return Err(Missed::Occluded);
     }
     loop {
-        let status = Missed::of(surface.get_current_texture());
+        let drawable = surface.get_current_texture();
+        if matches!(drawable, wgpu::CurrentSurfaceTexture::Validation) {
+            gpu.failure.record("surface acquisition validation failed".into());
+        }
+        let status = Missed::of(drawable);
         if let Err(missed) = status { meter.failed(missed); }
         match status {
             // A surface that won't take its configuration again is reported rather than

@@ -185,8 +185,8 @@ impl<E: EmbedSurface> FrameHost for EmbedFrameHost<'_, E> {
     }
 
     #[inline]
-    fn submit_and_present(&mut self, prepared: Self::Prepared, _info: &StepInfo) -> Instant {
-        self.surface.submit_and_present(prepared)
+    fn submit_and_present(&mut self, prepared: Self::Prepared, _info: &StepInfo) -> Option<Instant> {
+        Some(self.surface.submit_and_present(prepared))
     }
 
     #[inline]

@@ -4,6 +4,16 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 use super::super::Gpu;
 
+#[cfg(feature = "test-gpu-noop")]
+#[test]
+fn actual_uncaptured_validation_is_recorded_by_the_surface_handler() {
+    let gpu = Gpu::test_noop();
+    super::log_uncaptured(&gpu.device, gpu.failure.clone());
+    assert!(trigger_validation_error(&gpu.device).is_ok());
+    assert!(gpu.failure.message().unwrap().contains("Validation Error"));
+    assert!(!gpu.is_lost());
+}
+
 fn trigger_validation_error(device: &wgpu::Device) -> std::thread::Result<()> {
     catch_unwind(AssertUnwindSafe(|| {
         drop(device.create_buffer(&wgpu::BufferDescriptor {
@@ -158,6 +168,7 @@ mod macos {
 
         // 1. Adopted prewarmed device through the production surface setup path.
         let (adopted_gpu, _surface, took_prewarm) = Gpu::for_surface_setup(
+            &Default::default(),
             wgpu::Features::empty(),
             false,
             |i| surface(i, &layer),
@@ -177,6 +188,7 @@ mod macos {
 
         // 2. Freshly created surface device (prewarm slot is now empty).
         let (fresh_gpu, _surface2, took_prewarm_2) = Gpu::for_surface_setup(
+            &Default::default(),
             wgpu::Features::empty(),
             false,
             |i| surface(i, &layer),

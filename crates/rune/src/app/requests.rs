@@ -95,6 +95,7 @@ impl<S> std::ops::Deref for Requests<S> {
 /// Non-generic shared state backing [`AppHandle<S>`] and the window host.
 #[derive(Default)]
 pub(crate) struct SharedCore {
+    pub(crate) gpu_failure: std::sync::OnceLock<Arc<crate::render::failure::Failure>>,
     requests: Mutex<WindowRequests>,
     pub(super) wake: Mutex<Option<crate::runtime::Waker>>,
     /// Published by the window host for `AppHandle::is_visible` / `window_error`.
@@ -196,7 +197,8 @@ impl SharedCore {
     }
 
     pub(crate) fn window_error(&self) -> Option<String> {
-        self.window_error.lock().unwrap().clone()
+        self.gpu_failure.get().and_then(|failure| failure.message())
+            .or_else(|| self.window_error.lock().unwrap().clone())
     }
 
     pub(crate) fn set_window_error(&self, error: Option<String>) {

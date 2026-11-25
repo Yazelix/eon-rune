@@ -115,6 +115,7 @@ impl OverlayCore {
 
 impl AnyHost for OverlayHost {
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
+        self.core.gpu_failed(&mut *self.app);
         self.core.meter.turn(matches!(cause, StartCause::ResumeTimeReached { .. } | StartCause::Poll), crate::frame::surface_stats::slept(cause));
         self.core.turn_frame.step(frame::TurnEvent::NewEvents);
         #[cfg(target_os = "macos")]
@@ -148,6 +149,7 @@ impl AnyHost for OverlayHost {
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: WakeEvent) {
+        self.core.gpu_failed(&mut *self.app);
         self.core.meter.waited();
         #[cfg(target_os = "windows")]
         if matches!(event, WakeEvent::FrameSlot(_)) {
@@ -182,6 +184,7 @@ impl AnyHost for OverlayHost {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         let core = &mut self.core;
         let app = &mut *self.app;
+        if core.gpu_failed(app) { return; }
         if !matches!(event, WindowEvent::RedrawRequested) { core.meter.waited(); }
         #[cfg(target_os = "windows")]
         if matches!(event, WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. })
@@ -389,6 +392,7 @@ impl AnyHost for OverlayHost {
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) -> bool {
         let core = &mut self.core;
         let app = &mut *self.app;
+        if core.gpu_failed(app) { return false; }
         #[cfg(target_os = "macos")]
         core.fn_key(app);
         // A window switched the font families (`Tx::set_font_families`).
@@ -455,6 +459,9 @@ impl AnyHost for OverlayHost {
 }
 
 impl PendingOverlay for OverlayHost {
+    fn gpu_failure(&mut self, failure: Arc<crate::render::failure::Failure>) {
+        self.core.gpu_failure = crate::window::gpu_failure::Policy::Terminal(failure);
+    }
     fn connect(&mut self, wake: Waker, frame_wake: Waker, slot_wake: Waker, gpu: Rc<RefCell<Weak<Gpu>>>) {
         self.core.connect(&mut *self.app, wake, frame_wake, slot_wake, gpu);
     }

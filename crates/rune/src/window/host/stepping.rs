@@ -117,6 +117,7 @@ impl Host {
     }
 
     pub(in crate::window) fn first_frame_ready(&mut self, event_loop: &ActiveEventLoop) {
+        if self.gpu_failed() { return; }
         let Some(w) = &mut self.win else { return };
         if !w.first_frame.pending() {
             // No first frame to wait for (`FirstFrame::skipped`, `READY_FALLBACK`): the app's live

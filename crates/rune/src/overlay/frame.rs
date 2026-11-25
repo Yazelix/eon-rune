@@ -308,39 +308,46 @@ pub(super) fn render_frame(app: &mut dyn OverlayApp, f: OverlayRenderArgs<'_>) -
 /// event loop's thread spends none of wgpu's encode, submit and present on it. Prewarm frames
 /// present here, before the window is revealed.
 pub(super) fn submit_and_present(live: &mut Live, renderer: &Renderer, gpu: &Gpu, rt: &RuntimeCore,
-    encoder: wgpu::CommandEncoder, frame: wgpu::SurfaceTexture, prewarm: bool) {
+    encoder: wgpu::CommandEncoder, frame: wgpu::SurfaceTexture, prewarm: bool,
+    policy: &crate::window::gpu_failure::Policy) -> bool {
+    let allowed = || !policy.failed_on(gpu);
+    if !allowed() { return false; }
     #[allow(irrefutable_let_patterns)]
     if let Backing::Window(w) = &live.backing {
         w.pre_present_notify();
     }
     #[cfg(target_os = "macos")]
     {
-        if !prewarm && live.materials.presents_plainly() && renderer.submits_plainly() && !crate::gpu::native(&gpu.queue) {
+        if matches!(policy, crate::window::gpu_failure::Policy::Recover)
+            && !prewarm && live.materials.presents_plainly() && renderer.submits_plainly() && !crate::gpu::native(&gpu.queue)
+        {
             if live.present.is_none() { live.present = crate::frame::present_worker::PresentWorker::spawn(); }
             if let Some(worker) = &mut live.present {
                 let mut encoder = encoder;
                 renderer.before_submit(&mut encoder);
                 let queue = gpu.queue.clone();
-                return worker.run(move || {
+                worker.run(move || {
                     queue.submit([encoder.finish()]);
                     queue.present(frame);
                 });
+                return true;
             }
         }
-        renderer.submit(&gpu.queue, encoder);
+        if renderer.submit_if(&gpu.queue, encoder, allowed).is_none() || !allowed() { return false; }
         let (draws, scale) = crate::system_material::present_draws(rt);
         live.materials.present(draws, scale, || gpu.queue.present(frame));
     }
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (rt, prewarm);
-        renderer.submit(&gpu.queue, encoder);
+        if renderer.submit_if(&gpu.queue, encoder, allowed).is_none() || !allowed() { return false; }
         #[cfg(all(unix, not(target_os = "ios"), not(target_os = "android")))]
         if !gpu.is_lost() && let Backing::Layer(layer) = &mut live.backing {
             layer.request_frame();
         }
         gpu.queue.present(frame);
     }
+    allowed()
 }
 
 /// Records a presented overlay frame for launch marks once it is actually shown. Prewarm frames
