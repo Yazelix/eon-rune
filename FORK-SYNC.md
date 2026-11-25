@@ -74,8 +74,8 @@ RUN="$WORK/weekly-candidate"
 ```
 
 Run in the existing development shell that supplies the pinned compiler and
-native tools; never use `--ignore-rust-version`. Keep one Rune build at a time,
-CARGO_BUILD_JOBS=1 and the 8 GiB/no-swap scope.
+native tools; never use `--ignore-rust-version`. Keep one Rune build at a time
+under the 8 GiB/no-swap scope.
 Stop without retry or cap increase on an OOM or peak above 7.9 GiB; record every
 scope peak. No 6 GiB compliance is claimed. The Rune build lock
 `/mnt/build/rune-build.lock` is shared across all targets
@@ -93,8 +93,9 @@ The focused phase runs Clippy before its builds and tests.
 Focused and workspace checks use the same byte-verified source and lock.
 Named regressions select the current Cargo test targets for their owner crates
 and fail if any required name or completed result is missing. Rune's
-`--lib` target is the core unit-test partition. The serial workspace suite
-also runs the seven other unit partitions and the standalone integration targets.
+`--lib` target is the core unit-test partition. The workspace suite runs each
+package in sequence, with a separate invocation for each Rune partition and
+standalone target. Those batches use up to two Cargo jobs.
 Inherited lint/allocation failures remain disclosed in the private proof record.
 
 Native checks build the exact candidate and **new upstream target** with the

@@ -97,7 +97,18 @@ case "$phase" in
         python3 "$tools/verify-tests.py" allocation "$state/logs/allocation.log"
         run wasm build "${cargo[@]}" check --locked -p rune --no-default-features --target wasm32-unknown-unknown --jobs 1
         run workspace build "${cargo[@]}" check --locked --workspace --all-targets --jobs 1
-        run workspace-tests build "${cargo[@]}" test --locked --workspace --jobs 1 --features rune-kit/markdown,rune-kit/mermaid,rune/test-gpu-noop,rune/test-gpu-counters -- --test-threads=1
+        run workspace-test-targets build "${cargo[@]}" metadata --locked --no-deps --format-version 1
+        python3 "$tools/test-batches.py" "$state/logs/workspace-test-targets.log" > "$state/provenance/workspace-test-batches.tsv"
+        while IFS=$'\t' read -r batch package selector target; do
+            args=()
+            if test "$selector" != -; then args+=("$selector"); fi
+            if test "$target" != -; then args+=("$target"); fi
+            case "$package" in
+                rune) args+=(--features test-gpu-noop,test-gpu-counters);;
+                rune-kit) args+=(--features markdown,mermaid);;
+            esac
+            run "workspace-$batch" build "${cargo[@]}" test --locked --jobs 2 -p "$package" "${args[@]}" -- --test-threads=1
+        done < "$state/provenance/workspace-test-batches.tsv"
         ;;
     native)
         cd "$state/focused/all/source"
