@@ -1,0 +1,251 @@
+{
+  "analyzer_sha256": "7a121a09c63d119aa56b72bae621d29fe3dfe4ec53cb7501beb25b087a6ba7e1",
+  "reasons": {
+    "jump": "Pane children jump with the scripted split, zoom or restore. Eon has no layout transitions.",
+    "sibling-jump": "The retained pane moves or resizes when a sibling mounts or unmounts on the same scripted cut.",
+    "pop-in": "Panes, popups and focus markers mount at full opacity in the no-fade fixture.",
+    "pop-out": "Panes, popups and focus markers unmount at full opacity in the no-fade fixture."
+  },
+  "entries": [
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-0/#0",
+      "frame": 60,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-0/#0",
+      "frame": 150,
+      "detail": "w 948.0 → 1904.0 (+956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-0/#0",
+      "frame": 240,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-0/pane-0",
+      "frame": 60,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-0/pane-0",
+      "frame": 150,
+      "detail": "w 948.0 → 1904.0 (+956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-0/pane-0",
+      "frame": 240,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-1/#0",
+      "frame": 330,
+      "detail": "w 948.0 → 1904.0 (+956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-1/#0",
+      "frame": 420,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-1/pane-1",
+      "frame": 330,
+      "detail": "w 948.0 → 1904.0 (+956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "jump",
+      "node": "#0/#1/tab-0-shell-1/pane-1",
+      "frame": 420,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 60,
+      "detail": "mounted at opacity 1.0 size 948×986 at (964,50) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#2/focus-pane-0",
+      "frame": 61,
+      "detail": "mounted at opacity 1.0 size 2×2 at (446,1061) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 240,
+      "detail": "mounted at opacity 1.0 size 948×986 at (964,50) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#2/focus-pane-1",
+      "frame": 241,
+      "detail": "mounted at opacity 1.0 size 2×2 at (446,1061) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#1/tab-0-shell-0",
+      "frame": 420,
+      "detail": "mounted at opacity 1.0 size 948×986 at (8,50) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#1/popup",
+      "frame": 510,
+      "detail": "mounted at opacity 1.0 size 1904×986 at (8,50) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#2/focus-none",
+      "frame": 511,
+      "detail": "mounted at opacity 1.0 size 2×2 at (446,1061) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#2/focus-pane-1",
+      "frame": 601,
+      "detail": "mounted at opacity 1.0 size 2×2 at (446,1061) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#1/tab-1-shell-0",
+      "frame": 690,
+      "detail": "mounted at opacity 1.0 size 948×986 at (8,50) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#1/tab-1-shell-1",
+      "frame": 690,
+      "detail": "mounted at opacity 1.0 size 948×986 at (964,50) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#1/tab-0-shell-0",
+      "frame": 780,
+      "detail": "mounted at opacity 1.0 size 948×986 at (8,50) with no transition"
+    },
+    {
+      "kind": "pop-in",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 780,
+      "detail": "mounted at opacity 1.0 size 948×986 at (964,50) with no transition"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#2/focus-none",
+      "frame": 61,
+      "detail": "unmounted at opacity 1.0 size 2×2 at (446,1061)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 150,
+      "detail": "unmounted at opacity 1.0 size 948×986 at (964,50)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#2/focus-pane-0",
+      "frame": 241,
+      "detail": "unmounted at opacity 1.0 size 2×2 at (446,1061)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#1/tab-0-shell-0",
+      "frame": 330,
+      "detail": "unmounted at opacity 1.0 size 948×986 at (8,50)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#2/focus-pane-1",
+      "frame": 511,
+      "detail": "unmounted at opacity 1.0 size 2×2 at (446,1061)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#1/popup",
+      "frame": 600,
+      "detail": "unmounted at opacity 1.0 size 1904×986 at (8,50)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#2/focus-none",
+      "frame": 601,
+      "detail": "unmounted at opacity 1.0 size 2×2 at (446,1061)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#1/tab-0-shell-0",
+      "frame": 690,
+      "detail": "unmounted at opacity 1.0 size 948×986 at (8,50)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 690,
+      "detail": "unmounted at opacity 1.0 size 948×986 at (964,50)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#1/tab-1-shell-0",
+      "frame": 780,
+      "detail": "unmounted at opacity 1.0 size 948×986 at (8,50)"
+    },
+    {
+      "kind": "pop-out",
+      "node": "#0/#1/tab-1-shell-1",
+      "frame": 780,
+      "detail": "unmounted at opacity 1.0 size 948×986 at (964,50)"
+    },
+    {
+      "kind": "sibling-jump",
+      "node": "#0/#1/tab-0-shell-0",
+      "frame": 60,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "sibling-jump",
+      "node": "#0/#1/tab-0-shell-0",
+      "frame": 150,
+      "detail": "w 948.0 → 1904.0 (+956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "sibling-jump",
+      "node": "#0/#1/tab-0-shell-0",
+      "frame": 240,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "sibling-jump",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 330,
+      "detail": "x 964.0 → 8.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "sibling-jump",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 420,
+      "detail": "x 8.0 → 964.0 (+956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "sibling-jump",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 330,
+      "detail": "w 948.0 → 1904.0 (+956.0pt) in one frame; neighbours +0.0/+0.0"
+    },
+    {
+      "kind": "sibling-jump",
+      "node": "#0/#1/tab-0-shell-1",
+      "frame": 420,
+      "detail": "w 1904.0 → 948.0 (-956.0pt) in one frame; neighbours +0.0/+0.0"
+    }
+  ]
+}

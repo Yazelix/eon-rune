@@ -1,0 +1,495 @@
+--- a/venus/src/render.rs
++++ b/venus/src/render.rs
+@@ -1106 +1106 @@
+-    instance: Instance,
++    instance: Option<Instance>,
+@@ -1110 +1110 @@
+-    surface: Surface<'static>,
++    surface: Option<Surface<'static>>,
+@@ -1149 +1149 @@
+-    window: Arc<Window>,
++    window: Option<Arc<Window>>,
+@@ -1280,0 +1281,124 @@
++        Self::assemble(
++            Some(instance),
++            Some(surface),
++            Some(Arc::clone(&window)),
++            device,
++            device_lost,
++            queue,
++            config,
++            window.scale_factor(),
++            spinners_turn,
++            background_opacity,
++            padding_color,
++            cursor_tail,
++            pane_frames,
++            detect_local_hosts,
++            focus_color,
++            border_width,
++            focus_border_width,
++            eon_icon,
++            fonts,
++        )
++    }
++
++    /// Rune hosting spike: a renderer on a host's device and queue that draws the terminal layer
++    /// into the host's render pass. No window, surface or presentation; `size` is the sub-rect the
++    /// host gives it (the host sets the pass viewport to that rect).
++    pub fn hosted(
++        device: wgpu::Device,
++        queue: wgpu::Queue,
++        format: wgpu::TextureFormat,
++        size: (u32, u32),
++        scale_factor: f64,
++        fonts: FontSetup,
++    ) -> Result<Self, RenderError> {
++        let config = SurfaceConfiguration {
++            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
++            format,
++            color_space: Default::default(),
++            width: size.0.max(1),
++            height: size.1.max(1),
++            present_mode: PresentMode::Fifo,
++            desired_maximum_frame_latency: 2,
++            alpha_mode: CompositeAlphaMode::Opaque,
++            view_formats: Vec::new(),
++        };
++        Self::assemble(
++            None,
++            None,
++            None,
++            device,
++            Arc::new(AtomicBool::new(false)),
++            queue,
++            config,
++            scale_factor,
++            false,
++            1.0,
++            PaddingColor::default(),
++            None,
++            false,
++            false,
++            SceneColor::default(),
++            1,
++            1,
++            None,
++            fonts,
++        )
++    }
++
++    /// Rune hosting spike: builds this frame's vertices and glyphs for one terminal scene.
++    pub fn prepare_hosted(
++        &mut self,
++        scene: &Scene,
++        blink_visible: bool,
++        generation: u64,
++    ) -> Result<(), RenderError> {
++        self.prepare_frame(
++            Some(scene),
++            None,
++            0.0,
++            None,
++            &[],
++            None,
++            WorkspaceFocus::Terminal,
++            "",
++            blink_visible,
++            "",
++            generation,
++        )
++    }
++
++    /// Rune hosting spike: records the terminal layer's draws into the host's open pass.
++    pub fn draw_hosted(&self, pass: &mut wgpu::RenderPass<'_>) -> Result<(), RenderError> {
++        self.draw_into(pass)
++    }
++
++    /// Rune hosting spike: what `render` does after presenting.
++    pub fn end_frame_hosted(&mut self) {
++        self.atlas.trim();
++        self.terminal.presented_scrollback_rect = self.terminal.scrollback_rect;
++    }
++
++    #[allow(clippy::too_many_arguments)]
++    fn assemble(
++        instance: Option<Instance>,
++        surface: Option<Surface<'static>>,
++        window: Option<Arc<Window>>,
++        device: wgpu::Device,
++        device_lost: Arc<AtomicBool>,
++        queue: wgpu::Queue,
++        config: SurfaceConfiguration,
++        scale_factor: f64,
++        spinners_turn: bool,
++        background_opacity: f32,
++        padding_color: PaddingColor,
++        cursor_tail: Option<(SceneColor, f32)>,
++        pane_frames: bool,
++        detect_local_hosts: bool,
++        focus_color: SceneColor,
++        border_width: u8,
++        focus_border_width: u8,
++        eon_icon: Option<Arc<[u8]>>,
++        mut fonts: FontSetup,
++    ) -> Result<Self, RenderError> {
++        let srgb_target = config.format.is_srgb();
+@@ -1350 +1474 @@
+-        let metrics = fonts.metrics(window.scale_factor());
++        let metrics = fonts.metrics(scale_factor);
+@@ -1425,113 +1549 @@
+-    #[must_use]
+-    pub fn metrics(&self) -> CellMetrics {
+-        self.metrics
+-    }
+-
+-    #[must_use]
+-    pub fn metrics_at_scale(&self, scale: f64) -> CellMetrics {
+-        self.fonts.metrics(scale)
+-    }
+-
+-    #[must_use]
+-    pub fn size(&self) -> PhysicalSize<u32> {
+-        PhysicalSize::new(self.config.width, self.config.height)
+-    }
+-
+-    pub fn resize(&mut self, size: PhysicalSize<u32>, scale_factor: f64) {
+-        let size = nonzero(size);
+-        self.config.width = size.width;
+-        self.config.height = size.height;
+-        let metrics = self.fonts.metrics(scale_factor);
+-        if metrics != self.metrics {
+-            self.cell_font = fitted_cell_font(
+-                &mut self.fonts.font_system,
+-                metrics,
+-                self.fonts.family,
+-                self.fonts.configured,
+-            );
+-            self.metrics = metrics;
+-        }
+-        self.surface.configure(&self.device, &self.config);
+-        self.content_key = None;
+-        self.pane_titles = None;
+-        self.reset_cursor_animation();
+-    }
+-
+-    pub fn reset_cursor_animation(&mut self) {
+-        self.terminal.cursor_animation.reset();
+-        self.terminal.cursor_handoff = false;
+-        self.terminal.last_cursor_frame = None;
+-        self.dynamic_vertex_count = 0;
+-    }
+-
+-    pub fn suspend_cursor_animation(&mut self) {
+-        // Keep cosmetic position without drawing or ticking the old attachment.
+-        self.terminal.cursor_handoff = self.terminal.cursor_animation.target.is_some();
+-        self.terminal.last_cursor_frame = None;
+-        self.dynamic_vertex_count = 0;
+-    }
+-
+-    pub fn attach_cursor_animation(&mut self) {
+-        if !self.terminal.cursor_handoff {
+-            self.reset_cursor_animation();
+-        }
+-    }
+-
+-    #[must_use]
+-    pub fn cursor_animation_active(&self) -> bool {
+-        !self.terminal.cursor_handoff && self.terminal.cursor_animation.is_active()
+-    }
+-
+-    /// Uploads a completely received image resource, or refuses it so its entries show the
+-    /// marker; either way the renderer keeps working (VEN-C31). `referenced` names every resource
+-    /// that a current frame of an attached terminal references, which the budget never frees.
+-    pub fn upload_image(
+-        &mut self,
+-        resource: ImageResource,
+-        referenced: &HashSet<ImageKey>,
+-    ) -> Result<(), RenderError> {
+-        self.images
+-            .upload(&self.device, &self.queue, resource, referenced)
+-    }
+-
+-    /// Orbit retired a resource; its texture goes once no current frame references it.
+-    pub fn retire_image(&mut self, key: ImageKey) {
+-        self.images.store.retire(key);
+-    }
+-
+-    /// Frees the resources of every attachment outside `live`, the attachments of attached
+-    /// terminals, and retired textures outside `referenced`. Frames of other attachments show
+-    /// the marker over every entry, and pending entries of `at_once` attachments show it without
+-    /// waiting (VEN-C31).
+-    pub fn sweep_images(
+-        &mut self,
+-        live: HashSet<u64>,
+-        at_once: HashSet<u64>,
+-        referenced: &HashSet<ImageKey>,
+-    ) {
+-        self.images.store.sweep(live, at_once, referenced);
+-    }
+-
+-    /// Whether an attached terminal's current frame wants a reattach to recover its images.
+-    #[must_use]
+-    pub fn image_resync(
+-        &self,
+-        attachment: u64,
+-        placements: &[ScenePlacement],
+-        referenced: &HashSet<ImageKey>,
+-    ) -> Option<ImageResync> {
+-        self.images.store.resync(attachment, placements, referenced)
+-    }
+-
+-    /// Bytes of image textures held, counted at 4 bytes per pixel.
+-    #[must_use]
+-    pub fn image_resident(&self) -> u64 {
+-        self.images.store.resident()
+-    }
+-
+-    /// When a pending image entry of the last drawn frame shows its marker, which needs a redraw.
+-    #[must_use]
+-    pub fn next_marker_deadline(&self) -> Option<Instant> {
+-        self.images.store.next_marker()
+-    }
+-
++    /// Everything `render` does before it needs a target: rebuild, cursor, glyph preparation.
+@@ -1539 +1551 @@
+-    pub fn render(
++    fn prepare_frame(
+@@ -1552,6 +1564 @@
+-    ) -> Result<PresentOutcome, RenderError> {
+-        ensure_device_available(&self.device_lost)?;
+-        let paint = workspace
+-            .filter(|workspace| self.pane_frames || workspace.popup_label().is_some())
+-            .map(|workspace| workspace_paint(workspace, scene, columns, self.metrics));
+-        let workspace = paint.as_deref().or(workspace);
++    ) -> Result<(), RenderError> {
+@@ -1615,0 +1623,178 @@
++        Ok(())
++    }
++
++    /// The frame's draws, into whichever pass is open.
++    fn draw_into(&self, pass: &mut wgpu::RenderPass<'_>) -> Result<(), RenderError> {
++            for step in draw_steps(
++                self.vertex_count,
++                (self.dynamic_vertex_count > 0).then_some(self.cursor_vertex_boundary),
++                &self.images.draws,
++            ) {
++                match step {
++                    DrawStep::Rectangles(vertices) => {
++                        pass.set_pipeline(&self.rectangle_pipeline);
++                        pass.set_vertex_buffer(0, self.vertices.slice(..));
++                        pass.draw(vertices, 0..1);
++                    }
++                    DrawStep::Cursor => {
++                        pass.set_pipeline(&self.rectangle_pipeline);
++                        pass.set_vertex_buffer(0, self.dynamic_vertices.slice(..));
++                        pass.draw(0..self.dynamic_vertex_count, 0..1);
++                    }
++                    DrawStep::Image(index) => self.images.draw(pass, index),
++                }
++            }
++            self.text_renderer
++                .render(&self.atlas, &self.viewport, pass)
++                .map_err(display_error("cannot render the Venus glyph atlas"))?;
++        Ok(())
++    }
++
++    #[must_use]
++    pub fn metrics(&self) -> CellMetrics {
++        self.metrics
++    }
++
++    #[must_use]
++    pub fn metrics_at_scale(&self, scale: f64) -> CellMetrics {
++        self.fonts.metrics(scale)
++    }
++
++    #[must_use]
++    pub fn size(&self) -> PhysicalSize<u32> {
++        PhysicalSize::new(self.config.width, self.config.height)
++    }
++
++    pub fn resize(&mut self, size: PhysicalSize<u32>, scale_factor: f64) {
++        let size = nonzero(size);
++        self.config.width = size.width;
++        self.config.height = size.height;
++        let metrics = self.fonts.metrics(scale_factor);
++        if metrics != self.metrics {
++            self.cell_font = fitted_cell_font(
++                &mut self.fonts.font_system,
++                metrics,
++                self.fonts.family,
++                self.fonts.configured,
++            );
++            self.metrics = metrics;
++        }
++        if let Some(surface) = &self.surface {
++            surface.configure(&self.device, &self.config);
++        }
++        self.content_key = None;
++        self.pane_titles = None;
++        self.reset_cursor_animation();
++    }
++
++    pub fn reset_cursor_animation(&mut self) {
++        self.terminal.cursor_animation.reset();
++        self.terminal.cursor_handoff = false;
++        self.terminal.last_cursor_frame = None;
++        self.dynamic_vertex_count = 0;
++    }
++
++    pub fn suspend_cursor_animation(&mut self) {
++        // Keep cosmetic position without drawing or ticking the old attachment.
++        self.terminal.cursor_handoff = self.terminal.cursor_animation.target.is_some();
++        self.terminal.last_cursor_frame = None;
++        self.dynamic_vertex_count = 0;
++    }
++
++    pub fn attach_cursor_animation(&mut self) {
++        if !self.terminal.cursor_handoff {
++            self.reset_cursor_animation();
++        }
++    }
++
++    #[must_use]
++    pub fn cursor_animation_active(&self) -> bool {
++        !self.terminal.cursor_handoff && self.terminal.cursor_animation.is_active()
++    }
++
++    /// Uploads a completely received image resource, or refuses it so its entries show the
++    /// marker; either way the renderer keeps working (VEN-C31). `referenced` names every resource
++    /// that a current frame of an attached terminal references, which the budget never frees.
++    pub fn upload_image(
++        &mut self,
++        resource: ImageResource,
++        referenced: &HashSet<ImageKey>,
++    ) -> Result<(), RenderError> {
++        self.images
++            .upload(&self.device, &self.queue, resource, referenced)
++    }
++
++    /// Orbit retired a resource; its texture goes once no current frame references it.
++    pub fn retire_image(&mut self, key: ImageKey) {
++        self.images.store.retire(key);
++    }
++
++    /// Frees the resources of every attachment outside `live`, the attachments of attached
++    /// terminals, and retired textures outside `referenced`. Frames of other attachments show
++    /// the marker over every entry, and pending entries of `at_once` attachments show it without
++    /// waiting (VEN-C31).
++    pub fn sweep_images(
++        &mut self,
++        live: HashSet<u64>,
++        at_once: HashSet<u64>,
++        referenced: &HashSet<ImageKey>,
++    ) {
++        self.images.store.sweep(live, at_once, referenced);
++    }
++
++    /// Whether an attached terminal's current frame wants a reattach to recover its images.
++    #[must_use]
++    pub fn image_resync(
++        &self,
++        attachment: u64,
++        placements: &[ScenePlacement],
++        referenced: &HashSet<ImageKey>,
++    ) -> Option<ImageResync> {
++        self.images.store.resync(attachment, placements, referenced)
++    }
++
++    /// Bytes of image textures held, counted at 4 bytes per pixel.
++    #[must_use]
++    pub fn image_resident(&self) -> u64 {
++        self.images.store.resident()
++    }
++
++    /// When a pending image entry of the last drawn frame shows its marker, which needs a redraw.
++    #[must_use]
++    pub fn next_marker_deadline(&self) -> Option<Instant> {
++        self.images.store.next_marker()
++    }
++
++    #[allow(clippy::too_many_arguments)]
++    pub fn render(
++        &mut self,
++        scene: Option<&Scene>,
++        scroll_preview: Option<&ScenePreview>,
++        scroll_offset: f32,
++        workspace: Option<&WorkspaceScene>,
++        columns: &[Option<&Scene>],
++        dialog: Option<&DialogScene>,
++        workspace_focus: WorkspaceFocus,
++        status: &str,
++        blink_visible: bool,
++        preedit: &str,
++        generation: u64,
++    ) -> Result<PresentOutcome, RenderError> {
++        ensure_device_available(&self.device_lost)?;
++        let paint = workspace
++            .filter(|workspace| self.pane_frames || workspace.popup_label().is_some())
++            .map(|workspace| workspace_paint(workspace, scene, columns, self.metrics));
++        let workspace = paint.as_deref().or(workspace);
++        self.prepare_frame(
++            scene,
++            scroll_preview,
++            scroll_offset,
++            workspace,
++            columns,
++            dialog,
++            workspace_focus,
++            status,
++            blink_visible,
++            preedit,
++            generation,
++        )?;
+@@ -1618 +1803 @@
+-        let current_texture = self.surface.get_current_texture();
++        let current_texture = self.surface.as_ref().expect("windowed renderer").get_current_texture();
+@@ -1624 +1809 @@
+-                self.window.request_redraw();
++                self.window.as_ref().expect("windowed renderer").request_redraw();
+@@ -1632 +1817 @@
+-                self.surface.configure(&self.device, &self.config);
++                self.surface.as_ref().expect("windowed renderer").configure(&self.device, &self.config);
+@@ -1639 +1824 @@
+-                self.surface.configure(&self.device, &self.config);
++                self.surface.as_ref().expect("windowed renderer").configure(&self.device, &self.config);
+@@ -1646,5 +1831,6 @@
+-                self.surface = self
+-                    .instance
+-                    .create_surface(Arc::clone(&self.window))
+-                    .map_err(display_error("cannot recover the Venus GPU surface"))?;
+-                self.surface.configure(&self.device, &self.config);
++                self.surface = Some(
++                    self.instance.as_ref().expect("windowed renderer")
++                        .create_surface(Arc::clone(self.window.as_ref().expect("windowed renderer")))
++                        .map_err(display_error("cannot recover the Venus GPU surface"))?,
++                );
++                self.surface.as_ref().expect("windowed renderer").configure(&self.device, &self.config);
+@@ -1682,22 +1868 @@
+-            for step in draw_steps(
+-                self.vertex_count,
+-                (self.dynamic_vertex_count > 0).then_some(self.cursor_vertex_boundary),
+-                &self.images.draws,
+-            ) {
+-                match step {
+-                    DrawStep::Rectangles(vertices) => {
+-                        pass.set_pipeline(&self.rectangle_pipeline);
+-                        pass.set_vertex_buffer(0, self.vertices.slice(..));
+-                        pass.draw(vertices, 0..1);
+-                    }
+-                    DrawStep::Cursor => {
+-                        pass.set_pipeline(&self.rectangle_pipeline);
+-                        pass.set_vertex_buffer(0, self.dynamic_vertices.slice(..));
+-                        pass.draw(0..self.dynamic_vertex_count, 0..1);
+-                    }
+-                    DrawStep::Image(index) => self.images.draw(&mut pass, index),
+-                }
+-            }
+-            self.text_renderer
+-                .render(&self.atlas, &self.viewport, &mut pass)
+-                .map_err(display_error("cannot render the Venus glyph atlas"))?;
++            self.draw_into(&mut pass)?;
+@@ -1708 +1873 @@
+-        self.window.pre_present_notify();
++        self.window.as_ref().expect("windowed renderer").pre_present_notify();

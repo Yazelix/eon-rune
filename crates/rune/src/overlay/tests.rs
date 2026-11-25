@@ -965,3 +965,25 @@ fn overlay_rescale_clamps_to_max_texture_dimension() {
 }
 
 include!("more_tests.rs");
+
+#[test]
+fn terminal_overlay_keeps_its_owners_failure_through_another_reveal() {
+    use crate::window::gpu_failure::Policy;
+
+    let latch = Arc::new(crate::render::failure::Failure::default());
+    let mut overlay = width_overlay("terminal");
+    overlay.gpu_failure = Policy::Terminal(latch.clone());
+    latch.record("owner failed first".into());
+    overlay.ready(false);
+    assert!(matches!(overlay.gpu_failure, Policy::Failed));
+    assert_eq!(overlay.core.shared.failure.lock().unwrap().as_deref(), Some("owner failed first"));
+    latch.record("later overlay failure".into());
+    overlay.ready(true);
+    assert!(overlay.surface.live().is_none());
+    assert_eq!(overlay.core.shared.failure.lock().unwrap().as_deref(), Some("owner failed first"));
+    assert_eq!(latch.message().as_deref(), Some("owner failed first"));
+
+    let mut recover = width_overlay("recover");
+    recover.ready(true);
+    assert!(recover.core.shared.failure.lock().unwrap().is_none());
+}

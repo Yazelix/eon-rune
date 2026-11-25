@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+members = ["eon-workspace-protocol", "orbit-protocol", "venus"]
+
+[patch.crates-io]
+wgpu-hal = { path = "@RUNE@/vendor/wgpu-hal" }
+parley_engine = { path = "@RUNE@/vendor/parley_engine" }
+accesskit_windows = { path = "@RUNE@/vendor/accesskit_windows" }
+accesskit_macos = { path = "@RUNE@/vendor/accesskit_macos" }
+naga = { path = "@RUNE@/vendor/naga" }
+accesskit_atspi_common = { path = "@RUNE@/vendor/accesskit_atspi_common" }
+sctk-adwaita = { path = "@RUNE@/vendor/sctk-adwaita" }
+winit = { path = "@WINIT@" }
+
+[profile.dev]
+debug = "line-tables-only"
+[profile.dev.package."*"]
+debug = false
+[profile.release]
+codegen-units = 16
+incremental = true
+[profile.perf]
+inherits = "release"
+opt-level = 3
+codegen-units = 16
+lto = false
+debug = false
+incremental = false

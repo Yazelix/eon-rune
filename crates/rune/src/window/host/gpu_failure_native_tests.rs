@@ -71,3 +71,53 @@ fn native_terminal_window_and_same_device_surface_control() {
     assert!(probe.ran);
     println!("terminal-gpu-loss-native: pass");
 }
+
+#[test]
+#[ignore = "requires a private Wayland CPU-first window"]
+#[allow(clippy::disallowed_methods, reason = "native test checks the isolation guard")]
+fn linux_cpu_window_handles_failed_gpu_start_by_policy() {
+    use crate::window::linux::handover::{GpuJob, SurfaceMode};
+    assert_eq!(std::env::var("RUNE_GPU_FAILURE_NATIVE").as_deref(), Ok("1"));
+    assert_eq!(std::env::var("RUNE_CPU_FIRST").as_deref(), Ok("only"));
+    assert!(std::env::var_os("DISPLAY").is_none());
+    struct Probe { terminal: Host, recover: Host, ran: bool }
+    impl ApplicationHandler<WakeEvent> for Probe {
+        fn resumed(&mut self, active: &ActiveEventLoop) {
+            assert!(!crate::render::warm_gpu_made(), "this fixture must start with no GPU device");
+            for (host, terminal) in [(&mut self.terminal, true), (&mut self.recover, false)] {
+                host.resume(active);
+                host.draw(false);
+                assert!(host.gpu.is_none());
+                let win = host.win.as_mut().expect("CPU-first window created");
+                assert!(win.first_frame.ready(), "the CPU frame was presented before the failure");
+                let SurfaceMode::Cpu { job, .. } = &mut win.native.mode else {
+                    panic!("the test needs the CPU startup path");
+                };
+                // Model the completion event from a worker to which every adapter refused a device.
+                *job = GpuJob::Building { tries: 1, latest: Default::default() };
+                host.gpu_ready();
+                if terminal {
+                    assert!(host.win.is_none() && host.gpu.is_none());
+                    assert_eq!(host.shared.window_error().as_deref(), Some("no GPU gave a device"));
+                    assert_eq!(host.typed::<Seen>().rt.state.closed, 0);
+                } else {
+                    let win = host.win.as_ref().expect("default recovery retains the CPU window");
+                    assert!(matches!(win.native.mode,
+                        SurfaceMode::Cpu { job: GpuJob::Waiting { tries: 1, retry_at: Some(_) }, .. }));
+                    assert!(host.shared.window_error().is_none());
+                }
+                host.release();
+            }
+            self.ran = true;
+            active.exit();
+        }
+        fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, _: WindowEvent) {}
+    }
+    let mut builder = EventLoop::<WakeEvent>::with_user_event();
+    builder.with_wayland().with_any_thread(true);
+    let event_loop = builder.build().unwrap();
+    let mut probe = Probe { terminal: host(&event_loop, true), recover: host(&event_loop, false), ran: false };
+    event_loop.run_app(&mut probe).unwrap();
+    assert!(probe.ran);
+    println!("terminal-gpu-cpu-first: pass");
+}

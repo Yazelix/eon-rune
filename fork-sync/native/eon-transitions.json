@@ -1,0 +1,49 @@
+{
+  "events": [
+    {
+      "t": 0.5,
+      "type": "key",
+      "name": "F7"
+    },
+    {
+      "t": 1.25,
+      "type": "key",
+      "name": "F7"
+    },
+    {
+      "t": 2.0,
+      "type": "key",
+      "name": "F6"
+    },
+    {
+      "t": 2.75,
+      "type": "key",
+      "name": "F7"
+    },
+    {
+      "t": 3.5,
+      "type": "key",
+      "name": "F7"
+    },
+    {
+      "t": 4.25,
+      "type": "key",
+      "name": "F8"
+    },
+    {
+      "t": 5.0,
+      "type": "key",
+      "name": "F8"
+    },
+    {
+      "t": 5.75,
+      "type": "key",
+      "name": "F9"
+    },
+    {
+      "t": 6.5,
+      "type": "key",
+      "name": "F9"
+    }
+  ]
+}
