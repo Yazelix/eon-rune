@@ -21,6 +21,32 @@ fn linux_middle_click<S: 'static>(rt: &mut Runtime<S>, x: f32, y: f32) {
     rt.frame(1.0 / 60.0);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn pending_primary_export_waits_for_removed_field_to_rebuild() {
+    fn view(field: &Option<TextEdit>, _: &mut Cx<Option<TextEdit>>) -> El {
+        let Some(field) = field else { return el() };
+        text_input(field, style()).single_line().key("title").size(150.0, 30.0)
+            .on_edit(|field: &mut Option<TextEdit>| field.as_mut().expect("removed title's on_edit called"))
+    }
+
+    let mut field = TextEdit::new("draft");
+    field.focused = true;
+    let mut rt = Runtime::new(Some(field), view, (200.0, 100.0), Env::default());
+    rt.frame(0.0);
+    rt.key(crate::KeyEvent {
+        key: crate::Key::Command('a'),
+        mods: crate::Mods { ctrl: true, cmd: true, ..Default::default() },
+    });
+    rt.frame(0.0);
+    assert!(matches!(rt.core().edit.input_click.primary.copy, Some(super::Export::Automatic { .. })));
+
+    rt.update(|field, tx| { *field = None; tx.blur(); });
+    assert!(rt.core_mut().take_primary().copy.is_none());
+    rt.frame(0.0);
+    assert!(rt.core_mut().take_primary().copy.is_none());
+}
+
 #[test]
 fn middle_click_on_textbox_wrapper_padding_focuses_queues_paste_and_stops_ancestors() {
     struct State {

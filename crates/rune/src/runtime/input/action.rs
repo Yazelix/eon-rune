@@ -328,7 +328,7 @@ impl RuntimeCore {
     /// Runs `action`'s handlers; debug builds warn when they block the main thread.
     pub(in crate::runtime) fn run_action(&mut self, app: &mut dyn AppDriver, action: Action, tx: &mut Tx) -> bool {
         let selects = cfg!(target_os = "linux") && matches!(action, Action::Key { .. } | Action::Physical(..) | Action::Focus(..) | Action::A11y(..));
-        let before = selects.then(|| self.primary_selection(app));
+        let before = (selects && !self.primary_focus_pending(tx)).then(|| self.primary_selection(app));
         let previous_primary = tx.primary.copy.take();
         #[cfg(debug_assertions)]
         let (name, path, at) = (handler_name(&action), stall_path(&action).map(str::to_owned), self.handler_location(&action));

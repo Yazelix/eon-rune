@@ -12,7 +12,12 @@ pub(in crate::runtime) enum Boundary {
 }
 
 impl RuntimeCore {
+    pub(in crate::runtime) fn primary_focus_pending(&self, tx: &Tx) -> bool {
+        (tx.blur || tx.focus_to.is_some() || self.kbd.focus_request.is_some()) && self.focused_input().is_some()
+    }
+
     fn focused_primary_edit<'a>(&'a self, app: &'a mut dyn AppDriver) -> Option<(&'a InputSpec, &'a crate::TextEdit)> {
+        if self.kbd.focus_request.is_some() { return None; }
         let input = self.focused_input()?;
         if input.edit.is_secure() || self.focused_index().is_some_and(|i| {
             std::iter::successors(Some(i), |&p| self.tree.nodes[p].parent).any(|p| self.tree.nodes[p].is_secure())
@@ -60,6 +65,7 @@ impl RuntimeCore {
 
     pub(in crate::runtime) fn export_primary_selection(&self, app: &mut dyn AppDriver, before: Option<SelectionKey>, tx: &mut Tx) {
         if !cfg!(target_os = "linux") || matches!(tx.primary.copy, Some(Export::Explicit(_))) { return; }
+        if self.primary_focus_pending(tx) { return; }
         let after = self.primary_selection(app);
         if after != before && let Some(selection) = after {
             tx.primary.copy = Some(Export::Automatic { selection, text: self.primary_selection_text(app) });
@@ -84,7 +90,10 @@ impl RuntimeCore {
         if tx.primary.paste.take().is_some() {
             self.edit.input_click.primary.paste = Some(if tx.blur { None } else { self.paste_target() });
         }
-        if matches!(self.edit.input_click.primary_boundary, Boundary::Ready) {
+        if self.primary_focus_pending(tx) {
+            // The focus request is applied against the rebuilt view's editor accessors.
+            self.edit.input_click.primary_boundary = Boundary::Pending;
+        } else if matches!(self.edit.input_click.primary_boundary, Boundary::Ready) {
             self.validate_primary_export(app);
         }
     }
