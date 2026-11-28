@@ -757,6 +757,8 @@ app.run();
   `with_activation_token`. An open Wayland window is activated with `xdg_activation_v1` bound on
   winit's own display (`platform/activation.rs`), since winit 0.30 can't. Without a token Wayland can only
   request attention (most compositors mark it urgent); X11, macOS and Windows use `focus_window`.
+  `WindowHandle::request_attention` only asks for attention: it never calls a focus, raise or restore
+  API (a Dock bounce, taskbar flash or urgency hint; on Wayland a tokenless activation the compositor decides on).
 - Headless tooling runs ignore window requests and apply updates before each frame.
 - `AppHandle::is_visible()` reports whether the window is on screen; `AppHandle::window_error()`
   says why it couldn't be created (no display, no GPU adapter or device). When an app's first

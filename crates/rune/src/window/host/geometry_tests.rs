@@ -257,11 +257,13 @@ fn native_bound_focus_close_dispatch() {
         fn resumed(&mut self, el: &ActiveEventLoop) {
             self.windows.resumed(el);
             let handle = self.handle.lock().unwrap().clone().unwrap();
+            handle.request_attention();
             handle.focus();
             handle.close();
         }
         fn user_event(&mut self, el: &ActiveEventLoop, event: WakeEvent) {
             let kind = match &event {
+                WakeEvent::Attention(..) => Some("attention-complete"),
                 WakeEvent::Focus(..) => Some("focus-complete"),
                 WakeEvent::Window(_, WindowRequest::Close, _) => Some("close-complete"),
                 _ => None,
@@ -306,7 +308,7 @@ fn native_bound_focus_close_dispatch() {
     let mut probe = Probe { windows, handle, trace: trace.clone() };
     event_loop.run_app(&mut probe).unwrap();
     assert!(probe.windows.hosts.iter().all(Option::is_none), "finished native host was cleaned up");
-    assert_eq!(*trace.lock().unwrap(), ["focus-complete", "close-hook", "close-complete", "loop-exit"], "bound native dispatch, close and loop-exit order");
+    assert_eq!(*trace.lock().unwrap(), ["attention-complete", "focus-complete", "close-hook", "close-complete", "loop-exit"], "bound native dispatch, close and loop-exit order");
     println!("BOUND FIFO PASS");
 }
 

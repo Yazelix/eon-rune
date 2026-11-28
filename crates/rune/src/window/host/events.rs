@@ -170,6 +170,7 @@ impl Host {
                 self.shell(event_loop);
             }
             WakeEvent::Focus(_, at) => self.focus(event_loop, at),
+            WakeEvent::Attention(_, at) => self.request_attention(event_loop, at),
             WakeEvent::Position(_, position) => self.set_position(event_loop, position),
             WakeEvent::Place(_, place) => self.place(event_loop, place),
             WakeEvent::Level(_, on) => self.set_always_on_top(event_loop, on),

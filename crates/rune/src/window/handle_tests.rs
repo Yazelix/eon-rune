@@ -16,6 +16,16 @@ fn an_unbound_handle_queues_its_requests_for_the_host_or_a_headless_run() {
     assert!(matches!(handle.take_headless()[..], [WakeEvent::Window(0, WindowRequest::Hide, _)]));
 }
 
+/// Attention is its own request, never a focus, and keeps its place before a later close.
+#[test]
+fn request_attention_queues_attention_not_focus_in_order_with_close() {
+    let handle = WindowHandle::new("w");
+    handle.request_attention();
+    handle.close();
+    let taken = handle.take_headless();
+    assert!(matches!(taken[..], [WakeEvent::Attention(0, _), WakeEvent::Window(0, WindowRequest::Close, _)]));
+}
+
 #[test]
 fn handle_queues_exclude_from_capture_requests_in_order() {
     let handle = WindowHandle::new("private");

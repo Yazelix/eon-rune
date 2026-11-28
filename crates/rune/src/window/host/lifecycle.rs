@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 use winit::dpi::PhysicalPosition;
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::ModifiersState;
-use winit::window::WindowLevel;
+use winit::window::{UserAttentionType, WindowLevel};
 
 use super::{Host, WindowApp};
 use crate::app::{Activation, WindowRequest};
@@ -293,6 +293,14 @@ impl Host {
         let Some(w) = self.shown_win() else { return };
         if w.is_minimized_native() { w.window.set_minimized(false); }
         self.activate(event_loop, None, at);
+    }
+
+    /// `WindowHandle::request_attention`: never restores, raises or activates. Wayland asks for
+    /// attention by activating its own surface without a token, so it shares `activate`'s wait.
+    pub(in crate::window) fn request_attention(&mut self, event_loop: &ActiveEventLoop, at: Instant) {
+        if self.gpu_failed() || self.shown_win().is_none() { return; }
+        if is_wayland(event_loop) { return self.activate(event_loop, None, at); }
+        if let Some(w) = &self.win { w.window.request_user_attention(Some(UserAttentionType::Informational)); }
     }
 
     /// Applies everything other threads asked for since the last wake-up. A `wake` polls a

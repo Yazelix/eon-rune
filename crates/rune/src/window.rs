@@ -127,7 +127,7 @@ mod wayland_only_tests;
 
 pub(crate) enum WakeEvent {
     DisplayTick(usize),
-    App(usize), Live(usize), Window(usize, WindowRequest, Instant), Focus(usize, Instant),
+    App(usize), Live(usize), Window(usize, WindowRequest, Instant), Focus(usize, Instant), Attention(usize, Instant),
     Position(usize, (i32, i32)), Level(usize, bool), ExcludeFromCapture(usize, bool),
     ColorScheme(usize, crate::ColorScheme),
     /// App-wide color scheme changed (`AppHandle::set_color_scheme`): every host syncs with
@@ -509,7 +509,7 @@ impl ApplicationHandler<WakeEvent> for Windows {
         self.guard(event_loop, |this| {
             let _handling = crate::quit::handling();
             let slot = match &event {
-                WakeEvent::DisplayTick(i) | WakeEvent::App(i) | WakeEvent::Live(i) | WakeEvent::Window(i, ..) | WakeEvent::Focus(i, _)
+                WakeEvent::DisplayTick(i) | WakeEvent::App(i) | WakeEvent::Live(i) | WakeEvent::Window(i, ..) | WakeEvent::Focus(i, _) | WakeEvent::Attention(i, _)
                     | WakeEvent::Position(i, _) | WakeEvent::Level(i, _) | WakeEvent::ExcludeFromCapture(i, _) | WakeEvent::ColorScheme(i, _) | WakeEvent::Place(i, _) | WakeEvent::Frame(i, _)
                     | WakeEvent::A11y(i) | WakeEvent::FrameSlot(i) | WakeEvent::GpuReady(i) => *i,
                 WakeEvent::Reopen => {

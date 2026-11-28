@@ -244,6 +244,16 @@ impl WindowHandle {
         let at = crate::time::now();
         self.send(move |slot| WakeEvent::Focus(slot, at));
     }
+    /// Asks for the user's attention. Rune makes no focus, raise or restore call for it: macOS
+    /// asks for one Dock bounce, Windows flashes the taskbar, X11 sets the urgency hint, and
+    /// Wayland activates the window's own surface without a launcher token (waiting as
+    /// `App::attention_wait` says), whose effect, usually urgency, is the compositor's choice.
+    /// Like `focus`, it checks the window when the request is handled, not when it is sent:
+    /// a window that is hidden or closed then, or whose GPU failed, ignores it.
+    pub fn request_attention(&self) {
+        let at = crate::time::now();
+        self.send(move |slot| WakeEvent::Attention(slot, at));
+    }
     /// Show, restore and activate, creating the window if needed (see `AppHandle::open`).
     /// A default close destroys its host; use App::keep_running to reopen.
     /// Windows added with `App::window` always reopen. Requests made before the loop runs

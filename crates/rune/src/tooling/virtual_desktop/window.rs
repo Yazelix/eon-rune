@@ -497,6 +497,9 @@ impl Member for Window {
                 WakeEvent::Place(_, place) => self.place(desktop, &place, t),
                 WakeEvent::Position(_, p) => self.move_to(desktop.to_points(p)),
                 WakeEvent::Focus(..) if self.life.shown() => { changes.front = true; changes.keys = true; }
+                // Attention never brings a window forward or gives it keys; a headless desktop has
+                // no Dock or urgency to show.
+                WakeEvent::Attention(..) => {}
                 WakeEvent::Frame(_, mut request) => {
                     let rt = self.app.rt_mut();
                     request.spring = (request.animate && !rt.reduced_motion).then_some(crate::tok::motion::DEFAULT);

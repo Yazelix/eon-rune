@@ -73,6 +73,9 @@ fn checks(el: &ActiveEventLoop, h: &mut Host, proxy: &EventLoopProxy<WakeEvent>,
     assert_eq!(live_tokens(h), 0, "the token is destroyed at done");
     h.focus(el, crate::time::now());
     assert_eq!((phase(h), counts(h).unwrap().exchanges), ("ready", 2), "the connection is still sound");
+    // An attention-only request shares focus's exchange and wait (it only skips the restore).
+    h.request_attention(el, crate::time::now());
+    assert_eq!(counts(h), Some(Counts { exchanges: 3, activates: 3, syncs: 3 }), "attention runs a full exchange");
     println!("ATTENTION N1 PASS {took:?}");
 
     // n6: a request handled after its deadline doesn't run an exchange.
@@ -80,6 +83,8 @@ fn checks(el: &ActiveEventLoop, h: &mut Host, proxy: &EventLoopProxy<WakeEvent>,
     let took = timed(|| h.focus(el, stale()));
     assert!(took < Duration::from_millis(100), "{took:?}");
     assert_eq!((phase(h), counts(h).unwrap()), ("ready", before));
+    h.request_attention(el, stale());
+    assert_eq!(counts(h), Some(before), "a stale attention request runs no exchange either");
     h.window_request(el, WindowRequest::Open(None), stale());
     assert_eq!((phase(h), counts(h).unwrap()), ("ready", before), "an open's focus keeps the stamp");
     h.window_request(el, WindowRequest::Open(Some("stale-token".into())), stale());
@@ -115,6 +120,14 @@ fn checks(el: &ActiveEventLoop, h: &mut Host, proxy: &EventLoopProxy<WakeEvent>,
     assert_eq!(phase(h), "unprobed", "a stale request never binds");
     println!("ATTENTION N6 UNPROBED PASS");
 
+    // n5, shown window: after a terminal GPU failure, attention binds nothing (unguarded, it
+    // would bind and run an exchange on this shown, unprobed window).
+    let policy = std::mem::replace(&mut h.gpu_failure, gpu_failure::Policy::Failed);
+    h.request_attention(el, crate::time::now());
+    assert_eq!(phase(h), "unprobed", "a GPU-failed window asks for no attention");
+    h.gpu_failure = policy;
+    println!("ATTENTION N5 SHOWN PASS");
+
     // n4: without `attention_wait`, focus binds nothing and never waits.
     let mut plain = make(proxy.clone(), pool.clone(), "plain", false);
     plain.resume(el);
@@ -128,6 +141,7 @@ fn checks(el: &ActiveEventLoop, h: &mut Host, proxy: &EventLoopProxy<WakeEvent>,
     plain.hide(el);
     plain.window_request(el, WindowRequest::Open(None), crate::time::now());
     plain.focus(el, crate::time::now());
+    plain.request_attention(el, crate::time::now());
     assert!(plain.win.is_none() && matches!(plain.gpu_failure, gpu_failure::Policy::Failed));
     plain.release();
     println!("ATTENTION N5 PASS");
