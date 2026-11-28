@@ -4,9 +4,9 @@
 //! `RUNE_CLIPBOARD_LIVE_TEST=1`, since they write and clear the clipboard.
 #![cfg(target_os = "linux")]
 
-use super::wayland::{Capped, capped, drain, read_outcome, sources, uri_list, uri_list_paths};
+use super::wayland::{Capped, Next, Within, capped, drain, next, open, read_outcome, sources, uri_list, uri_list_paths};
 use super::*;
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::path::PathBuf;
 use wl_clipboard_rs::{copy, paste};
 
@@ -95,27 +95,78 @@ fn a_capped_read_takes_at_most_one_byte_past_its_cap() {
 }
 
 /// A writer that finishes is drained to its end: it completes, rather than blocking on a full
-/// pipe or meeting a broken one. The drain limit and the wait are watchdogs, not the rule.
+/// pipe or meeting a broken one. The deadline and the wait are watchdogs, not the rule.
 #[test]
 fn a_refused_read_drains_so_the_writer_finishes() {
-    let (mut reader, mut writer) = std::io::pipe().unwrap();
+    let (reader, mut writer) = std::io::pipe().unwrap();
+    let mut reader = Within { pipe: reader, until: crate::time::now() + Duration::from_secs(60) };
     let (wrote, written) = mpsc::channel();
     std::thread::spawn(move || wrote.send(writer.write_all(&vec![b'x'; 1 << 20]).is_ok()).unwrap());
     assert_eq!(capped(&mut reader, 1024), Some(Capped::Over));
-    drain(&mut reader, Duration::from_secs(60));
+    drain(&mut reader);
     drop(reader);
     assert_eq!(written.recv_timeout(Duration::from_secs(30)), Ok(true), "the writer saw every byte taken, not a broken pipe");
 }
 
+/// The deadline decision: a read happens only while time is left, so a `poll` that wakes at or
+/// past `until` (ready or not) times out.
 #[test]
-fn draining_a_writer_that_never_ends_stops_at_the_limit() {
-    let (mut reader, writer) = std::io::pipe().unwrap();
-    let start = crate::time::now();
-    drain(&mut reader, Duration::from_millis(200));
-    let took = start.elapsed();
-    // Load can only lengthen the wait, so the lower bound is the rule and the upper a watchdog.
-    assert!(took >= Duration::from_millis(200) && took < Duration::from_secs(30), "{took:?}");
+fn a_deadline_read_never_reads_at_or_past_until() {
+    let until = crate::time::now();
+    let ms = Duration::from_millis(1);
+    for (now, ready, want) in [
+        (until - ms, true, Next::Read),
+        (until - ms, false, Next::Wait),
+        (until, true, Next::TimedOut),
+        (until, false, Next::TimedOut),
+        (until + ms, true, Next::TimedOut),
+        (until + ms, false, Next::TimedOut),
+    ] {
+        assert_eq!(next(now, until, ready), want, "{:?} past the deadline, ready {ready}", now.saturating_duration_since(until));
+    }
+}
+
+/// A pipe read by a deadline takes what a provider wrote while time is left and fails once it has
+/// passed, even with bytes waiting. Only the empty-pipe row waits, for its 10 ms `poll`; the
+/// other rows' bytes are already in the pipe, and the far deadline is a watchdog.
+#[test]
+fn a_pipe_read_ends_at_its_deadline() {
+    let far = || crate::time::now() + Duration::from_secs(60);
+    let piped = |bytes: &[u8]| {
+        let (reader, mut writer) = std::io::pipe().unwrap();
+        writer.write_all(bytes).unwrap();
+        (reader, writer)
+    };
+    let timed_out = |r: std::io::Result<usize>| r.map_err(|e| e.kind()) == Err(ErrorKind::TimedOut);
+    let mut buf = [0; 16];
+    // The deadline passes mid-transfer: the prefix was read, the rest is refused.
+    let (pipe, mut writer) = piped(b"prefix");
+    let mut reading = Within { pipe, until: far() };
+    assert_eq!(reading.read(&mut buf).unwrap(), 6);
+    writer.write_all(b"more").unwrap();
+    reading.until = crate::time::now();
+    assert!(timed_out(reading.read(&mut buf)));
+    // A whole text and its end arrive in time.
+    let (pipe, _) = piped(b"whole");
+    assert_eq!(plain::decode(Within { pipe, until: far() }, 64), plain::Outcome::Text("whole".into()));
+    // Over the cap with the writer open: refused without waiting for the end.
+    let (pipe, _writer) = piped(b"123456789");
+    assert_eq!(plain::decode(Within { pipe, until: far() }, 8), plain::Outcome::TooLarge);
+    // A refused rich read drains on the same deadline: not at all once it has passed.
+    let (pipe, _) = piped(b"123456789abc");
+    let mut rich = Within { pipe, until: far() };
+    assert_eq!(capped(&mut rich, 8), Some(Capped::Over));
+    rich.until = crate::time::now();
+    drain(&mut rich);
+    assert_eq!(rich.pipe.read(&mut buf).unwrap(), 3, "the unread suffix stays in the pipe");
+    // An open pipe that never gets a byte: `poll` times out and the read fails at the deadline.
+    let (pipe, writer) = std::io::pipe().unwrap();
+    let (sent, got) = mpsc::channel();
+    std::thread::spawn(move || sent.send(Within { pipe, until: crate::time::now() + Duration::from_millis(10) }.read(&mut [0; 16]).map_err(|e| e.kind())).ok());
+    assert_eq!(got.recv_timeout(Duration::from_secs(30)), Ok(Err(ErrorKind::TimedOut)));
     drop(writer);
+    // Once the deadline has passed no pipe is opened, so no compositor is asked.
+    assert_eq!(open(paste::ClipboardType::Regular, paste::MimeType::Text, crate::time::now()).err(), Some(plain::Outcome::HostFailure));
 }
 
 #[test]
@@ -250,5 +301,143 @@ mod live {
         assert!(cb.write(&ClipboardWrite::new(ClipboardContent::new("x"))).is_err());
         assert!(cb.write_primary("x".into()).is_err());
         assert!(cb.text().is_none() && cb.content(true).is_none());
+    }
+
+    /// A private data-control source that answers every `send` with a prefix and keeps the pipe
+    /// open: a provider that stalls mid-transfer. It reports each `send` (with its type) and its
+    /// cancellation in order on one channel.
+    mod stalled {
+        use std::{fs::File, io::Write, sync::mpsc};
+        use wayland_client::globals::{GlobalListContents, registry_queue_init};
+        use wayland_client::protocol::{wl_registry::WlRegistry, wl_seat::WlSeat};
+        use wayland_client::{Connection, Dispatch, QueueHandle, delegate_noop, event_created_child};
+        use wayland_protocols_wlr::data_control::v1::client::{zwlr_data_control_device_v1::{self as device, ZwlrDataControlDeviceV1}, zwlr_data_control_manager_v1::ZwlrDataControlManagerV1};
+        use wayland_protocols_wlr::data_control::v1::client::{zwlr_data_control_offer_v1::ZwlrDataControlOfferV1, zwlr_data_control_source_v1::{Event, ZwlrDataControlSourceV1}};
+
+        #[derive(Debug, PartialEq)]
+        pub enum Seen { Sent(String), Cancelled }
+        struct State { seen: mpsc::Sender<Seen>, _held: Vec<File>, done: bool }
+        impl Dispatch<WlRegistry, GlobalListContents> for State {
+            fn event(_: &mut Self, _: &WlRegistry, _: <WlRegistry as wayland_client::Proxy>::Event, _: &GlobalListContents, _: &Connection, _: &QueueHandle<Self>) {}
+        }
+        delegate_noop!(State: ignore WlSeat);
+        delegate_noop!(State: ZwlrDataControlManagerV1);
+        delegate_noop!(State: ignore ZwlrDataControlOfferV1);
+        impl Dispatch<ZwlrDataControlDeviceV1, ()> for State {
+            fn event(_: &mut Self, _: &ZwlrDataControlDeviceV1, _: device::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
+            event_created_child!(State, ZwlrDataControlDeviceV1, [device::EVT_DATA_OFFER_OPCODE => (ZwlrDataControlOfferV1, ())]);
+        }
+        impl Dispatch<ZwlrDataControlSourceV1, ()> for State {
+            fn event(state: &mut Self, _: &ZwlrDataControlSourceV1, event: Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {
+                match event {
+                    // Sends a prefix and holds the pipe open; the reader may already be gone.
+                    Event::Send { mime_type, fd } => {
+                        let mut pipe = File::from(fd);
+                        pipe.write_all(b"partial").ok();
+                        state._held.push(pipe);
+                        state.seen.send(Seen::Sent(mime_type)).ok();
+                    }
+                    Event::Cancelled => { state.done = true; state.seen.send(Seen::Cancelled).ok(); }
+                    _ => {}
+                }
+            }
+        }
+
+        /// Offers text and HTML on the regular selection from its own connection, returning once
+        /// the compositor holds the offer. The second receiver hears when the source thread ends,
+        /// which drops every pipe it held.
+        pub fn start() -> (mpsc::Receiver<Seen>, mpsc::Receiver<()>) {
+            let (seen, saw) = mpsc::channel();
+            let (ready, readied) = mpsc::channel();
+            let (exited, ended) = mpsc::channel();
+            std::thread::spawn(move || {
+                let conn = Connection::connect_to_env().unwrap();
+                let (globals, mut queue) = registry_queue_init::<State>(&conn).unwrap();
+                let qh = queue.handle();
+                let seat: WlSeat = globals.bind(&qh, 1..=1, ()).unwrap();
+                let manager: ZwlrDataControlManagerV1 = globals.bind(&qh, 1..=2, ()).unwrap();
+                let device = manager.get_data_device(&seat, &qh, ());
+                let source = manager.create_data_source(&qh, ());
+                source.offer("text/plain;charset=utf-8".into());
+                source.offer("text/html".into());
+                device.set_selection(Some(&source));
+                let mut state = State { seen, _held: Vec::new(), done: false };
+                queue.roundtrip(&mut state).unwrap();
+                ready.send(()).unwrap();
+                while !state.done && queue.blocking_dispatch(&mut state).is_ok() {}
+                drop(state);
+                exited.send(()).ok();
+            });
+            readied.recv_timeout(super::Duration::from_secs(30)).expect("the stalled source owns the selection");
+            (saw, ended)
+        }
+    }
+
+    /// Ends the stalled source however the test ends: clearing the selection cancels it, and its
+    /// thread then drops the pipes it held. Fails the test if either clear fails or hangs, or the source does not end.
+    struct Teardown(mpsc::Receiver<()>);
+    impl Drop for Teardown {
+        fn drop(&mut self) {
+            let (cleared, clears) = mpsc::channel();
+            std::thread::spawn(move || for clipboard in [copy::ClipboardType::Regular, copy::ClipboardType::Primary] { cleared.send(copy::clear(clipboard, copy::Seat::All).is_ok()).ok(); });
+            let until = crate::time::now() + Duration::from_secs(10);
+            let left = || until.saturating_duration_since(crate::time::now());
+            // Every wait runs, so a failed first clear still waits out the second and the source's end.
+            let ended = [clears.recv_timeout(left()) == Ok(true), clears.recv_timeout(left()) == Ok(true), self.0.recv_timeout(left()).is_ok()];
+            if !std::thread::panicking() { assert_eq!(ended, [true; 3], "both clears succeeded and the stalled source ended within 10 s"); }
+        }
+    }
+
+    /// A provider that sends a prefix and keeps the pipe open costs one read deadline, not the
+    /// worker: the read fails without its prefix, no later form is asked for, and the next regular
+    /// and primary writes and reads complete once each, in order.
+    #[test]
+    #[ignore = "needs a Wayland compositor with data-control (WAYLAND_DISPLAY)"]
+    fn live_wayland_stalled_provider_is_bounded() {
+        use super::super::wayland::READ_FOR;
+        use plain::{Completion, Operation, Outcome};
+        use stalled::Seen;
+        isolated();
+        let watchdog = Duration::from_secs(30);
+        let (seen, ended) = stalled::start();
+        let _teardown = Teardown(ended);
+
+        // One call's text and HTML forms share one deadline, and HTML is never requested.
+        let (sent, got) = mpsc::channel();
+        std::thread::spawn(move || {
+            let start = crate::time::now();
+            sent.send((Wayland.content(false).is_none(), start.elapsed())).ok();
+        });
+        let (none, took) = got.recv_timeout(watchdog).expect("a stalled content read ends within the watchdog");
+        assert!(none, "a stalled read yields nothing, not its prefix");
+        assert!(took >= READ_FOR, "the stalled read waited out its deadline: {took:?}");
+        assert_eq!(seen.recv_timeout(watchdog), Ok(Seen::Sent("text/plain;charset=utf-8".into())));
+
+        let worker = Worker::spawn(|| Some(Wayland));
+        let (done, results) = mpsc::channel();
+        let completion = |i: usize| {
+            let done = done.clone();
+            Completion(Some(Box::new(move |outcome| done.send((i, outcome, crate::time::now())).unwrap())))
+        };
+        let queued = crate::time::now();
+        for request in [
+            Operation::Read(false, 1 << 20, completion(0)),
+            Operation::Write(false, "after-regular".into(), completion(1)),
+            Operation::Write(true, "after-primary".into(), completion(2)),
+            Operation::Read(false, 1 << 20, completion(3)),
+            Operation::Read(true, 1 << 20, completion(4)),
+        ] { worker.sender.send(Request::Plain(request)).unwrap(); }
+        drop(done);
+        let expected = [Outcome::HostFailure, Outcome::Written, Outcome::Written, Outcome::Text("after-regular".into()), Outcome::Text("after-primary".into())];
+        for (i, want) in expected.into_iter().enumerate() {
+            let (index, outcome, at) = results.recv_timeout(watchdog).unwrap_or_else(|e| panic!("completion {i} within the watchdog: {e}"));
+            assert_eq!((index, outcome), (i, want), "completions in request order");
+            if i == 0 { assert!(at - queued >= READ_FOR, "the stalled read waited out its deadline: {:?}", at - queued); }
+        }
+        assert_eq!(results.recv_timeout(watchdog).err(), Some(mpsc::RecvTimeoutError::Disconnected), "one completion per request");
+        // The worker's read asked for text again: no HTML request came between the two.
+        assert_eq!(seen.recv_timeout(watchdog), Ok(Seen::Sent("text/plain;charset=utf-8".into())));
+        assert_eq!(seen.recv_timeout(Duration::from_secs(10)), Ok(Seen::Cancelled), "Rune's write took the selection");
+        assert!(worker.stop(), "the worker acknowledged its cleanup");
     }
 }

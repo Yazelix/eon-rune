@@ -21,6 +21,7 @@ cases = (
     ('overlay::gpu_failure::tests::terminal_overlay_unpark_releases_its_window', 'RUNE_GPU_FAILURE_NATIVE', 'terminal-overlay-unpark: pass'),
     ('clipboard::wayland_tests::live::live_wayland_round_trip', 'RUNE_CLIPBOARD_LIVE_TEST', None),
     ('clipboard::wayland_tests::live::live_wayland_secret_expiry_and_shutdown', 'RUNE_CLIPBOARD_LIVE_TEST', None),
+    ('clipboard::wayland_tests::live::live_wayland_stalled_provider_is_bounded', 'RUNE_CLIPBOARD_LIVE_TEST', None),
 )
 gpu_tests = {'RUNE_GPU_FAILURE_NATIVE', 'RUNE_SKIP_REASON_NATIVE'}
 results = []

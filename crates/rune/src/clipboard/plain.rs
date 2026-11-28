@@ -20,7 +20,7 @@ pub enum Outcome {
     HostFailure,
     Written,
 }
-pub(super) struct Completion(Option<Box<dyn FnOnce(Outcome) + Send>>);
+pub(super) struct Completion(pub(super) Option<Box<dyn FnOnce(Outcome) + Send>>);
 impl Completion {
     fn finish(&mut self, outcome: Outcome) {
         if let Some(f) = self.0.take() {

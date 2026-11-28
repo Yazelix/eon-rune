@@ -23,6 +23,7 @@ fn bounded_decoder_limits_consumption_before_utf8_conversion() {
         fn read(&mut self, _: &mut [u8]) -> io::Result<usize> { Err(io::Error::other("injected")) }
     }
     assert_eq!(decode(Broken, 100), Outcome::HostFailure);
+    assert_eq!(decode((&b"partial"[..]).chain(Broken), 100), Outcome::HostFailure, "a read that fails after a prefix drops it");
     assert_eq!(decode(io::repeat(b'x'), 1024), Outcome::TooLarge);
 }
 
